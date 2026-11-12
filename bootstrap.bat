@@ -1,51 +1,58 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title Baixar e instalar a Central de Cameras
+title Central de Cameras - instalar sem Git
 
 echo ===================================================
 echo   Central de Cameras - baixar do GitHub e instalar
 echo ===================================================
 echo.
 
-where git >nul 2>nul
-if errorlevel 1 (
-  echo [X] Git nao encontrado neste PC.
-  echo     Instale: https://git-scm.com/download/win
-  echo     Depois rode este arquivo de novo.
-  echo.
-  pause
-  exit /b 1
-)
+REM ---------- Python: instala sozinho se faltar ----------
 where python >nul 2>nul
+if not errorlevel 1 goto baixar
+
+echo [*] Python nao encontrado. Vou tentar instalar pelo winget...
+where winget >nul 2>nul
 if errorlevel 1 (
-  echo [X] Python 3 nao encontrado neste PC.
-  echo     Instale (marque "Add Python to PATH"):
+  echo [X] Este Windows nao tem o winget.
+  echo     Instale o Python a mao, marcando Add Python to PATH:
   echo     https://www.python.org/downloads/
   echo     Depois rode este arquivo de novo.
   echo.
   pause
   exit /b 1
 )
+winget install -e --id Python.Python.3.12 --silent --accept-package-agreements --accept-source-agreements
+echo.
+echo ===================================================
+echo  Python instalado. FECHE esta janela e rode o
+echo  bootstrap de novo, para ele enxergar o Python.
+echo ===================================================
+echo.
+pause
+exit /b 0
 
-if exist "IoTCamIcsee\.git" (
-  echo Projeto ja esta aqui. Atualizando do GitHub...
-  cd IoTCamIcsee
-  git pull
-) else (
-  echo Baixando o projeto do GitHub ^(pode pedir login do GitHub^)...
-  git clone https://github.com/vinilima-br/IoTCamIcsee.git
-  if errorlevel 1 (
-    echo [X] Nao consegui baixar. Confira o login do GitHub e a internet.
-    pause
-    exit /b 1
-  )
-  cd IoTCamIcsee
+:baixar
+echo [1/3] Baixando o projeto do GitHub...
+curl.exe -L -o IoTCamIcsee.zip https://github.com/vinilima-br/IoTCamIcsee/archive/refs/heads/main.zip
+if errorlevel 1 (
+  echo [X] Falha ao baixar. Confira a internet e se o repositorio esta publico.
+  pause
+  exit /b 1
 )
+
+echo [2/3] Descompactando...
+tar -xf IoTCamIcsee.zip
+if errorlevel 1 (
+  echo [X] Falha ao descompactar.
+  pause
+  exit /b 1
+)
+cd IoTCamIcsee-main
 
 if not exist "config.py" copy config_exemplo.py config.py >nul
 
-echo.
-echo Abrindo o instalador...
+echo [3/3] Instalando e subindo...
 echo.
 call INSTALAR.bat
