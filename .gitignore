@@ -16,6 +16,9 @@ alertas_modo.json
 lentes_deteccao.json
 elevenlabs_vozes.json
 
+# --- pasta de descarte do LIMPAR_PASTA.bat ---
+_lixo/
+
 # --- saida de execucao ---
 logs/
 cache/
