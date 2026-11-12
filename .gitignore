@@ -1,0 +1,58 @@
+# ============================================================
+#  O que NAO vai para o repositorio (segredos, estado e peso)
+#  O codigo (.py, .bat, templates) VAI todo.
+# ============================================================
+
+# --- segredos: config real fica so no PC (use config_exemplo.py) ---
+config.py
+config.py.bak_*
+
+# --- estado local (cada PC gera o seu) ---
+sessao_estado.json
+xm_fala_modo.json
+xm_luz_alerta.json
+xm_sd_modo.json
+alertas_modo.json
+lentes_deteccao.json
+elevenlabs_vozes.json
+
+# --- saida de execucao ---
+logs/
+cache/
+__pycache__/
+*.pyc
+fotos/
+gravacoes/
+sd_baixados/
+diag_bloqueio/
+
+# --- arquivo e testes antigos ---
+historico/
+vozes_teste/
+vozes_teste2/
+vozes_teste3/
+dump_elsys.txt
+ft1.png
+
+# --- capturas / engenharia reversa ---
+ferramentas/*.bin
+ferramentas/*.b64
+ferramentas/*.pcap
+ferramentas/elsys_*.json
+ferramentas/elsys_*.txt
+ferramentas/*_material.json
+
+# --- rostos: dados pessoais (cada PC cadastra os seus) ---
+rostos/eventos/
+rostos/pessoas/
+rostos/removidos/
+rostos/testes/
+rostos/historico.csv
+rostos/pessoas.json
+
+# --- sons gerados / cache de audio ---
+sons/.cache/
+
+# --- modelos de voz GRANDES (GitHub rejeita >100MB; baixar a parte) ---
+modelos/sherpa-onnx-whisper-small/
+modelos/vosk-model-small-pt-0.3/

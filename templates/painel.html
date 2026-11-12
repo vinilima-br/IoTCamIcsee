@@ -1,0 +1,2028 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Central de Câmeras</title>
+  <style>
+    :root {
+      color-scheme: dark;            /* Windows: barras de rolagem e controles nativos escuros */
+      --fundo: #0e1115; --cartao: #161a20; --cartao2: #1b2027; --borda: #262c35; --borda2: #343c48;
+      --texto: #e6e8eb; --suave: #9ca3af; --apagado: #6b7280;
+      --azul: #2563eb; --verde: #16a34a; --vermelho: #dc2626; --amarelo: #f59e0b;
+    }
+    * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: #3a4250 transparent; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #3a4250; border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+    body { margin: 0; min-height: 100vh; background: var(--fundo); color: var(--texto);
+           font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14px; }
+    button { background: #1f2630; color: var(--texto); border: 1px solid var(--borda2); border-radius: 7px;
+             padding: 7px 12px; font-size: 13px; cursor: pointer; line-height: 1.1; }
+    button:hover { background: #2a3340; }
+    button:disabled { opacity: .5; cursor: wait; }
+    button.ativo { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .btn-verde { background: var(--verde); border-color: var(--verde); color: #fff; }
+    .btn-verde:hover { background: #15803d; }
+    .btn-perigo { border-color: #7f1d1d; color: #fca5a5; }
+    .btn-perigo:hover { background: #7f1d1d; color: #fff; }
+    .btn-icone { padding: 6px 9px; min-width: 32px; }
+    select { cursor: pointer; }
+    input[type=text], select { background: #11151a; color: var(--texto); border: 1px solid #3a4250;
+             border-radius: 7px; padding: 7px 9px; font-size: 13px; }
+    input[type=text] { flex: 1; min-width: 150px; }
+    input[type=file] { font-size: 12px; color: var(--suave); max-width: 100%; }
+    input[type=range] { flex: 1; min-width: 110px; accent-color: var(--azul); }
+
+    /* ---------- barra do topo ---------- */
+    .topo { position: sticky; top: 0; z-index: 20; background: rgba(14,17,21,.92); backdrop-filter: blur(6px);
+            border-bottom: 1px solid var(--borda); padding: 10px 18px; display: flex; gap: 14px;
+            align-items: center; flex-wrap: wrap; }
+    .topo h1 { font-size: 17px; margin: 0; font-weight: 650; white-space: nowrap; }
+    .resumo { font-size: 12px; color: var(--suave); white-space: nowrap; }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+    .chip { display: inline-flex; align-items: center; gap: 7px; border-radius: 999px; padding: 5px 11px;
+            font-size: 12px; background: #1b222b; border: 1px solid var(--borda2); }
+    .chip.oculta { opacity: .45; text-decoration: line-through; }
+    .chip .olho { font-size: 12px; }
+    .chip span { white-space: nowrap; }
+    @media (max-width: 700px) {
+      .topo { padding: 8px 10px; gap: 8px; }
+      .topo h1 { font-size: 15px; }
+      .chips { order: 3; flex: 1 0 100%; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
+      .chip { flex: none; }
+      .topo .direita { margin-left: auto; }
+      .barra { gap: 6px; }
+      .barra button { padding: 6px 9px; }
+      .barra .espaco { display: none; }
+    }
+    .topo .direita { display: flex; gap: 8px; align-items: center; }
+
+    .ponto { width: 9px; height: 9px; border-radius: 50%; background: var(--apagado); flex: none; }
+    .ponto.online { background: #22c55e; box-shadow: 0 0 7px #22c55e; }
+    .ponto.offline { background: #ef4444; }
+    .ponto.pausada { background: #f59e0b; }
+
+    /* ---------- biblioteca de sons ---------- */
+    .biblioteca { max-width: 1600px; margin: 14px auto 0; padding: 0 18px; }
+    .biblioteca[hidden] { display: none; }
+    .caixa { background: var(--cartao); border: 1px solid var(--borda); border-radius: 12px; padding: 14px; }
+    .caixa h2 { font-size: 15px; margin: 0 0 12px; }
+    .bib-grade { display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px; }
+    @media (max-width: 900px) { .bib-grade { grid-template-columns: 1fr; } }
+    .bloco { background: #11151a; border: 1px solid var(--borda); border-radius: 10px; padding: 12px; }
+    .bloco .titulo { display: block; font-weight: 600; font-size: 13px; margin-bottom: 8px; }
+    .lista-sons { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto; }
+    .lista-sons li { display: flex; align-items: center; gap: 6px; padding: 6px 4px; border-bottom: 1px solid var(--borda); }
+    .lista-sons .nome { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lista-sons .dur { color: var(--suave); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .lista-sons button { padding: 4px 8px; font-size: 12px; }
+
+    /* ---------- grade de câmeras ---------- */
+    .grade { display: grid; gap: 16px; padding: 16px 18px 40px; max-width: 1600px; margin: 0 auto;
+             grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); align-items: start; }
+    .grade.col-1 { grid-template-columns: 1fr; max-width: 1100px; }
+    .grade.col-2 { grid-template-columns: repeat(2, 1fr); }
+    .grade.col-3 { grid-template-columns: repeat(3, 1fr); }
+    @media (max-width: 1000px) { .grade.col-2, .grade.col-3 { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) { .grade { grid-template-columns: 1fr; padding: 10px; } }
+    .tudo-oculto { text-align: center; color: var(--suave); padding: 50px 20px; grid-column: 1 / -1; }
+
+    .camera { background: var(--cartao); border: 1px solid var(--borda); border-radius: 12px; overflow: hidden; }
+    .camera[hidden] { display: none; }
+    .camera.alerta { border-color: #ef4444; box-shadow: 0 0 0 1px #ef4444 inset; }
+    .cab { display: flex; align-items: center; gap: 9px; padding: 10px 12px; border-bottom: 1px solid var(--borda); }
+    .cab h2 { font-size: 14px; margin: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cab .texto-status { font-size: 12px; color: var(--suave); white-space: nowrap; }
+    .cab .badges { display: flex; gap: 5px; flex: 1; justify-content: flex-end; }
+    .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #1f2630; border: 1px solid var(--borda2); white-space: nowrap; }
+    .badge[hidden] { display: none; }
+    .badge.rec { background: #450a0a; border-color: #ef4444; color: #fecaca; }
+    .badge.rec::before { content: "● "; animation: pisca 1s infinite; }
+    .badge.ia { background: #052e16; border-color: #16a34a; color: #bbf7d0; }
+    .badge.pessoa { background: #7f1d1d; border-color: #ef4444; color: #fff; }
+    .badge.alerta { background: linear-gradient(90deg, #b91c1c, #1d4ed8); border-color: #60a5fa; color: #fff; animation: pisca 0.6s infinite; }
+    #btn-alerta-geral { background: #7f1d1d; border-color: #ef4444; color: #fff; font-weight: 600; }
+    #btn-alerta-geral:hover { background: #991b1b; }
+    #btn-alerta-geral.ativo { background: linear-gradient(90deg, #b91c1c, #1d4ed8); animation: pisca 0.8s infinite; }
+    .btn-alerta.ativo { background: linear-gradient(90deg, #b91c1c, #1d4ed8); border-color: #60a5fa; color: #fff; }
+    @keyframes pisca { 50% { opacity: .2; } }
+    .cab .acoes-cab { display: flex; gap: 4px; }
+    .cab .acoes-cab button { padding: 4px 8px; font-size: 13px; background: transparent; border-color: transparent; color: var(--suave); }
+    .cab .acoes-cab button:hover { background: #222a35; color: var(--texto); }
+    .camera.minimizada .corpo { display: none; }
+    .camera.minimizada .cab { border-bottom: none; }
+
+    .video-box { position: relative; aspect-ratio: 16 / 9; background: #000; }
+    .video-box img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .video-box:fullscreen img { object-fit: contain; }
+    .sobre-info { position: absolute; left: 8px; top: 8px; font-size: 11px; color: #d1d5db; background: rgba(0,0,0,.45);
+                  padding: 2px 7px; border-radius: 5px; pointer-events: none; font-variant-numeric: tabular-nums; }
+    .msg-offline { position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+                   text-align: center; color: var(--suave); font-size: 13px; padding: 20px; background: #0b0d10; }
+    .msg-offline.visivel { display: flex; }
+    .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity .3s; }
+    .flash.ativo { opacity: .6; transition: none; }
+
+    .ptz { position: absolute; right: 10px; bottom: 10px; z-index: 5; display: flex; flex-direction: column;
+           align-items: flex-end; gap: 6px; opacity: .4; transition: opacity .2s; }
+    .ptz:hover, .ptz:focus-within, .video-box:hover .ptz { opacity: 1; }
+    .dpad { display: grid; width: 104px; height: 104px; gap: 3px; grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr); grid-template-areas: ". up ." "left mid right" ". down ."; }
+    .dpad .up { grid-area: up; } .dpad .down { grid-area: down; } .dpad .left { grid-area: left; }
+    .dpad .right { grid-area: right; } .dpad .mid { grid-area: mid; }
+    .seta { background: rgba(17,20,24,.7); border: 1px solid rgba(255,255,255,.18); border-radius: 7px; color: #fff;
+            font-size: 15px; display: flex; align-items: center; justify-content: center; padding: 0;
+            user-select: none; -webkit-user-select: none; touch-action: none; backdrop-filter: blur(2px); }
+    .seta:hover { background: rgba(43,55,71,.85); }
+    .seta:active { background: var(--azul); }
+    .seta.mid { border-style: dashed; color: var(--suave); cursor: default; font-size: 13px; }
+    .lista-presets { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; max-width: 220px; }
+    .lista-presets button { background: rgba(17,20,24,.7); border: 1px solid rgba(255,255,255,.18); color: #fff;
+                            font-size: 11px; padding: 4px 9px; }
+
+    .barra { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid var(--borda); }
+    .grupo { display: flex; border-radius: 7px; overflow: hidden; border: 1px solid var(--borda2); }
+    .grupo button { border: none; border-radius: 0; }
+    .barra .espaco { flex: 1; }
+    .btn-audio.ativo { background: var(--verde); border-color: var(--verde); }
+    .btn-gravar.ativo { background: var(--vermelho); border-color: var(--vermelho); color: #fff; }
+    .btn-foto { background: var(--amarelo); border-color: var(--amarelo); color: #111; font-weight: 600; }
+    .btn-foto:hover { background: #fbbf24; }
+
+    /* ---------- abas ---------- */
+    .abas { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 10px; border-bottom: 1px solid var(--borda); }
+    .abas button { background: transparent; border: 1px solid transparent; border-radius: 8px;
+                   color: var(--suave); padding: 6px 11px; white-space: nowrap; }
+    .abas button:hover { color: var(--texto); background: #1b222b; }
+    .abas button.ativa { color: #fff; background: #222a35; border-color: var(--borda2);
+                         box-shadow: inset 0 -2px 0 var(--azul); }
+    .aba { display: none; padding: 12px; background: var(--cartao2); }
+    .aba.ativa { display: block; }
+
+    /* painel "Alto-falante e luz" em blocos */
+    .xm-topo { margin: 0 0 10px; }
+    .xm-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; }
+    .xm-bloco { background: #11151a; border: 1px solid var(--borda); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+    .xm-bloco[hidden] { display: none; }
+    .xm-bloco.largo { grid-column: 1 / -1; }
+    .xm-bloco .sub { margin: 0 0 6px; }
+    .xm-bloco .sub ~ .sub { margin-top: 12px; }
+    .xm-bloco .linha:last-child { margin-bottom: 0; }
+    .btns-alerta { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; width: 100%; }
+    .btns-alerta button { padding: 7px 4px; }
+    .xm-tocando:empty { display: none; }
+
+    /* ---------- aba Rostos ---------- */
+    .badge.camalerta { background: #7c2d12; border-color: #f97316; color: #fff; animation: pisca 1s infinite; }
+    .lista .alerta-tag { font-size: 10px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--borda2); color: var(--suave); }
+    .lista .alerta-tag.inicio { border-color: #f97316; color: #fdba74; }
+    .lista img.mini { width: 64px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid var(--borda2); }
+    .alertas-estado.ok { color: #86efac; }
+    .alertas-estado.erro { color: #fca5a5; }
+    .badge.rosto { background: #1e1b4b; border-color: #6366f1; color: #c7d2fe; }
+    .badge.rosto.lib { background: #052e16; border-color: #16a34a; color: #bbf7d0; }
+    .badge.rosto.neg { background: #7f1d1d; border-color: #ef4444; color: #fff; }
+    .contador.lib { background: #052e16; border-color: var(--verde); color: #bbf7d0; }
+    .contador.neg { background: #7f1d1d; border-color: #ef4444; color: #fff; }
+    .tag.lib { border-color: var(--verde); color: #86efac; }
+    .tag.neg { border-color: #ef4444; color: #fca5a5; }
+    .rosto-cad { margin-top: 8px; }
+    .rosto-cad[hidden] { display: none; }
+    .rosto-cad-res:empty { display: none; }
+    .rosto-cad-res { margin-top: 6px; line-height: 1.5; }
+    .rosto-cad-res.erro { color: #fca5a5; }
+    .lista.pessoas li { gap: 8px; }
+    .lista.pessoas img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex: none; background: #000; }
+    .lista.pessoas .nome { font-weight: 600; font-size: 13px; }
+    .lista.pessoas .chave .trilho { width: 32px; height: 18px; }
+    .lista.pessoas .chave .trilho::after { width: 14px; height: 14px; }
+    .lista.pessoas .chave input:checked + .trilho::after { left: 16px; }
+    .lista.rosto-eventos .acao { color: var(--apagado); font-size: 11px; }
+    .camera.flash-lib { box-shadow: 0 0 0 2px var(--verde); }
+    .camera.flash-neg { box-shadow: 0 0 0 2px #ef4444; }
+
+    .sub { font-size: 11px; color: var(--suave); text-transform: uppercase; letter-spacing: .05em; margin: 12px 0 4px; }
+    .sub:first-child { margin-top: 0; }
+    .linha { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+    .linha label { color: var(--suave); }
+    .val { min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+    .dica { font-size: 11px; color: var(--apagado); }
+    .vazio { color: var(--apagado); font-size: 12px; padding: 6px 0; }
+    .vazio[hidden] { display: none; }
+
+    /* chave liga/desliga */
+    .chave { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; }
+    .chave input { display: none; }
+    .chave .trilho { width: 38px; height: 21px; border-radius: 999px; background: #374151; position: relative; transition: background .15s; flex: none; }
+    .chave .trilho::after { content: ""; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px; border-radius: 50%; background: #fff; transition: left .15s; }
+    .chave input:checked + .trilho { background: var(--verde); }
+    .chave input:checked + .trilho::after { left: 19px; }
+    .chave input:disabled + .trilho { opacity: .45; }
+    .chave .rot { font-size: 13px; }
+
+    .estado-xm { font-size: 12px; padding: 2px 9px; border-radius: 999px; background: #1f2630; border: 1px solid var(--borda2); }
+    .estado-xm.ok { background: #052e16; border-color: var(--verde); }
+    .estado-xm.erro { background: #450a0a; border-color: #ef4444; }
+    .xm-erro { font-size: 12px; color: #fca5a5; }
+    .xm-erro[hidden] { display: none; }
+    .xm-corpo.desligado { opacity: .45; pointer-events: none; }
+    .xm-tocando { font-size: 12px; color: #4ade80; }
+
+    .contador { font-size: 13px; padding: 3px 10px; border-radius: 999px; background: #1f2630; border: 1px solid var(--borda2); }
+    .contador.alerta { background: #7f1d1d; border-color: #ef4444; color: #fff; }
+
+    .lista { list-style: none; margin: 0; padding: 0; font-size: 12px; max-height: 210px; overflow-y: auto; }
+    .lista li { padding: 7px 6px; border-bottom: 1px solid var(--borda); display: flex; gap: 10px; align-items: center; }
+    .lista .hora { font-variant-numeric: tabular-nums; }
+    .lista .sec { color: var(--suave); }
+    .lista .agora { color: #ef4444; font-weight: 600; }
+    .lista a { color: #60a5fa; }
+    .lista .direita { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+    .lista.clicavel li { cursor: pointer; }
+    .lista.clicavel li:hover { background: #222a35; }
+    .lista li.tocando { color: #60a5fa; }
+    .lista button { padding: 3px 7px; font-size: 11px; }
+    .player-grav { width: 100%; border-radius: 8px; background: #000; display: none; margin-bottom: 8px; }
+    .player-grav.visivel { display: block; }
+    .galeria { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+    .galeria a { display: block; color: var(--suave); font-size: 10px; text-decoration: none; }
+    .galeria img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 5px; display: block; margin-bottom: 3px; }
+
+    /* ---------- girar 180° ---------- */
+    .camera.girada .video-box img, .camera.girada video { transform: rotate(180deg); }
+    .camera.girada .btn-girar { color: #60a5fa !important; }
+    .camera .btn-girar-cam.ativo { color: #f59e0b !important; }
+
+    /* câmera de 2 lentes (X6S): o quadro traz as duas empilhadas, cada uma 16:9.
+       Para mostrar só uma, a imagem fica com o dobro da altura e a moldura
+       corta a metade que não interessa (girada: as metades trocam de lugar). */
+    .grupo[hidden], .linha-lente-det[hidden] { display: none; }
+    .linha-lente-det { margin-top: 8px; }
+    .video-box.lente-cima, .video-box.lente-baixo { overflow: hidden; }
+    .video-box.lente-cima img.video, .video-box.lente-baixo img.video {
+      position: absolute; left: 0; width: 100%; height: 200%; object-fit: fill; }
+    .video-box.lente-cima img.video { top: 0; }
+    .video-box.lente-baixo img.video { top: -100%; }
+    .camera.girada .video-box.lente-cima img.video { top: -100%; }
+    .camera.girada .video-box.lente-baixo img.video { top: 0; }
+
+    /* ---------- cartão SD ---------- */
+    .sd-topo { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .sd-topo input[type=date] { background: #11151a; color: var(--texto); border: 1px solid #3a4250; border-radius: 7px; padding: 6px 8px; font-size: 13px; color-scheme: dark; }
+    .sd-cartao { font-size: 12px; color: var(--suave); }
+    .sd-tarefa { background: #11151a; border: 1px solid var(--borda2); border-radius: 8px; padding: 9px 10px; margin: 8px 0; font-size: 12px; }
+    .sd-tarefa[hidden] { display: none; }
+    .barra-prog { height: 7px; background: #262c35; border-radius: 999px; overflow: hidden; margin-top: 6px; }
+    .barra-prog .enche { height: 100%; width: 0; background: var(--azul); transition: width .4s; }
+    .sd-tarefa.convertendo .enche { background: var(--amarelo); }
+    .player-sd { width: 100%; border-radius: 8px; background: #000; display: none; margin: 8px 0; max-height: 70vh; }
+    .player-sd.visivel { display: block; }
+    .sd-lista { max-height: 340px; }
+    .sd-lista li.sep { font-size: 11px; color: var(--suave); text-transform: uppercase; letter-spacing: .05em; background: #11151a; position: sticky; top: 0; cursor: default; }
+    .sd-lista li.sep:hover { background: #11151a; }
+    .tag { font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--borda2); color: var(--suave); }
+    .tag.mov { border-color: #ef4444; color: #fca5a5; }
+    .tag.ok { border-color: var(--verde); color: #86efac; }
+
+    .aviso { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1f2937;
+             border: 1px solid #374151; color: #fff; padding: 10px 16px; border-radius: 9px; font-size: 13px;
+             opacity: 0; transition: all .25s; pointer-events: none; z-index: 50; max-width: 90vw; }
+    .aviso.visivel { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .aviso.erro { background: #7f1d1d; border-color: #ef4444; }
+  </style>
+</head>
+<body>
+
+  <!-- ================= TOPO ================= -->
+  <header class="topo">
+    <h1>📹 Central de Câmeras</h1>
+    <span class="resumo" id="resumo">-</span>
+    <div class="chips" id="chips">
+      {% for cam in cameras %}
+      <button class="chip" data-cid="{{ cam.id }}" title="Mostrar/esconder {{ cam.nome }}">
+        <span class="ponto"></span><span>{{ cam.nome }}</span><span class="olho">👁</span>
+      </button>
+      {% endfor %}
+    </div>
+    <div class="direita">
+      {% if tem_xm %}<button id="btn-alerta-geral" title="Luz de alerta + sirene em todas as câmeras">🚨 Alerta geral</button>{% endif %}
+      {% if tem_xm %}<button id="btn-sons">🔊 Sons</button>{% endif %}
+      <select id="colunas" title="Colunas">
+        <option value="auto">Grade automática</option>
+        <option value="1">1 coluna</option>
+        <option value="2">2 colunas</option>
+        <option value="3">3 colunas</option>
+      </select>
+    </div>
+  </header>
+
+  {% if tem_xm %}
+  <!-- ================= BIBLIOTECA DE SONS ================= -->
+  <section class="biblioteca" id="biblioteca" hidden>
+    <div class="caixa">
+      <h2>🔊 Biblioteca de sons</h2>
+      <div class="bib-grade">
+        <div class="bloco">
+          <span class="titulo">Sons salvos</span>
+          <ul class="lista-sons" id="lista-sons"></ul>
+          <div class="vazio" id="sons-vazio" hidden>Nenhum som ainda. Envie um MP3 ao lado.</div>
+          <audio id="previa" hidden></audio>
+        </div>
+        <div class="bloco">
+          <span class="titulo">Enviar um áudio (MP3, WAV, OGG, M4A...)</span>
+          <form id="form-upload" class="linha">
+            <input type="file" id="arquivo-som" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.opus,.flac,.wma">
+            <button type="submit" class="btn-verde">⬆ Enviar</button>
+          </form>
+          <div class="dica">Até 20 MB. O servidor converte sozinho para o formato da câmera.</div>
+          <span class="titulo" style="margin-top:14px">Criar uma voz a partir de texto</span>
+          <div class="linha"><input type="text" id="bib-texto" maxlength="500" placeholder="Ex.: Atenção, você está sendo filmado"></div>
+          <div class="linha">
+            <input type="text" id="bib-nome" maxlength="60" placeholder="nome do arquivo (ex.: aviso_portao)" style="flex:0 1 230px">
+            <select class="sel-voz-tts" title="Voz" style="flex:0 0 auto">
+              <option value="francisca">Francisca</option>
+              <option value="antonio">Antônio</option>
+              <option value="windows">Windows</option>
+            </select>
+            <button id="btn-bib-voz">💾 Gerar e salvar</button>
+          </div>
+          <div class="dica">Francisca e Antônio: grátis (internet). ElevenLabs: gasta créditos, aceita emoções no texto, ex.: <code>[whispers] Oi...</code> <code>[sighs]</code> <code>[laughs softly]</code>. Se falhar, cai na Francisca; sem internet, na voz do Windows.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- ================= CÂMERAS ================= -->
+  <main class="grade" id="grade">
+    {% for cam in cameras %}
+    <article class="camera" data-cid="{{ cam.id }}" data-xm="{{ 1 if cam.tem_xm else 0 }}" data-ia="{{ 1 if cam.tem_ia else 0 }}" data-rosto="{{ 1 if cam.tem_rosto else 0 }}">
+      <div class="cab">
+        <span class="ponto"></span>
+        <h2>{{ cam.nome }}</h2>
+        <span class="texto-status">Conectando...</span>
+        <div class="badges">
+          <span class="badge pessoa" hidden>👤 0</span>
+          <span class="badge ia" hidden>IA</span>
+          <span class="badge rec" hidden>REC</span>
+          <span class="badge alerta" hidden>🚨 alerta</span>
+          <span class="badge camalerta" hidden title="Alerta da própria câmera">🔔 pessoa</span>
+          <span class="badge rosto" hidden>🙂 rostos</span>
+        </div>
+        <div class="acoes-cab">
+          <button class="btn-girar" title="Girar só NESTA TELA (não afeta gravações nem o app)">⟲</button>
+          {% if cam.tem_xm %}<button class="btn-girar-cam" title="Girar a imagem NA CÂMERA — vale p/ gravações, cartão SD e app">⇅</button>{% endif %}
+          <button class="btn-tela" title="Tela cheia">⛶</button>
+          <button class="btn-minimizar" title="Minimizar">—</button>
+          <button class="btn-esconder" title="Esconder (volta pelo topo)">✕</button>
+        </div>
+      </div>
+
+      <div class="corpo">
+        <div class="video-box">
+          <img class="video" alt="Vídeo ao vivo de {{ cam.nome }}">
+          <span class="sobre-info">-</span>
+          <div class="msg-offline"></div>
+          <div class="flash"></div>
+          {% if cam.tem_ptz %}
+          <div class="ptz">
+            <div class="lista-presets"></div>
+            <div class="dpad">
+              <button class="seta up"    data-pan="0"  data-tilt="1">▲</button>
+              <button class="seta left"  data-pan="1"  data-tilt="0">◀</button>
+              <button class="seta mid">⊙</button>
+              <button class="seta right" data-pan="-1" data-tilt="0">▶</button>
+              <button class="seta down"  data-pan="0"  data-tilt="-1">▼</button>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="barra">
+          <div class="grupo" title="Qualidade do vídeo">
+            <button class="btn-stream" data-stream="1">Leve</button>
+            <button class="btn-stream" data-stream="0">Alta</button>
+          </div>
+          <div class="grupo grupo-lente" title="Câmera de 2 lentes: o que mostrar na tela" hidden>
+            <button class="btn-lente" data-lente="ambas">2 lentes</button>
+            <button class="btn-lente" data-lente="cima">Lente 1</button>
+            <button class="btn-lente" data-lente="baixo">Lente 2</button>
+          </div>
+          <button class="btn-audio" title="Ouvir o som ambiente da câmera">🎧 Ouvir</button>
+          <span class="espaco"></span>
+          {% if cam.tem_ia %}<button class="btn-gravar" title="Gravar agora (até 5 min)">⏺ Gravar</button>{% endif %}
+          <button class="btn-foto">📷 Foto</button>
+        </div>
+
+        <nav class="abas">
+          {% if cam.tem_xm %}<button data-aba="som">🔊 Alto-falante e luz</button>{% endif %}
+          {% if cam.tem_alertas %}<button data-aba="alertas">🔔 Alertas</button>{% endif %}
+          {% if cam.tem_rosto %}<button data-aba="rosto">🙂 Rostos</button>{% endif %}
+          {% if cam.tem_xm %}<button data-aba="sd">💾 Cartão SD</button>{% endif %}
+          {% if cam.tem_ia %}<button data-aba="ia">🧠 IA e gravação</button>{% endif %}
+          {% if cam.tem_ia %}<button data-aba="gravacoes">🎞 Gravações</button>{% endif %}
+          <button data-aba="fotos">🖼 Fotos</button>
+        </nav>
+
+        {% if cam.tem_xm %}
+        <section class="aba" data-aba="som">
+          <div class="linha xm-topo">
+            <span class="estado-xm">-</span>
+            <span class="xm-erro" hidden></span>
+            <span style="flex:1"></span>
+            <button class="btn-xm-tentar" hidden>↻ Tentar conectar de novo</button>
+            <button class="btn-xm-recarregar btn-icone" title="Ler de novo as configurações da câmera">↻</button>
+          </div>
+          <div class="xm-corpo desligado">
+            <div class="xm-grade">
+              <div class="xm-bloco largo">
+                <div class="sub">🔈 Tocar na câmera</div>
+                <div class="linha">
+                  <select class="xm-som" style="flex:1; min-width:110px"></select>
+                  <button class="btn-xm-tocar btn-verde">▶ Tocar</button>
+                  <button class="btn-xm-parar">■ Parar</button>
+                </div>
+                <div class="linha">
+                  <input type="text" class="xm-texto" maxlength="500" placeholder="Digite uma frase para a câmera falar">
+                  <select class="sel-voz-tts" title="Voz" style="flex:0 0 auto">
+                    <option value="francisca">Francisca</option>
+                    <option value="antonio">Antônio</option>
+                    <option value="windows">Windows</option>
+                  </select>
+                  <button class="btn-xm-falar">🗣 Falar</button>
+                </div>
+                <div class="linha"><span class="xm-tocando"></span></div>
+              </div>
+
+              <div class="xm-bloco xm-alerta-bloco" hidden>
+                <div class="sub">🚨 Luz de alerta (vermelho/azul)</div>
+                <div class="btns-alerta">
+                  <button class="btn-alerta" data-s="5">5 s</button>
+                  <button class="btn-alerta" data-s="10">10 s</button>
+                  <button class="btn-alerta" data-s="30">30 s</button>
+                  <button class="btn-alerta" data-s="0" title="Fica acesa até você desligar (no máximo 10 min)">Ligar</button>
+                  <button class="btn-alerta-off">Desligar</button>
+                </div>
+                <div class="linha"><span class="dica xm-alerta-estado"></span></div>
+                <div class="linha">
+                  <label class="chave"><input type="checkbox" class="sw-alerta-som"><span class="trilho"></span><span class="rot">Tocar junto o som escolhido</span></label>
+                </div>
+              </div>
+
+              <div class="xm-bloco">
+                <div class="sub">🔊 Volume do alto-falante</div>
+                <div class="linha">
+                  <input type="range" class="xm-volume" min="0" max="100" step="5">
+                  <b class="val xm-volume-v">-</b>
+                </div>
+                <div class="sub">🔔 Alarme da câmera</div>
+                <div class="linha">
+                  <label class="chave"><input type="checkbox" class="sw-alarme"><span class="trilho"></span><span class="rot">Tocar ao detectar movimento</span></label>
+                </div>
+                <div class="linha">
+                  <label>som:</label>
+                  <select class="xm-alarme-voz" style="flex:1"></select>
+                </div>
+              </div>
+
+              <div class="xm-bloco xm-luz-bloco">
+                <div class="sub">💡 Luz branca (holofote)</div>
+                <div class="linha">
+                  <select class="xm-luz-modo" style="flex:1">
+                    {% for valor, rotulo in modos_luz %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}
+                  </select>
+                </div>
+                <div class="linha">
+                  <label>Brilho</label>
+                  <input type="range" class="xm-luz-brilho" min="0" max="100" step="5">
+                  <b class="val xm-luz-brilho-v">-</b>
+                </div>
+                <div class="linha"><span class="dica">na câmera: <b class="xm-luz-atual">-</b></span></div>
+              </div>
+
+              <div class="xm-bloco xm-led-linha" hidden>
+                <div class="sub">● LED de status</div>
+                <label class="chave"><input type="checkbox" class="sw-led"><span class="trilho"></span><span class="rot">LED aceso</span></label>
+              </div>
+            </div>
+          </div>
+        </section>
+        {% endif %}
+
+        {% if cam.tem_xm %}
+        <section class="aba" data-aba="sd">
+          <div class="sd-topo">
+            <input type="date" class="sd-dia" title="Dia">
+            <select class="sd-filtro" title="Tipo">
+              <option value="">Todas</option>
+              <option value="Movimento">Só movimento</option>
+              <option value="Contínua">Só contínua</option>
+              <option value="baixadas">Já baixadas</option>
+            </select>
+            <button class="btn-sd-atualizar btn-icone" title="Ler de novo do cartão">↻</button>
+            <span class="sd-cartao"></span>
+          </div>
+          <div class="sd-tarefa" hidden>
+            <div class="linha" style="margin:0">
+              <span class="sd-tarefa-txt"></span><span style="flex:1"></span>
+              <button class="btn-sd-cancelar btn-perigo">Cancelar</button>
+            </div>
+            <div class="barra-prog"><div class="enche"></div></div>
+          </div>
+          <video class="player-sd" controls preload="metadata"></video>
+          <ul class="lista clicavel sd-lista"></ul>
+          <div class="vazio sd-vazio" hidden>Nenhuma gravação nesse dia.</div>
+          <div class="dica">O cartão grava em trechos de até 5 min. Baixar leva ~30 s por trecho (Wi-Fi da câmera). As cópias ficam em sd_baixados\ no mini PC.</div>
+        </section>
+        {% endif %}
+
+        {% if cam.tem_ia %}
+        <section class="aba" data-aba="ia">
+          <div class="linha">
+            <label class="chave"><input type="checkbox" class="sw-ia"><span class="trilho"></span><span class="rot">Detecção de pessoas (IA)</span></label>
+            <span style="flex:1"></span>
+            <span class="contador">-</span>
+          </div>
+          <div class="dica ia-detalhe"></div>
+          <div class="linha linha-lente-det" hidden>
+            <label>Detectar em:</label>
+            <div class="grupo" title="Câmera de 2 lentes: a IA e o reconhecimento olham só esta parte">
+              <button class="btn-lente-det" data-lente="ambas">2 lentes</button>
+              <button class="btn-lente-det" data-lente="cima">Lente 1</button>
+              <button class="btn-lente-det" data-lente="baixo">Lente 2</button>
+            </div>
+          </div>
+          <div class="linha" style="margin-top:10px">
+            <label class="chave"><input type="checkbox" class="sw-grav-auto"><span class="trilho"></span><span class="rot">Gravar quando detectar pessoa</span></label>
+          </div>
+          <div class="dica grav-dica">A gravação automática só funciona com a IA ligada. Para gravar na hora, use ⏺ Gravar.</div>
+          {% if cam.tem_alertas %}
+          <div class="linha" style="margin-top:8px">
+            <label class="chave"><input type="checkbox" class="sw-ia-alerta"><span class="trilho"></span><span class="rot">Só quando a câmera detectar (aba 🔔 Alertas)</span></label>
+          </div>
+          {% endif %}
+          <div class="sub">Eventos de presença</div>
+          <ul class="lista eventos"></ul>
+          <div class="vazio eventos-vazio" hidden>Nenhuma pessoa detectada ainda.</div>
+        </section>
+
+        <section class="aba" data-aba="gravacoes">
+          <video class="player-grav" controls preload="none"></video>
+          <ul class="lista clicavel gravacoes"></ul>
+          <div class="vazio gravacoes-vazia" hidden>Nenhuma gravação. Ligue “Gravar quando detectar pessoa” ou use ⏺ Gravar.</div>
+        </section>
+        {% endif %}
+
+        {% if cam.tem_rosto %}
+        <section class="aba" data-aba="rosto">
+          <div class="linha">
+            <label class="chave"><input type="checkbox" class="sw-rosto"><span class="trilho"></span><span class="rot">Reconhecimento facial</span></label>
+            <span style="flex:1"></span>
+            <span class="contador rosto-agora">-</span>
+          </div>
+          <div class="dica rosto-detalhe"></div>
+          <div class="linha linha-lente-det" hidden>
+            <label>Detectar em:</label>
+            <div class="grupo" title="Câmera de 2 lentes: a IA e o reconhecimento olham só esta parte">
+              <button class="btn-lente-det" data-lente="ambas">2 lentes</button>
+              <button class="btn-lente-det" data-lente="cima">Lente 1</button>
+              <button class="btn-lente-det" data-lente="baixo">Lente 2</button>
+            </div>
+          </div>
+          <div class="linha" style="margin-top:8px">
+            <label class="chave"><input type="checkbox" class="sw-rosto-acoes"><span class="trilho"></span><span class="rot">Responder na câmera (usa as ações de "O que fazer nas validações")</span></label>
+          </div>
+          <div class="dica rosto-acoes-dica"></div>
+          {% if cam.tem_alertas %}
+          <div class="linha" style="margin-top:8px">
+            <label class="chave"><input type="checkbox" class="sw-rosto-alerta"><span class="trilho"></span><span class="rot">Só quando a câmera detectar (aba 🔔 Alertas)</span></label>
+          </div>
+          {% endif %}
+
+          <div class="xm-bloco" style="margin-top:10px">
+            <div class="sub">⚙️ O que fazer nas validações <span class="dica" style="font-weight:400">(vale para todas as câmeras)</span></div>
+            <div class="sub" style="margin-top:6px">✅ No LIBERADO</div>
+            <div class="linha">
+              <label class="chave"><input type="checkbox" class="rcfg-ok-falar"><span class="trilho"></span><span class="rot">Falar</span></label>
+              <input type="text" class="rcfg-ok" maxlength="200" placeholder="Acesso liberado, {nome}" style="flex:1"></div>
+            <div class="linha">
+              <label class="chave"><input type="checkbox" class="rcfg-ok-piscar"><span class="trilho"></span><span class="rot">Piscar o holofote</span></label>
+              <input type="number" class="rcfg-ok-vezes" min="1" max="20" step="1" style="width:64px" title="quantas vezes">
+              <span class="dica">vezes, acesa</span>
+              <input type="number" class="rcfg-ok-tempo" min="0.25" max="10" step="0.05" style="width:70px" title="segundos acesa (e o mesmo apagada)">
+              <span class="dica">s cada</span></div>
+            <div class="sub" style="margin-top:6px">⛔ No NEGADO</div>
+            <div class="linha">
+              <label class="chave"><input type="checkbox" class="rcfg-neg-falar"><span class="trilho"></span><span class="rot">Falar</span></label>
+              <input type="text" class="rcfg-neg" maxlength="200" placeholder="Acesso negado" style="flex:1"></div>
+            <div class="linha">
+              <label class="chave"><input type="checkbox" class="rcfg-neg-luz"><span class="trilho"></span><span class="rot">Acender</span></label>
+              <select class="rcfg-acao" style="flex:1">
+                <option value="alerta">Luz de alerta (vermelho/azul)</option>
+                <option value="holofote">Holofote (luz branca)</option>
+              </select>
+              <span class="dica">por</span>
+              <input type="number" class="rcfg-seg" min="1" max="600" step="1" style="width:70px" title="segundos acesa">
+              <span class="dica">s</span></div>
+            <div class="linha"><label style="min-width:96px">Voz</label>
+              <select class="rcfg-voz" style="flex:1"><option value="">Padrão</option></select></div>
+            <div class="linha"><span class="dica">Use <code>{nome}</code> para dizer o nome de quem foi liberado.</span>
+              <span style="flex:1"></span>
+              <button class="btn-rcfg-salvar btn-verde">Salvar</button></div>
+          </div>
+
+          <div class="xm-grade" style="margin-top:12px">
+            <div class="xm-bloco">
+              <div class="sub">📸 Cadastrar pessoa</div>
+              <div class="linha">
+                <input type="text" class="rosto-nome" maxlength="40" placeholder="Nome da pessoa">
+                <button class="btn-rosto-cadastrar btn-verde">Cadastrar</button>
+              </div>
+              <div class="linha">
+                <label class="chave"><input type="checkbox" class="sw-rosto-negado"><span class="trilho"></span><span class="rot">Cadastrar como NEGADO</span></label>
+              </div>
+              <div class="rosto-cad" hidden>
+                <div class="barra-prog"><div class="enche"></div></div>
+                <div class="linha">
+                  <span class="dica rosto-cad-msg"></span>
+                  <span style="flex:1"></span>
+                  <button class="btn-rosto-cancelar">Cancelar</button>
+                </div>
+              </div>
+              <div class="dica rosto-cad-res"></div>
+            </div>
+
+            <div class="xm-bloco">
+              <div class="sub">👥 Pessoas cadastradas</div>
+              <ul class="lista pessoas"></ul>
+              <div class="vazio pessoas-vazio" hidden>Ninguém cadastrado. Quem não está aqui é NEGADO.</div>
+            </div>
+
+            <div class="xm-bloco largo">
+              <div class="sub">🕘 Últimos acessos</div>
+              <ul class="lista rosto-eventos"></ul>
+              <div class="vazio rosto-eventos-vazio" hidden>Nenhum acesso desde que o servidor subiu. O histórico completo fica em rostos\historico.csv</div>
+            </div>
+          </div>
+        </section>
+        {% endif %}
+
+        {% if cam.tem_alertas %}
+        <section class="aba" data-aba="alertas">
+          <div class="dica alertas-estado">Aguardando a sessão das câmeras...</div>
+          <div class="linha" style="margin-top:6px">
+            <label class="chave"><input type="checkbox" class="sw-alarme-cam"><span class="trilho"></span><span class="rot">Alarme inteligente (o mesmo "Ligado" do app)</span></label>
+          </div>
+          <div class="linha" style="margin-top:6px">
+            <label>Detectar:</label>
+            <div class="grupo" title="Grava na câmera (o mesmo ajuste do app) e o painel filtra">
+              <button class="btn-modo-alerta" data-modo="humano">Só humano</button>
+              <button class="btn-modo-alerta" data-modo="movimento">Só movimento</button>
+            </div>
+          </div>
+          <div class="dica modo-alerta-info"></div>
+          <div class="dica">A detecção é a da PRÓPRIA câmera: sensibilidade, área de aviso e horário continuam no app iCSee (Alarme inteligente). Não usa a IA do PC.</div>
+          <div class="xm-bloco rastreio-bloco" style="margin-top:8px">
+            <div class="sub">🎯 Seguir pessoa (lente móvel) <span class="dica" style="font-weight:400">o mesmo "Rastreamento de movimento" do app</span></div>
+            <div class="linha">
+              <label class="chave"><input type="checkbox" class="sw-rastreio"><span class="trilho"></span><span class="rot">Rastreamento</span></label>
+            </div>
+            <div class="linha">
+              <label>Sensibilidade</label>
+              <select class="sel-rastreio-sens">
+                <option value="0">Baixo</option><option value="1">Médio</option><option value="2">Alto</option>
+              </select>
+              <label style="margin-left:10px">Voltar ao início após</label>
+              <input type="number" class="num-rastreio-volta" min="1" max="60" step="1" style="width:64px">
+              <span class="dica">min sem ninguém</span>
+            </div>
+            <div class="dica rastreio-info"></div>
+          </div>
+          <ul class="lista alertas"></ul>
+          <div class="vazio alertas-vazio" hidden>Nenhum alerta ainda. Passe na frente da câmera.</div>
+        </section>
+        {% endif %}
+
+        <section class="aba" data-aba="fotos">
+          <div class="galeria"></div>
+          <div class="vazio galeria-vazia" hidden>Nenhuma foto ainda.</div>
+        </section>
+      </div>
+    </article>
+    {% endfor %}
+    <div class="tudo-oculto" id="tudo-oculto" hidden>
+      Todas as câmeras estão escondidas.<br><br>
+      <button id="btn-mostrar-todas">Mostrar todas</button>
+    </div>
+  </main>
+
+  <div id="aviso" class="aviso"></div>
+
+  <script>
+    // =============================================================
+    //  Utilitários
+    // =============================================================
+    const salvo = {
+      ler(chave, padrao) { try { const v = localStorage.getItem("painel." + chave); return v === null ? padrao : JSON.parse(v); } catch (e) { return padrao; } },
+      gravar(chave, valor) { try { localStorage.setItem("painel." + chave, JSON.stringify(valor)); } catch (e) { /* sem storage */ } }
+    };
+
+    let timerAviso;
+    function aviso(texto, erro = false) {
+      const el = document.getElementById("aviso");
+      el.textContent = texto;
+      el.className = "aviso visivel" + (erro ? " erro" : "");
+      clearTimeout(timerAviso);
+      timerAviso = setTimeout(() => { el.className = "aviso"; }, 3200);
+    }
+
+    async function postJSON(url, corpo) {
+      try {
+        const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
+                                     body: JSON.stringify(corpo || {}) });
+        let d;
+        try { d = await r.json(); } catch (e) { d = { ok: false, erro: "resposta inválida (HTTP " + r.status + ")" }; }
+        if (!r.ok && d.ok === undefined) d.ok = false;
+        return d;
+      } catch (e) {
+        return { ok: false, erro: "servidor fora do ar" };
+      }
+    }
+
+    // Voz da fala (Francisca / Antônio / Windows): uma escolha só, vale para
+    // todas as câmeras e para a biblioteca; fica salva no navegador.
+    let VOZES_TTS = ["francisca", "antonio", "windows"];
+    function vozTTS() {
+      const v = salvo.ler("vozTTS", "francisca");
+      return VOZES_TTS.includes(v) ? v : "francisca";
+    }
+    document.querySelectorAll(".sel-voz-tts").forEach(sel => {
+      sel.value = vozTTS();
+      sel.addEventListener("change", () => {
+        salvo.gravar("vozTTS", sel.value);
+        document.querySelectorAll(".sel-voz-tts").forEach(s => { s.value = sel.value; });
+      });
+    });
+    // lista completa (inclui as do ElevenLabs) vem do servidor
+    fetch("/api/vozes").then(r => r.json()).then(lista => {
+      if (!Array.isArray(lista) || !lista.length) return;
+      VOZES_TTS = lista.map(v => v.id);
+      const atual = vozTTS();
+      document.querySelectorAll(".sel-voz-tts").forEach(sel => {
+        sel.innerHTML = "";
+        lista.forEach(v => { const o = document.createElement("option"); o.value = v.id; o.textContent = v.nome; sel.appendChild(o); });
+        sel.value = atual;
+      });
+    }).catch(() => { /* fica com as 3 fixas */ });
+
+    // ---- Config das validações do reconhecimento (global, nos cards de rosto) ----
+    function preencheRcfg(cfg, vozes) {
+      if (Array.isArray(vozes)) {
+        document.querySelectorAll(".rcfg-voz").forEach(sel => {
+          sel.innerHTML = '<option value="">Padrão</option>';
+          vozes.forEach(v => { const o = document.createElement("option"); o.value = v.id; o.textContent = v.nome; sel.appendChild(o); });
+        });
+      }
+      document.querySelectorAll(".rcfg-ok").forEach(i => { if (document.activeElement !== i) i.value = cfg.frase_ok || ""; });
+      document.querySelectorAll(".rcfg-neg").forEach(i => { if (document.activeElement !== i) i.value = cfg.frase_negado || ""; });
+      document.querySelectorAll(".rcfg-voz").forEach(s => { s.value = cfg.voz || ""; });
+      document.querySelectorAll(".rcfg-acao").forEach(s => { s.value = cfg.acao_negado || "alerta"; });
+      const marca = (sel, v) => document.querySelectorAll(sel).forEach(i => { i.checked = !!v; });
+      const num = (sel, v) => document.querySelectorAll(sel).forEach(i => { if (document.activeElement !== i) i.value = v; });
+      marca(".rcfg-ok-falar", cfg.ok_falar); marca(".rcfg-ok-piscar", cfg.ok_piscar);
+      marca(".rcfg-neg-falar", cfg.neg_falar); marca(".rcfg-neg-luz", cfg.neg_luz);
+      num(".rcfg-ok-vezes", cfg.ok_piscadas || 3); num(".rcfg-ok-tempo", cfg.ok_piscar_s || 1);
+      num(".rcfg-seg", cfg.segundos || 10);
+    }
+    fetch("/api/rosto/config").then(r => r.json()).then(d => {
+      if (d && d.ok) preencheRcfg(d.cfg, d.vozes);
+    }).catch(() => {});
+    document.querySelectorAll(".btn-rcfg-salvar").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const b = btn.closest(".xm-bloco"), g = s => b.querySelector(s);
+        const d = await postJSON("/api/rosto/config", {
+          frase_ok: g(".rcfg-ok").value, frase_negado: g(".rcfg-neg").value,
+          voz: g(".rcfg-voz").value, acao_negado: g(".rcfg-acao").value,
+          ok_falar: g(".rcfg-ok-falar").checked, ok_piscar: g(".rcfg-ok-piscar").checked,
+          ok_piscadas: Number(g(".rcfg-ok-vezes").value) || 3, ok_piscar_s: Number(g(".rcfg-ok-tempo").value) || 1,
+          neg_falar: g(".rcfg-neg-falar").checked, neg_luz: g(".rcfg-neg-luz").checked,
+          segundos: Number(g(".rcfg-seg").value) || 10 });
+        if (d && d.ok) { preencheRcfg(d.cfg, null); aviso("Configuração das validações salva"); }
+        else aviso("Erro ao salvar: " + ((d && d.erro) || "?"), true);
+      });
+    });
+
+    function avisoFala(d, inicio) {
+      if (d.aviso_voz) aviso(inicio + " com " + (d.voz || "outra voz") + " - " + d.aviso_voz, true);
+      else aviso(inicio + " (" + (d.voz || "?") + ", " + d.segundos + " s)");
+    }
+
+    const CARDS = [...document.querySelectorAll(".camera")];
+    const card = cid => document.querySelector('.camera[data-cid="' + cid + '"]');
+
+    // =============================================================
+    //  Mostrar / esconder / minimizar câmeras
+    // =============================================================
+    let ocultas = new Set(salvo.ler("ocultas", []));
+    let minimizadas = new Set(salvo.ler("minimizadas", []));
+
+    function videoLigado(c) {
+      return !c.hidden && !c.classList.contains("minimizada");
+    }
+
+    function atualizaVideo(c) {
+      const img = c.querySelector(".video");
+      if (videoLigado(c)) {
+        if (!img.dataset.ligado) {
+          img.src = "/video/" + c.dataset.cid + "?t=" + Date.now();
+          img.dataset.ligado = "1";
+        }
+      } else if (img.dataset.ligado) {
+        img.removeAttribute("src");            // fecha a conexão: o servidor para de gerar JPEG
+        delete img.dataset.ligado;
+        if (audioAtual && audioAtual.cid === c.dataset.cid) pararAudio();
+      }
+    }
+
+    function aplicaVisibilidade() {
+      CARDS.forEach(c => {
+        const cid = c.dataset.cid;
+        c.hidden = ocultas.has(cid);
+        c.classList.toggle("minimizada", minimizadas.has(cid));
+        c.querySelector(".btn-minimizar").textContent = minimizadas.has(cid) ? "▢" : "—";
+        c.querySelector(".btn-minimizar").title = minimizadas.has(cid) ? "Restaurar" : "Minimizar";
+        atualizaVideo(c);
+      });
+      document.querySelectorAll(".chip").forEach(ch => ch.classList.toggle("oculta", ocultas.has(ch.dataset.cid)));
+      document.getElementById("tudo-oculto").hidden = CARDS.some(c => !c.hidden);
+      salvo.gravar("ocultas", [...ocultas]);
+      salvo.gravar("minimizadas", [...minimizadas]);
+    }
+
+    document.querySelectorAll(".chip").forEach(ch => ch.addEventListener("click", () => {
+      const cid = ch.dataset.cid;
+      if (ocultas.has(cid)) ocultas.delete(cid); else ocultas.add(cid);
+      aplicaVisibilidade();
+    }));
+    document.getElementById("btn-mostrar-todas").addEventListener("click", () => { ocultas.clear(); aplicaVisibilidade(); });
+
+    const selColunas = document.getElementById("colunas");
+    function aplicaColunas() {
+      const g = document.getElementById("grade");
+      g.classList.remove("col-1", "col-2", "col-3");
+      if (selColunas.value !== "auto") g.classList.add("col-" + selColunas.value);
+      salvo.gravar("colunas", selColunas.value);
+    }
+    selColunas.value = salvo.ler("colunas", "auto");
+    selColunas.addEventListener("change", aplicaColunas);
+    aplicaColunas();
+
+    // =============================================================
+    //  Áudio ao vivo (ouvir) - Web Audio + PCM, baixa latência
+    // =============================================================
+    let audioAtual = null;
+    function pararAudio() {
+      if (!audioAtual) return;
+      try { audioAtual.parar(); } catch (e) { /* ignora */ }
+      audioAtual.botao.textContent = "🎧 Ouvir";
+      audioAtual.botao.classList.remove("ativo");
+      audioAtual = null;
+    }
+    function ouvirPCM(cid, botao) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AC();
+      ctx.resume().catch(() => {});
+      const SR = 8000;
+      let tocando = true, reader = null, proximo = ctx.currentTime + 0.2;
+      (async () => {
+        let resp;
+        try { resp = await fetch("/audio_pcm/" + cid); } catch (e) { aviso("Não deu pra abrir o áudio", true); return; }
+        if (!resp.ok || !resp.body) { aviso("Áudio indisponível", true); return; }
+        reader = resp.body.getReader();
+        let sobra = new Uint8Array(0);
+        while (tocando) {
+          let r;
+          try { r = await reader.read(); } catch (e) { break; }
+          if (r.done) break;
+          const juntos = new Uint8Array(sobra.length + r.value.length);
+          juntos.set(sobra, 0); juntos.set(r.value, sobra.length);
+          const n = juntos.length >> 1;
+          sobra = juntos.slice(n << 1);
+          if (!n) continue;
+          const i16 = new Int16Array(juntos.buffer, 0, n);
+          const f32 = new Float32Array(n);
+          for (let i = 0; i < n; i++) f32[i] = i16[i] / 32768;
+          const ab = ctx.createBuffer(1, n, SR);
+          ab.getChannelData(0).set(f32);
+          const src = ctx.createBufferSource();
+          src.buffer = ab; src.connect(ctx.destination);
+          const agora = ctx.currentTime;
+          if (proximo < agora) proximo = agora + 0.1;
+          src.start(proximo);
+          proximo += ab.duration;
+        }
+      })();
+      return { cid, botao, parar() { tocando = false; try { if (reader) reader.cancel(); } catch (e) {} try { ctx.close(); } catch (e) {} } };
+    }
+
+    // =============================================================
+    //  Abas
+    // =============================================================
+    function abrirAba(c, nome) {
+      const botoes = c.querySelectorAll(".abas button");
+      if (![...botoes].some(b => b.dataset.aba === nome)) nome = botoes[0].dataset.aba;
+      botoes.forEach(b => b.classList.toggle("ativa", b.dataset.aba === nome));
+      c.querySelectorAll(".aba").forEach(a => a.classList.toggle("ativa", a.dataset.aba === nome));
+      salvo.gravar("aba." + c.dataset.cid, nome);
+      if (nome === "gravacoes") carregarGravacoes(c);
+      if (nome === "fotos") carregarGaleria(c);
+      if (nome === "ia") carregarEventos(c);
+      if (nome === "sd") carregarSD(c);
+      if (nome === "rosto") { carregarRostoEventos(c); carregarPessoas(); }
+      if (nome === "alertas") carregarModoAlerta(c);
+    }
+
+    // =============================================================
+    //  Configura cada câmera
+    // =============================================================
+    CARDS.forEach(c => {
+      const cid = c.dataset.cid;
+      const q = s => c.querySelector(s);
+      c._pend = {};
+
+      q(".btn-esconder").addEventListener("click", () => { ocultas.add(cid); aplicaVisibilidade(); });
+      // lente (câmeras de 2 lentes): "ambas" | "cima" | "baixo", salvo por câmera
+      c._lente = (salvo.ler("lentes", {}) || {})[cid] || "ambas";
+      c._duas = false;
+      c._aplicaLente = () => {
+        const box = q(".video-box"), l = c._duas ? c._lente : "ambas";
+        box.classList.toggle("lente-cima", l === "cima");
+        box.classList.toggle("lente-baixo", l === "baixo");
+        c.querySelectorAll(".btn-lente").forEach(b => b.classList.toggle("ativo", b.dataset.lente === c._lente));
+        q(".grupo-lente").hidden = !c._duas;
+      };
+      c.querySelectorAll(".btn-lente").forEach(b => b.addEventListener("click", () => {
+        const t = salvo.ler("lentes", {}) || {};
+        t[cid] = b.dataset.lente;
+        salvo.gravar("lentes", t);
+        c._lente = b.dataset.lente;
+        c._aplicaLente();
+      }));
+      c._aplicaLente();
+      c.querySelectorAll(".btn-lente-det").forEach(b => b.addEventListener("click", async () => {
+        const nomes = { ambas: "nas 2 lentes", cima: "só na Lente 1", baixo: "só na Lente 2" };
+        const d = await postJSON("/api/lente/" + cid, { lente: b.dataset.lente });
+        if (!d.ok) { aviso("Erro: " + d.erro, true); return; }
+        c._lenteDet = d.lente;
+        c.querySelectorAll(".btn-lente-det").forEach(x => x.classList.toggle("ativo", x.dataset.lente === d.lente));
+        aviso("Detecção " + nomes[d.lente]);
+      }));
+      const giradas = new Set(salvo.ler("giradas", []));
+      c.classList.toggle("girada", giradas.has(cid));
+      q(".btn-girar").addEventListener("click", () => {
+        const g = new Set(salvo.ler("giradas", []));
+        if (g.has(cid)) g.delete(cid); else g.add(cid);
+        salvo.gravar("giradas", [...g]);
+        c.classList.toggle("girada", g.has(cid));
+      });
+      // giro NA CÂMERA (só câmeras com porta 34567): afeta gravações, SD e app
+      const btnGirarCam = q(".btn-girar-cam");
+      if (btnGirarCam) {
+        fetch("/api/xm/" + cid + "/inverter")
+          .then(r => r.json())
+          .then(d => { if (d && d.ok) btnGirarCam.classList.toggle("ativo", !!d.girada); })
+          .catch(() => {});
+        btnGirarCam.addEventListener("click", async () => {
+          btnGirarCam.disabled = true;
+          const d = await postJSON("/api/xm/" + cid + "/inverter", { acao: "girar" });
+          btnGirarCam.disabled = false;
+          if (d && d.ok) {
+            btnGirarCam.classList.toggle("ativo", !!d.girada);
+            aviso(d.girada ? "Imagem girada na câmera (vale p/ gravações e app)" : "Imagem voltou ao normal na câmera");
+          } else {
+            aviso("Erro ao girar na câmera: " + ((d && d.erro) || "a sessão das câmeras está fora?"), true);
+          }
+        });
+      }
+      q(".btn-minimizar").addEventListener("click", () => {
+        if (minimizadas.has(cid)) minimizadas.delete(cid); else minimizadas.add(cid);
+        aplicaVisibilidade();
+      });
+      q(".btn-tela").addEventListener("click", () => {
+        if (minimizadas.has(cid)) { minimizadas.delete(cid); aplicaVisibilidade(); }
+        const box = q(".video-box");
+        if (document.fullscreenElement) document.exitFullscreen();
+        else if (box.requestFullscreen) box.requestFullscreen().catch(() => {});
+      });
+
+      const img = q(".video");
+      img.addEventListener("error", () => {
+        if (!img.dataset.ligado) return;
+        setTimeout(() => { if (img.dataset.ligado) img.src = "/video/" + cid + "?t=" + Date.now(); }, 2000);
+      });
+
+      c.querySelectorAll(".btn-stream").forEach(b => b.addEventListener("click", async () => {
+        const stream = Number(b.dataset.stream);
+        const d = await postJSON("/api/stream/" + cid, { stream });
+        if (d.ok) aviso("Trocando para " + (stream === 0 ? "Alta" : "Leve") + "...");
+        else aviso("Erro ao trocar: " + d.erro, true);
+      }));
+
+      const btnAudio = q(".btn-audio");
+      btnAudio.addEventListener("click", () => {
+        const jaEra = audioAtual && audioAtual.cid === cid;
+        pararAudio();
+        if (jaEra) return;
+        audioAtual = ouvirPCM(cid, btnAudio);
+        btnAudio.textContent = "🔇 Parar";
+        btnAudio.classList.add("ativo");
+      });
+
+      const btnFoto = q(".btn-foto");
+      btnFoto.addEventListener("click", async () => {
+        btnFoto.disabled = true;
+        try {
+          const r = await fetch("/api/foto/" + cid, { method: "POST" });
+          const d = await r.json();
+          if (!d.ok) throw new Error(d.erro);
+          const fl = q(".flash"); fl.classList.add("ativo"); setTimeout(() => fl.classList.remove("ativo"), 50);
+          aviso("Foto salva (" + d.resolucao + ")");
+          carregarGaleria(c);
+        } catch (e) { aviso("Erro na foto: " + e.message, true); }
+        finally { btnFoto.disabled = false; }
+      });
+
+      const btnGravar = q(".btn-gravar");
+      if (btnGravar) btnGravar.addEventListener("click", async () => {
+        btnGravar.disabled = true;
+        const d = await postJSON("/api/gravacao/" + cid, { manual: !c._manual });
+        btnGravar.disabled = false;
+        if (!d.ok) { aviso("Erro: " + d.erro, true); return; }
+        c._manual = d.gravacao_manual;
+        aviso(d.gravacao_manual ? "Gravando..." : "Gravação parada");
+        if (!d.gravacao_manual) setTimeout(() => carregarGravacoes(c), 1500);
+      });
+
+      // chaves com pedido pendente: o status não sobrescreve enquanto espera
+      function chave(seletor, url, montaCorpo, msg) {
+        const el = q(seletor);
+        if (!el) return;
+        el.addEventListener("change", async () => {
+          const valor = el.checked;
+          c._pend[seletor] = true;
+          el.disabled = true;
+          const d = await postJSON(url, montaCorpo(valor));
+          el.disabled = false;
+          delete c._pend[seletor];
+          if (!d.ok) { el.checked = !valor; aviso("Erro: " + d.erro, true); }
+          else aviso(msg(valor, d) + (d.aviso ? " — " + d.aviso : ""), !!d.aviso);
+        });
+      }
+      chave(".sw-ia", "/api/ia/" + cid, v => ({ ativa: v }), v => v ? "IA ligada" : "IA desligada");
+      chave(".sw-ia-alerta", "/api/ia/" + cid, v => ({ so_com_alerta: v }),
+            v => v ? "IA: só quando a câmera detectar" : "IA: o tempo todo");
+      chave(".sw-rosto-alerta", "/api/rosto/" + cid, v => ({ so_com_alerta: v }),
+            v => v ? "Rostos: só quando a câmera detectar" : "Rostos: o tempo todo");
+      chave(".sw-rastreio", "/api/xm/" + cid + "/rastreamento", v => ({ ligado: v }),
+            v => v ? "Seguir pessoa LIGADO" : "Seguir pessoa desligado");
+      const selRS = q(".sel-rastreio-sens"), numRV = q(".num-rastreio-volta");
+      async function salvaRastreio(corpo, msg) {
+        c._pend[".rastreio"] = true;
+        const d = await postJSON("/api/xm/" + cid + "/rastreamento", corpo);
+        delete c._pend[".rastreio"];
+        if (!d.ok) aviso("Erro: " + d.erro, true); else aviso(msg);
+      }
+      if (selRS) selRS.addEventListener("change", () =>
+        salvaRastreio({ sensibilidade: Number(selRS.value) }, "Sensibilidade do rastreamento: " + selRS.selectedOptions[0].textContent));
+      if (numRV) numRV.addEventListener("change", () => {
+        const m = Math.max(1, Math.min(60, Math.round(Number(numRV.value) || 5)));
+        numRV.value = m;
+        salvaRastreio({ volta_s: m * 60 }, "Volta ao início após " + m + " min");
+      });
+      chave(".sw-alarme-cam", "/api/alertas_camera/" + cid + "/ligado", v => ({ ligado: v }),
+            v => v ? "Alarme inteligente LIGADO na câmera" : "Alarme inteligente DESLIGADO na câmera");
+      c.querySelectorAll(".btn-modo-alerta").forEach(b => b.addEventListener("click", async () => {
+        c.querySelectorAll(".btn-modo-alerta").forEach(x => { x.disabled = true; });
+        q(".modo-alerta-info").textContent = "gravando na câmera...";
+        const d = await postJSON("/api/alertas_camera/" + cid + "/modo", { modo: b.dataset.modo });
+        c.querySelectorAll(".btn-modo-alerta").forEach(x => { x.disabled = false; });
+        if (!d.ok) { aviso("Erro: " + d.erro, true); }
+        else aviso("Detecção: " + b.textContent);
+        mostrarModoAlerta(c, d);
+      }));
+      chave(".sw-grav-auto", "/api/gravacao/" + cid, v => ({ auto: v }),
+            v => v ? "Vai gravar quando detectar pessoa" : "Gravação automática desligada");
+      chave(".sw-alarme", "/api/xm/" + cid + "/alarme",
+            v => ({ ligado: v, voz: q(".xm-alarme-voz").value ? Number(q(".xm-alarme-voz").value) : null }),
+            v => v ? "Alarme da câmera LIGADO" : "Alarme da câmera desligado");
+      chave(".sw-led", "/api/xm/" + cid + "/led", v => ({ ligado: v }), v => v ? "LED ligado" : "LED desligado");
+
+      chave(".sw-rosto", "/api/rosto/" + cid, v => ({ ativo: v }),
+            v => v ? "Reconhecimento facial LIGADO (câmera em Alta)" : "Reconhecimento facial desligado");
+      chave(".sw-rosto-acoes", "/api/rosto/" + cid, v => ({ acoes: v }),
+            v => v ? "Vai responder na câmera" : "Só registra (sem voz/luz)");
+      if (c.dataset.rosto === "1") configurarRosto(c);
+
+      if (q(".ptz")) configurarPtz(c);
+      if (c.dataset.xm === "1") { configurarXM(c); configurarSD(c); }
+
+      c.querySelectorAll(".abas button").forEach(b => b.addEventListener("click", () => abrirAba(c, b.dataset.aba)));
+      abrirAba(c, salvo.ler("aba." + cid, ""));
+    });
+
+    // =============================================================
+    //  Movimento (PTZ)
+    // =============================================================
+    function configurarPtz(c) {
+      const cid = c.dataset.cid, V = 0.6;
+      let movendo = false;
+      async function mover(pan, tilt, zoom) {
+        movendo = true;
+        const d = await postJSON("/api/ptz/" + cid + "/mover", { pan, tilt, zoom });
+        if (!d.ok) { movendo = false; aviso("Movimento: " + d.erro, true); }
+      }
+      async function parar() {
+        if (!movendo) return;
+        movendo = false;
+        await postJSON("/api/ptz/" + cid + "/parar");
+      }
+      c.querySelectorAll(".seta[data-pan], .seta[data-tilt]").forEach(b => {
+        const pan = Number(b.dataset.pan || 0) * V, tilt = Number(b.dataset.tilt || 0) * V;
+        b.addEventListener("pointerdown", e => { e.preventDefault(); mover(pan, tilt, 0); });
+        ["pointerup", "pointerleave", "pointercancel"].forEach(ev => b.addEventListener(ev, parar));
+      });
+      document.addEventListener("pointerup", parar);
+      carregarPresets(c);
+    }
+    async function carregarPresets(c) {
+      try {
+        const r = await fetch("/api/ptz/" + c.dataset.cid + "/presets", { cache: "no-store" });
+        const presets = await r.json();
+        const box = c.querySelector(".lista-presets");
+        box.innerHTML = "";
+        presets.forEach(p => {
+          const b = document.createElement("button");
+          b.textContent = p.nome;
+          b.addEventListener("click", async () => {
+            const d = await postJSON("/api/ptz/" + c.dataset.cid + "/preset", { token: p.token });
+            if (d.ok) aviso("Indo para " + p.nome); else aviso("Erro: " + d.erro, true);
+          });
+          box.appendChild(b);
+        });
+      } catch (e) { /* sem presets */ }
+    }
+
+    // =============================================================
+    //  Listas: eventos, gravações, fotos
+    // =============================================================
+    async function carregarEventos(c) {
+      const lista = c.querySelector(".eventos");
+      if (!lista) return;
+      try {
+        const r = await fetch("/api/eventos/" + c.dataset.cid, { cache: "no-store" });
+        const eventos = await r.json();
+        lista.innerHTML = "";
+        c.querySelector(".eventos-vazio").hidden = eventos.length > 0;
+        eventos.forEach(ev => {
+          const li = document.createElement("li");
+          const h = document.createElement("span"); h.className = "hora";
+          h.textContent = ev.entrada.slice(11) + " → " + (ev.saida ? ev.saida.slice(11) : "");
+          li.appendChild(h);
+          if (!ev.saida) { const a = document.createElement("span"); a.className = "agora"; a.textContent = "agora"; li.appendChild(a); }
+          const s = document.createElement("span"); s.className = "sec";
+          s.textContent = "até " + ev.max_pessoas + (ev.max_pessoas === 1 ? " pessoa" : " pessoas");
+          li.appendChild(s);
+          if (ev.foto) { const a = document.createElement("a"); a.href = ev.foto; a.target = "_blank"; a.textContent = "ver foto"; li.appendChild(a); }
+          lista.appendChild(li);
+        });
+      } catch (e) { /* ignora */ }
+    }
+
+    async function carregarGravacoes(c) {
+      const lista = c.querySelector(".gravacoes");
+      if (!lista) return;
+      try {
+        const r = await fetch("/api/gravacoes/" + c.dataset.cid, { cache: "no-store" });
+        const gravs = await r.json();
+        lista.innerHTML = "";
+        c.querySelector(".gravacoes-vazia").hidden = gravs.length > 0;
+        const player = c.querySelector(".player-grav");
+        gravs.forEach(g => {
+          const li = document.createElement("li");
+          const h = document.createElement("span"); h.className = "hora";
+          h.textContent = g.dia + "  " + g.hora.replace(/-/g, ":");
+          const dir = document.createElement("span"); dir.className = "direita";
+          const mb = document.createElement("span"); mb.className = "sec"; mb.textContent = g.mb + " MB";
+          const baixar = document.createElement("a");
+          baixar.href = "/gravacoes/" + c.dataset.cid + "/" + g.arquivo; baixar.download = ""; baixar.textContent = "baixar";
+          baixar.addEventListener("click", e => e.stopPropagation());
+          const apagar = document.createElement("button"); apagar.className = "btn-perigo"; apagar.textContent = "🗑";
+          apagar.addEventListener("click", async e => {
+            e.stopPropagation();
+            if (!confirm("Apagar a gravação de " + h.textContent + "?")) return;
+            const rr = await fetch("/api/gravacoes/" + c.dataset.cid + "/" + g.arquivo, { method: "DELETE" });
+            const d = await rr.json();
+            if (d.ok) aviso("Gravação apagada"); else aviso("Erro: " + d.erro, true);
+            carregarGravacoes(c);
+          });
+          dir.append(mb, baixar, apagar);
+          li.append(h, dir);
+          li.addEventListener("click", () => {
+            player.src = "/gravacoes/" + c.dataset.cid + "/" + g.arquivo;
+            player.classList.add("visivel");
+            player.play().catch(() => {});
+            lista.querySelectorAll("li").forEach(x => x.classList.remove("tocando"));
+            li.classList.add("tocando");
+          });
+          lista.appendChild(li);
+        });
+      } catch (e) { /* ignora */ }
+    }
+
+    async function carregarGaleria(c) {
+      try {
+        const r = await fetch("/api/fotos/" + c.dataset.cid, { cache: "no-store" });
+        const fotos = await r.json();
+        const gal = c.querySelector(".galeria");
+        gal.innerHTML = "";
+        c.querySelector(".galeria-vazia").hidden = fotos.length > 0;
+        fotos.forEach(f => {
+          const a = document.createElement("a"); a.href = f.url; a.target = "_blank";
+          const im = document.createElement("img"); im.src = f.url; im.loading = "lazy"; im.alt = f.arquivo;
+          a.appendChild(im);
+          a.appendChild(document.createTextNode(f.arquivo.replace("/", " ").replace(".jpg", "")));
+          gal.appendChild(a);
+        });
+      } catch (e) { /* ignora */ }
+    }
+
+    // =============================================================
+    //  Biblioteca de sons e alto-falante (iCSee)
+    // =============================================================
+    let SONS = [];
+    const temBib = !!document.getElementById("biblioteca");
+
+    if (temBib) {
+      const bib = document.getElementById("biblioteca");
+      const btnSons = document.getElementById("btn-sons");
+      const mostraBib = v => { bib.hidden = !v; btnSons.classList.toggle("ativo", v); salvo.gravar("sons", v); };
+      btnSons.addEventListener("click", () => mostraBib(bib.hidden));
+      mostraBib(salvo.ler("sons", false));
+
+      document.getElementById("form-upload").addEventListener("submit", async ev => {
+        ev.preventDefault();
+        const inp = document.getElementById("arquivo-som");
+        if (!inp.files.length) { aviso("Escolha um arquivo", true); return; }
+        const fd = new FormData(); fd.append("arquivo", inp.files[0]);
+        const btn = ev.target.querySelector("button");
+        btn.disabled = true; btn.textContent = "Enviando...";
+        try {
+          const r = await fetch("/api/sons", { method: "POST", body: fd });
+          const d = await r.json();
+          if (!d.ok) throw new Error(d.erro);
+          aviso("Salvo: " + d.nome + " (" + d.segundos + " s)");
+          inp.value = ""; carregarSons();
+        } catch (e) { aviso("Erro no envio: " + e.message, true); }
+        finally { btn.disabled = false; btn.textContent = "⬆ Enviar"; }
+      });
+
+      document.getElementById("btn-bib-voz").addEventListener("click", async ev => {
+        const texto = document.getElementById("bib-texto").value.trim();
+        const nome = document.getElementById("bib-nome").value.trim() || ("voz_" + Date.now());
+        if (!texto) { aviso("Digite o texto", true); return; }
+        const btn = ev.target; btn.disabled = true; btn.textContent = "Gerando...";
+        const d = await postJSON("/api/som/falar", { texto, salvar_como: nome, voz: vozTTS() });
+        btn.disabled = false; btn.textContent = "💾 Gerar e salvar";
+        if (!d.ok) { aviso("Erro: " + d.erro, true); return; }
+        avisoFala(d, "Salvo: " + d.salvo);
+        document.getElementById("bib-texto").value = "";
+        carregarSons();
+      });
+      carregarSons();
+    }
+
+    const btnGeral = document.getElementById("btn-alerta-geral");
+    let alertaGeralLigado = false;
+    if (btnGeral) btnGeral.addEventListener("click", async () => {
+      if (alertaGeralLigado) {
+        const d = await postJSON("/api/alerta_geral", { ligar: false });
+        if (d.ok) aviso("Alerta geral desligado"); else aviso("Erro: " + (d.erro || JSON.stringify(d.erros)), true);
+        return;
+      }
+      if (!confirm("Ligar a luz de alerta + sirene em TODAS as câmeras por 15 s?")) return;
+      const d = await postJSON("/api/alerta_geral", { ligar: true, segundos: 15, som: "" });
+      const erros = Object.entries(d.erros || {}).map(([c, e]) => c + ": " + e).join(" | ");
+      if (d.ok) aviso("🚨 Alerta geral em " + d.cameras.join(", ") + (erros ? " — " + erros : ""), !!erros);
+      else aviso("Alerta não ligou: " + (erros || d.erro), true);
+    });
+
+    function preencherSelectSons(sel) {
+      const atual = sel.value;
+      sel.innerHTML = "";
+      const o0 = document.createElement("option"); o0.value = ""; o0.textContent = "Sirene de teste (4 s)"; sel.appendChild(o0);
+      SONS.forEach(s => {
+        const o = document.createElement("option"); o.value = s.nome;
+        o.textContent = s.nome + (s.segundos != null ? "  (" + s.segundos + " s)" : "  (inválido)");
+        sel.appendChild(o);
+      });
+      if ([...sel.options].some(o => o.value === atual)) sel.value = atual;
+    }
+
+    async function carregarSons() {
+      try { SONS = await (await fetch("/api/sons", { cache: "no-store" })).json(); } catch (e) { return; }
+      const lista = document.getElementById("lista-sons");
+      if (lista) {
+        lista.innerHTML = "";
+        document.getElementById("sons-vazio").hidden = SONS.length > 0;
+        SONS.forEach(s => {
+          const li = document.createElement("li");
+          const nome = document.createElement("span"); nome.className = "nome"; nome.textContent = s.nome; nome.title = s.nome;
+          const dur = document.createElement("span"); dur.className = "dur"; dur.textContent = s.segundos != null ? s.segundos + " s" : "inválido";
+          const ouvir = document.createElement("button"); ouvir.textContent = "🎧"; ouvir.title = "Ouvir aqui no navegador";
+          ouvir.addEventListener("click", () => { const p = document.getElementById("previa"); p.src = "/sons/" + encodeURIComponent(s.nome); p.play().catch(() => {}); });
+          const todas = document.createElement("button"); todas.textContent = "▶ Todas"; todas.title = "Tocar em todas as câmeras";
+          todas.addEventListener("click", () => tocar(s.nome, "todas"));
+          const apagar = document.createElement("button"); apagar.textContent = "🗑"; apagar.className = "btn-perigo"; apagar.title = "Apagar";
+          apagar.addEventListener("click", async () => {
+            if (!confirm("Apagar " + s.nome + "?")) return;
+            const d = await (await fetch("/api/sons/" + encodeURIComponent(s.nome), { method: "DELETE" })).json();
+            if (!d.ok) aviso("Erro: " + d.erro, true); else aviso("Apagado");
+            carregarSons();
+          });
+          li.append(nome, dur, ouvir, todas, apagar);
+          lista.appendChild(li);
+        });
+      }
+      document.querySelectorAll(".xm-som").forEach(preencherSelectSons);
+    }
+
+    async function tocar(arquivo, cams) {
+      const d = await postJSON("/api/som/tocar", { arquivo: arquivo || null, cams });
+      const erros = Object.entries(d.erros || {}).map(([c, e]) => c + ": " + e).join(" | ");
+      if (d.ok) aviso("Tocando (" + d.segundos + " s) em " + d.tocando_em.join(", ") + (erros ? " — " + erros : ""), !!erros);
+      else aviso("Não tocou: " + (erros || d.erro), true);
+    }
+
+    function configurarXM(c) {
+      const cid = c.dataset.cid;
+      const q = s => c.querySelector(s);
+      const resp = (d, ok) => { if (d.ok) aviso(ok(d) + (d.aviso ? " — " + d.aviso : ""), !!d.aviso); else aviso("Erro: " + d.erro, true); };
+
+      q(".btn-xm-tentar").addEventListener("click", async () => {
+        await postJSON("/api/xm/" + cid + "/tentar");
+        aviso("Ok, vai tentar conectar (respeitando a trava anti-bloqueio)");
+      });
+      q(".btn-xm-recarregar").addEventListener("click", async () => {
+        const d = await postJSON("/api/xm/" + cid + "/recarregar");
+        resp(d, () => "Configurações lidas da câmera");
+      });
+      q(".btn-xm-tocar").addEventListener("click", () => tocar(q(".xm-som").value, [cid]));
+
+      const swSom = q(".sw-alerta-som");
+      swSom.checked = salvo.ler("alertaSom." + cid, false);
+      swSom.addEventListener("change", () => salvo.gravar("alertaSom." + cid, swSom.checked));
+      c.querySelectorAll(".btn-alerta").forEach(b => b.addEventListener("click", async () => {
+        const segundos = Number(b.dataset.s);
+        const corpo = { ligar: true, segundos };
+        if (swSom.checked) corpo.som = q(".xm-som").value;      // "" = sirene de teste
+        const d = await postJSON("/api/xm/" + cid + "/alerta", corpo);
+        resp(d, () => "Luz de alerta ligada" + (segundos ? " por " + segundos + " s" : " (até desligar, máx. 10 min)"));
+      }));
+      q(".btn-alerta-off").addEventListener("click", async () => {
+        const d = await postJSON("/api/xm/" + cid + "/alerta", { ligar: false });
+        resp(d, () => "Luz de alerta desligada");
+      });
+      q(".btn-xm-parar").addEventListener("click", async () => { await postJSON("/api/xm/" + cid + "/parar"); aviso("Parando..."); });
+
+      const falar = async () => {
+        const texto = q(".xm-texto").value.trim();
+        if (!texto) { aviso("Digite a frase", true); return; }
+        const btn = q(".btn-xm-falar"); btn.disabled = true; btn.textContent = "Gerando...";
+        const d = await postJSON("/api/som/falar", { texto, cams: [cid], voz: vozTTS() });
+        btn.disabled = false; btn.textContent = "🗣 Falar";
+        if (!d.ok) aviso("Erro: " + (d.erro || Object.values(d.erros || {}).join(" ")), true);
+        else avisoFala(d, "Falando");
+      };
+      q(".btn-xm-falar").addEventListener("click", falar);
+      q(".xm-texto").addEventListener("keydown", e => { if (e.key === "Enter") falar(); });
+
+      [".xm-volume", ".xm-luz-brilho"].forEach(sel => {
+        const el = q(sel);
+        el.addEventListener("input", () => { el.dataset.mexendo = "1"; q(sel + "-v").textContent = el.value; });
+      });
+      q(".xm-volume").addEventListener("change", async e => {
+        const d = await postJSON("/api/xm/" + cid + "/volume", { volume: Number(e.target.value) });
+        delete e.target.dataset.mexendo;
+        resp(d, d => "Volume: " + d.volume);
+      });
+      q(".xm-luz-brilho").addEventListener("change", async e => {
+        const d = await postJSON("/api/xm/" + cid + "/luz", { brilho: Number(e.target.value) });
+        delete e.target.dataset.mexendo;
+        resp(d, d => "Brilho: " + d.luz.brilho);
+      });
+      ["focus", "blur"].forEach(ev => {
+        q(".xm-luz-modo").addEventListener(ev, e => { if (ev === "focus") e.target.dataset.mexendo = "1"; else delete e.target.dataset.mexendo; });
+        q(".xm-alarme-voz").addEventListener(ev, e => { if (ev === "focus") e.target.dataset.mexendo = "1"; else delete e.target.dataset.mexendo; });
+      });
+      q(".xm-luz-modo").addEventListener("change", async e => {
+        const d = await postJSON("/api/xm/" + cid + "/luz", { modo: e.target.value });
+        delete e.target.dataset.mexendo;
+        resp(d, d => "Luz: " + d.luz.modo);
+      });
+      q(".xm-alarme-voz").addEventListener("change", async e => {
+        delete e.target.dataset.mexendo;
+        if (!q(".sw-alarme").checked) return;          // só grava com o alarme ligado
+        const d = await postJSON("/api/xm/" + cid + "/alarme", { ligado: true, voz: Number(e.target.value) });
+        resp(d, () => "Som do alarme trocado");
+      });
+    }
+
+    function mostrarXM(c, xm) {
+      if (!xm) return;
+      const q = s => c.querySelector(s);
+      const est = q(".estado-xm"), erro = q(".xm-erro");
+      if (xm.logada) {
+        est.textContent = "conectada desde " + xm.desde; est.className = "estado-xm ok"; erro.hidden = true;
+      } else {
+        est.textContent = xm.estado === "parada" ? "parada" : "aguardando"; est.className = "estado-xm erro";
+        erro.hidden = false;
+        erro.textContent = (xm.erro || "") + (xm.proxima_tentativa && xm.estado !== "parada" ? " · próxima tentativa " + xm.proxima_tentativa : "");
+      }
+      q(".btn-xm-tentar").hidden = xm.logada || xm.estado !== "parada";
+      q(".xm-corpo").classList.toggle("desligado", !xm.logada);
+      q(".xm-tocando").textContent = xm.falando ? "🔊 tocando: " + xm.falando.som + " (" + xm.falando.resta + " s)" : "";
+
+      const vol = q(".xm-volume");
+      if (!vol.dataset.mexendo && xm.volume != null) { vol.value = xm.volume; q(".xm-volume-v").textContent = xm.volume; }
+
+      q(".xm-luz-bloco").hidden = !xm.luz;
+      if (xm.luz) {
+        q(".xm-luz-atual").textContent = xm.luz.modo || "-";
+        const modo = q(".xm-luz-modo");
+        if (!modo.dataset.mexendo && xm.luz.modo) {
+          if (![...modo.options].some(o => o.value === xm.luz.modo)) {
+            const o = document.createElement("option"); o.value = xm.luz.modo; o.textContent = xm.luz.modo + " (lido da câmera)"; modo.appendChild(o);
+          }
+          modo.value = xm.luz.modo;
+        }
+        const br = q(".xm-luz-brilho");
+        if (!br.dataset.mexendo && xm.luz.brilho != null) { br.value = xm.luz.brilho; q(".xm-luz-brilho-v").textContent = xm.luz.brilho; }
+      }
+
+      const selVoz = q(".xm-alarme-voz");
+      if (selVoz.options.length !== (xm.vozes || []).length) {
+        selVoz.innerHTML = "";
+        (xm.vozes || []).forEach(v => { const o = document.createElement("option"); o.value = v.id; o.textContent = v.texto + " (" + v.id + ")"; selVoz.appendChild(o); });
+      }
+      if (xm.alarme && xm.alarme.voz != null && !selVoz.dataset.mexendo) selVoz.value = xm.alarme.voz;
+      const swA = q(".sw-alarme");
+      if (!c._pend[".sw-alarme"]) swA.checked = !!(xm.alarme && xm.alarme.ligado);
+      swA.disabled = !xm.alarme;
+
+      const al = xm.alerta;
+      q(".xm-alerta-bloco").hidden = !al;
+      const ligada = !!(al && al.ligada);
+      q(".badge.alerta").hidden = !ligada;
+      q(".xm-alerta-estado").textContent = ligada ? "acesa" + (al.resta != null ? " · apaga em " + al.resta + " s" : "") : "";
+      c.querySelectorAll(".btn-alerta").forEach(b => b.classList.remove("ativo"));
+      c._alertaLigada = ligada;
+
+      q(".xm-led-linha").hidden = xm.led === null || xm.led === undefined;
+      if (!c._pend[".sw-led"]) q(".sw-led").checked = !!xm.led;
+    }
+
+
+    // =============================================================
+    //  Cartão SD
+    // =============================================================
+    function configurarSD(c) {
+      const q = s => c.querySelector(s), cid = c.dataset.cid;
+      q(".sd-dia").addEventListener("change", () => carregarSD(c));
+      q(".sd-filtro").addEventListener("change", () => desenharSD(c));
+      q(".btn-sd-atualizar").addEventListener("click", () => carregarSD(c, true));
+      q(".btn-sd-cancelar").addEventListener("click", async () => {
+        await postJSON("/api/sd/" + cid + "/cancelar"); aviso("Cancelando download...");
+      });
+    }
+
+    async function carregarSD(c, forcar) {
+      const q = s => c.querySelector(s), cid = c.dataset.cid;
+      const lista = q(".sd-lista"), vazio = q(".sd-vazio");
+      if (!c._sdInfo || forcar) {
+        q(".sd-cartao").textContent = "lendo o cartão...";
+        try {
+          const d = await (await fetch("/api/sd/" + cid + "/info" + (forcar ? "?forcar=1" : ""), { cache: "no-store" })).json();
+          if (!d.ok) { q(".sd-cartao").textContent = "⚠ " + d.erro; return; }
+          c._sdInfo = d;
+          if (!q(".sd-dia").value) q(".sd-dia").value = d.hoje;
+          q(".sd-dia").max = d.hoje;
+          q(".sd-cartao").textContent = d.cartao
+            ? "Cartão " + (d.cartao.total_mb / 1024).toFixed(1) + " GB" + (d.cartao.livre_mb < 200 ? " (cheio: grava por cima do mais antigo)" : ", livre " + (d.cartao.livre_mb / 1024).toFixed(1) + " GB")
+              + (d.copias ? " · " + d.copias + " cópia(s) no PC, " + d.copias_mb + " MB" : "")
+            : "⚠ a câmera não informou cartão SD";
+        } catch (e) { q(".sd-cartao").textContent = "⚠ servidor fora do ar"; return; }
+      }
+      lista.innerHTML = '<li class="sep">carregando...</li>';
+      vazio.hidden = true;
+      try {
+        const url = "/api/sd/" + cid + "/lista?dia=" + q(".sd-dia").value + (forcar ? "&forcar=1" : "");
+        const d = await (await fetch(url, { cache: "no-store" })).json();
+        if (!d.ok) { lista.innerHTML = ""; vazio.hidden = false; vazio.textContent = "⚠ " + d.erro; return; }
+        c._sdLista = d.arquivos;
+        c._sdDia = d.dia;
+        desenharSD(c);
+      } catch (e) { lista.innerHTML = ""; vazio.hidden = false; vazio.textContent = "⚠ servidor fora do ar"; }
+    }
+
+    function desenharSD(c) {
+      const q = s => c.querySelector(s);
+      const lista = q(".sd-lista"), vazio = q(".sd-vazio");
+      const filtro = q(".sd-filtro").value;
+      let arqs = c._sdLista || [];
+      if (filtro === "baixadas") arqs = arqs.filter(a => a.baixado);
+      else if (filtro) arqs = arqs.filter(a => a.tipo === filtro);
+      lista.innerHTML = "";
+      vazio.hidden = arqs.length > 0;
+      vazio.textContent = (c._sdLista || []).length ? "Nada com esse filtro." : "Nenhuma gravação nesse dia.";
+      let horaAtual = null;
+      arqs.forEach(a => {
+        const h = (a.inicio || "").slice(11, 13);
+        if (h !== horaAtual) {
+          horaAtual = h;
+          const sep = document.createElement("li"); sep.className = "sep"; sep.textContent = h + ":00";
+          lista.appendChild(sep);
+        }
+        const li = document.createElement("li");
+        li.dataset.id = a.id;
+        const hora = document.createElement("span"); hora.className = "hora";
+        hora.textContent = (a.inicio || "").slice(11) + " → " + (a.fim || "").slice(11);
+        const tag = document.createElement("span"); tag.className = "tag" + (a.tipo === "Movimento" ? " mov" : "");
+        tag.textContent = a.tipo;
+        const dir = document.createElement("span"); dir.className = "direita";
+        const mb = document.createElement("span"); mb.className = "sec"; mb.textContent = (a.kb / 1024).toFixed(1) + " MB";
+        dir.appendChild(mb);
+        if (a.baixado) {
+          const ok = document.createElement("span"); ok.className = "tag ok"; ok.textContent = "no PC";
+          const baixar = document.createElement("a"); baixar.href = a.url; baixar.download = ""; baixar.textContent = "salvar";
+          baixar.addEventListener("click", e => e.stopPropagation());
+          const apagar = document.createElement("button"); apagar.className = "btn-perigo"; apagar.textContent = "🗑"; apagar.title = "Apagar a cópia do PC (no cartão continua)";
+          apagar.addEventListener("click", async e => {
+            e.stopPropagation();
+            const r = await fetch("/api/sd/" + c.dataset.cid + "/copia/" + encodeURIComponent(a.id), { method: "DELETE" });
+            const d = await r.json();
+            if (d.ok) { aviso("Cópia apagada (no cartão continua)"); a.baixado = false; a.url = null; c._sdInfo = null; carregarSD(c); }
+            else aviso("Erro: " + d.erro, true);
+          });
+          dir.append(ok, baixar, apagar);
+        } else {
+          const bx = document.createElement("button"); bx.textContent = "⬇ Assistir"; bx.title = "Baixar do cartão e assistir";
+          dir.appendChild(bx);
+        }
+        li.append(hora, tag, dir);
+        li.addEventListener("click", () => abrirSD(c, a));
+        lista.appendChild(li);
+      });
+    }
+
+    function tocarSD(c, url, a) {
+      const p = c.querySelector(".player-sd");
+      p.src = url;
+      p.classList.add("visivel");
+      p.play().catch(() => {});
+      c.querySelectorAll(".sd-lista li").forEach(x => x.classList.toggle("tocando", a && x.dataset.id === a.id));
+      p.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    async function abrirSD(c, a) {
+      if (a.baixado && a.url) { tocarSD(c, a.url, a); return; }
+      const d = await postJSON("/api/sd/" + c.dataset.cid + "/baixar", { nome: a.nome, dia: c._sdDia });
+      if (!d.ok) { aviso("Erro: " + d.erro, true); return; }
+      if (d.pronto) { a.baixado = true; a.url = d.url; tocarSD(c, d.url, a); desenharSD(c); return; }
+      c._sdEsperando = a;
+      aviso("Baixando do cartão: " + (a.inicio || "").slice(11) + " (" + (a.kb / 1024).toFixed(1) + " MB)");
+    }
+
+    function mostrarTarefaSD(c, t) {
+      const caixa = c.querySelector(".sd-tarefa");
+      if (!caixa) return;
+      const ativa = t && ["na fila", "baixando", "convertendo"].includes(t.estado);
+      caixa.hidden = !ativa;
+      if (ativa) {
+        const pct = t.esperado ? Math.min(100, Math.round(t.recebido * 100 / t.esperado)) : 0;
+        caixa.classList.toggle("convertendo", t.estado === "convertendo");
+        c.querySelector(".sd-tarefa-txt").textContent = t.estado === "convertendo"
+          ? "Convertendo " + (t.inicio || "").slice(11) + " para assistir..."
+          : "Baixando " + (t.inicio || "").slice(11) + ": " + (t.recebido / 1048576).toFixed(1) + " de " + (t.esperado / 1048576).toFixed(1) + " MB (" + pct + "%)";
+        c.querySelector(".sd-tarefa .enche").style.width = (t.estado === "convertendo" ? 100 : pct) + "%";
+      }
+      const esp = c._sdEsperando;
+      if (esp && t && t.nome === esp.nome && !ativa) {
+        c._sdEsperando = null;
+        if (t.estado === "pronto") {
+          esp.baixado = true; esp.url = t.url;
+          desenharSD(c);
+          tocarSD(c, t.url, esp);
+          aviso("Pronto" + (t.com_audio === false ? " (sem áudio)" : ""));
+          c._sdInfo = null;
+        } else if (t.estado === "erro") aviso("Não baixou: " + t.erro, true);
+        else if (t.estado === "cancelado") aviso("Download cancelado");
+      }
+    }
+
+    // =============================================================
+    //  Status (1x por segundo)
+    // =============================================================
+    function mostrarIA(c, ia) {
+      const q = s => c.querySelector(s);
+      const sw = q(".sw-ia"), swG = q(".sw-grav-auto");
+      const cont = q(".contador"), det = q(".ia-detalhe");
+      if (!ia || !ia.disponivel) {
+        sw.disabled = true; sw.checked = false;
+        cont.textContent = "IA indisponível"; cont.className = "contador";
+        det.textContent = ia ? (ia.erro || "") : "";
+      } else {
+        if (!c._pend[".sw-ia"]) { sw.checked = ia.ativa; sw.disabled = false; }
+        const swAl = q(".sw-ia-alerta");
+        if (swAl && !c._pend[".sw-ia-alerta"]) swAl.checked = !!ia.so_com_alerta;
+        if (ia.ativa && ia.aguardando_alerta) {
+          cont.textContent = "aguardando a câmera"; cont.className = "contador";
+          det.textContent = "Ligada, mas só analisa quando a câmera detectar (economiza o PC).";
+        } else if (ia.ativa) {
+          cont.textContent = ia.pessoas === 1 ? "1 pessoa" : ia.pessoas + " pessoas";
+          cont.className = "contador" + (ia.presenca ? " alerta" : "");
+          det.textContent = ia.ms_por_deteccao + " ms por análise · " + ia.deteccoes_por_s + " análises/s";
+        } else { cont.textContent = "desligada"; cont.className = "contador"; det.textContent = ""; }
+      }
+      if (swG) {
+        if (!c._pend[".sw-grav-auto"]) swG.checked = !!(ia && ia.gravar_auto);
+        swG.disabled = !(ia && ia.gravacao_disponivel);
+      }
+      c._manual = !!(ia && ia.gravacao_manual);
+      const bg = q(".btn-gravar");
+      if (bg) {
+        bg.classList.toggle("ativo", c._manual);
+        bg.textContent = c._manual ? "⏹ Parar gravação" : "⏺ Gravar";
+        bg.hidden = !(ia && ia.gravacao_disponivel);
+      }
+      q(".badge.rec").hidden = !(ia && ia.gravando);
+      q(".badge.ia").hidden = !(ia && ia.ativa);
+      const bp = q(".badge.pessoa");
+      bp.hidden = !(ia && ia.ativa && ia.pessoas > 0);
+      bp.textContent = "👤 " + (ia ? ia.pessoas : 0);
+      c.classList.toggle("alerta", !!(ia && ia.ativa && ia.presenca));
+
+      if (c._presenca !== undefined && ia && ia.presenca !== c._presenca) {
+        carregarEventos(c);
+        if (ia.presenca) { aviso("Pessoa detectada: " + c.querySelector("h2").textContent); carregarGaleria(c); }
+      }
+      c._presenca = ia ? ia.presenca : false;
+      const gravando = !!(ia && ia.gravando);
+      if (c._gravando && !gravando) carregarGravacoes(c);
+      c._gravando = gravando;
+    }
+
+    // =============================================================
+    //  Rostos (reconhecimento facial)
+    // =============================================================
+    function configurarRosto(c) {
+      const cid = c.dataset.cid, q = s => c.querySelector(s);
+      const btn = q(".btn-rosto-cadastrar"), nome = q(".rosto-nome");
+      async function cadastrar() {
+        const n = nome.value.trim();
+        if (!n) { aviso("Digite o nome da pessoa", true); nome.focus(); return; }
+        btn.disabled = true;
+        const d = await postJSON("/api/rosto/" + cid + "/cadastrar", { nome: n, negado: q(".sw-rosto-negado").checked });
+        btn.disabled = false;
+        if (!d.ok) { aviso("Erro: " + d.erro, true); return; }
+        q(".rosto-cad-res").textContent = "";
+        aviso("Cadastrando " + n + ": olhe para a câmera");
+      }
+      btn.addEventListener("click", cadastrar);
+      nome.addEventListener("keydown", e => { if (e.key === "Enter") cadastrar(); });
+      q(".btn-rosto-cancelar").addEventListener("click", () => postJSON("/api/rosto/" + cid + "/cancelar"));
+    }
+
+    function textoRosto(r) {
+      if (r.status === "permitido") return r.nome + " " + Math.round(r.sim * 100) + "%";
+      if (r.status === "negado") return r.nome + " (negado)";
+      if (r.status === "desconhecido") return "desconhecido";
+      if (r.nome === "cadastro") return "cadastrando";
+      return "analisando...";
+    }
+
+    function mostrarRosto(c, r) {
+      const q = s => c.querySelector(s);
+      const sw = q(".sw-rosto"), swA = q(".sw-rosto-acoes");
+      const cont = q(".rosto-agora"), det = q(".rosto-detalhe"), badge = q(".badge.rosto");
+      if (!r || !r.disponivel) {
+        sw.disabled = true; sw.checked = false; swA.disabled = true;
+        cont.textContent = "indisponível"; cont.className = "contador rosto-agora";
+        det.textContent = r ? (r.erro || "") : "";
+        badge.hidden = true;
+        return;
+      }
+      if (!c._pend[".sw-rosto"]) { sw.checked = r.ativo; sw.disabled = false; }
+      if (!c._pend[".sw-rosto-acoes"]) { swA.checked = r.acoes; swA.disabled = !r.tem_acoes; }
+      const swRA = q(".sw-rosto-alerta");
+      if (swRA && !c._pend[".sw-rosto-alerta"]) swRA.checked = !!r.so_com_alerta;
+      q(".rosto-acoes-dica").textContent = !r.tem_acoes
+        ? "Esta câmera não tem alto-falante/luz: só registra os acessos."
+        : (r.ultima_acao ? "Última ação: " + r.ultima_acao : "");
+
+      let classe = "", texto = "desligado";
+      if (r.ativo) {
+        const lib = r.rostos.find(x => x.status === "permitido");
+        const neg = r.rostos.find(x => x.status === "negado" || x.status === "desconhecido");
+        texto = r.rostos.length ? r.rostos.map(textoRosto).join(" · ") : "ninguém";
+        classe = lib ? "lib" : (neg ? "neg" : "");
+        det.textContent = r.aguardando_alerta
+          ? "Ligado, aguardando a câmera detectar (não analisa nada até lá)."
+          : r.por_s + " análises/s · " + r.ms + " ms · imagem de " + r.largura + " px · "
+            + r.pessoas + (r.pessoas === 1 ? " pessoa cadastrada" : " pessoas cadastradas");
+      } else {
+        det.textContent = r.pessoas ? "" : "Cadastre as pessoas permitidas abaixo. Quem não estiver cadastrado é NEGADO.";
+      }
+      cont.textContent = texto;
+      cont.className = "contador rosto-agora" + (classe ? " " + classe : "");
+      badge.hidden = !r.ativo;
+      badge.className = "badge rosto" + (classe ? " " + classe : "");
+      badge.textContent = r.ativo ? "🙂 " + (r.rostos.length ? textoRosto(r.rostos[0]) : "rostos") : "";
+
+      // cadastro em andamento / resultado
+      const cad = r.cadastro, box = q(".rosto-cad"), res = q(".rosto-cad-res");
+      const capturando = !!(cad && cad.estado === "capturando");
+      box.hidden = !(cad && (capturando || cad.estado === "salvando"));
+      q(".btn-rosto-cadastrar").disabled = capturando;
+      if (cad && !box.hidden) {
+        q(".rosto-cad .enche").style.width = Math.round(100 * cad.amostras / cad.total) + "%";
+        q(".rosto-cad-msg").textContent = cad.nome + ": " + cad.amostras + "/" + cad.total + " · " + cad.msg;
+      }
+      if (cad && c._cadEstado === "capturando" || cad && c._cadEstado === "salvando") {
+        if (cad.estado === "ok") {
+          const x = cad.resultado;
+          res.className = "dica rosto-cad-res";
+          res.innerHTML = "";
+          res.append("✅ " + x.nome + " " + (x.somou ? "(amostras somadas)" : "cadastrado") + " como "
+                     + (x.permitido ? "PERMITIDO" : "NEGADO") + " · " + x.aproveitadas + " fotos · semelhança "
+                     + x.semelhanca_media + (x.semelhanca_media >= 0.45 ? " (boa)" : " (fraca: refaça mais perto)"));
+          if (x.alerta_parecido) {
+            res.append(document.createElement("br"));
+            res.append("⚠ parecido demais com " + x.mais_parecido + " (" + x.semelhanca_outro + ")");
+          }
+          q(".rosto-nome").value = "";
+          aviso(x.nome + " cadastrado");
+          carregarPessoas();
+        } else if (cad.estado === "erro" || cad.estado === "cancelado") {
+          res.className = "dica rosto-cad-res erro";
+          res.textContent = "Não cadastrou: " + cad.msg;
+          if (cad.estado === "erro") aviso("Cadastro: " + cad.msg, true);
+        }
+      }
+      c._cadEstado = cad ? cad.estado : null;
+
+      // novo acesso
+      const ev = r.ultimo_evento, chaveEv = ev ? ev.hora + ev.status + ev.nome : null;
+      if (c._ultEv !== undefined && chaveEv && chaveEv !== c._ultEv) {
+        const lib = ev.status === "permitido";
+        aviso((lib ? "✅ " + ev.nome + ": acesso liberado" : "⛔ " + (ev.nome || "Desconhecido") + ": acesso negado")
+              + " (" + c.querySelector("h2").textContent + ")", !lib);
+        c.classList.add(lib ? "flash-lib" : "flash-neg");
+        setTimeout(() => c.classList.remove("flash-lib", "flash-neg"), 3000);
+        carregarRostoEventos(c);
+      } else if (ev && ev.acao && c._ultAcao !== ev.acao) {
+        carregarRostoEventos(c);          // a ação (voz/luz) terminou depois do evento
+      }
+      c._ultEv = chaveEv;
+      c._ultAcao = ev ? ev.acao : null;
+    }
+
+    async function carregarRostoEventos(c) {
+      const lista = c.querySelector(".rosto-eventos");
+      if (!lista) return;
+      try {
+        const eventos = await (await fetch("/api/rosto/" + c.dataset.cid + "/eventos", { cache: "no-store" })).json();
+        lista.innerHTML = "";
+        c.querySelector(".rosto-eventos-vazio").hidden = eventos.length > 0;
+        eventos.forEach(ev => {
+          const li = document.createElement("li");
+          const h = document.createElement("span"); h.className = "hora"; h.textContent = ev.hora.slice(11);
+          const t = document.createElement("span");
+          const lib = ev.status === "permitido";
+          t.className = "tag " + (lib ? "lib" : "neg"); t.textContent = lib ? "LIBERADO" : "NEGADO";
+          const n = document.createElement("span");
+          n.textContent = (ev.nome || "desconhecido") + " · " + Math.round(ev.sim * 100) + "%";
+          li.append(h, t, n);
+          if (ev.acao) { const a = document.createElement("span"); a.className = "acao"; a.textContent = ev.acao; li.append(a); }
+          const dir = document.createElement("span"); dir.className = "direita";
+          if (ev.foto) { const a = document.createElement("a"); a.href = ev.foto; a.target = "_blank"; a.textContent = "ver foto"; dir.append(a); }
+          li.append(dir);
+          lista.appendChild(li);
+        });
+      } catch (e) { /* ignora */ }
+    }
+
+    async function carregarPessoas() {
+      let pessoas;
+      try { pessoas = await (await fetch("/api/rostos/pessoas", { cache: "no-store" })).json(); }
+      catch (e) { return; }
+      CARDS.filter(c => c.dataset.rosto === "1").forEach(c => {
+        const lista = c.querySelector(".pessoas");
+        lista.innerHTML = "";
+        c.querySelector(".pessoas-vazio").hidden = pessoas.length > 0;
+        pessoas.forEach(p => {
+          const li = document.createElement("li");
+          const img = document.createElement("img");
+          if (p.miniatura) img.src = p.miniatura + "?v=" + p.fotos;
+          img.alt = "";
+          const nm = document.createElement("span"); nm.className = "nome"; nm.textContent = p.nome;
+          const qt = document.createElement("span"); qt.className = "sec"; qt.textContent = p.fotos + " fotos";
+          const dir = document.createElement("span"); dir.className = "direita";
+          const ch = document.createElement("label"); ch.className = "chave";
+          ch.title = "Permitido (desligado = negado)";
+          const inp = document.createElement("input"); inp.type = "checkbox"; inp.checked = p.permitido;
+          const tr = document.createElement("span"); tr.className = "trilho";
+          const rt = document.createElement("span"); rt.className = "rot"; rt.textContent = p.permitido ? "permitido" : "negado";
+          ch.append(inp, tr, rt);
+          inp.addEventListener("change", async () => {
+            inp.disabled = true;
+            const r = await fetch("/api/rostos/pessoas/" + encodeURIComponent(p.nome), {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ permitido: inp.checked }) });
+            const d = await r.json().catch(() => ({ ok: false, erro: "HTTP " + r.status }));
+            if (!d.ok) aviso("Erro: " + d.erro, true);
+            else aviso(p.nome + (inp.checked ? " agora é PERMITIDO" : " agora é NEGADO"));
+            carregarPessoas();
+          });
+          const del = document.createElement("button"); del.textContent = "🗑"; del.title = "Remover do cadastro";
+          del.addEventListener("click", async () => {
+            if (!confirm("Remover " + p.nome + " do cadastro? (as fotos vão para rostos\\removidos)")) return;
+            const r = await fetch("/api/rostos/pessoas/" + encodeURIComponent(p.nome), { method: "DELETE" });
+            const d = await r.json().catch(() => ({ ok: false, erro: "HTTP " + r.status }));
+            if (!d.ok) aviso("Erro: " + d.erro, true); else aviso(p.nome + " removido");
+            carregarPessoas();
+          });
+          dir.append(ch, del);
+          li.append(img, nm, qt, dir);
+          lista.appendChild(li);
+        });
+      });
+    }
+
+    async function atualizarStatus() {
+      let dados;
+      try { dados = await (await fetch("/status", { cache: "no-store" })).json(); }
+      catch (e) {
+        CARDS.forEach(c => { c.querySelector(".ponto").className = "ponto offline"; c.querySelector(".texto-status").textContent = "servidor fora do ar"; });
+        document.getElementById("resumo").textContent = "servidor fora do ar";
+        return;
+      }
+      let online = 0;
+      CARDS.forEach(c => {
+        const s = dados[c.dataset.cid];
+        if (!s) return;
+        if (s.online) online++;
+        const q = sel => c.querySelector(sel);
+        const estado = s.pausada ? "pausada" : (s.online ? "online" : "offline");
+        q(".ponto").className = "ponto " + estado;
+        const chip = document.querySelector('.chip[data-cid="' + c.dataset.cid + '"] .ponto');
+        if (chip) chip.className = "ponto " + estado;
+        q(".texto-status").textContent = s.pausada ? "em pausa" : (s.online ? "ao vivo" : "offline");
+        q(".sobre-info").textContent = s.online && s.largura ? s.largura + "×" + s.altura + " · " + s.fps + " fps" : "-";
+        c.querySelectorAll(".btn-stream").forEach(b => b.classList.toggle("ativo", Number(b.dataset.stream) === s.stream));
+        if (s.online && s.largura && s.altura) {          // 2 lentes = quadro mais alto que largo (2304x2592)
+          const duas = s.altura / s.largura > 0.9;
+          if (duas !== c._duas) { c._duas = duas; c._aplicaLente(); }
+        }
+        c.querySelectorAll(".linha-lente-det").forEach(l => { l.hidden = !c._duas; });
+        if (s.lente_det) {
+          c._lenteDet = s.lente_det;
+          c.querySelectorAll(".btn-lente-det").forEach(x => x.classList.toggle("ativo", x.dataset.lente === s.lente_det));
+        }
+        const msg = q(".msg-offline");
+        if (!s.online && !s.pausada && s.erro) { msg.textContent = s.erro; msg.classList.add("visivel"); } else msg.classList.remove("visivel");
+        if (c.dataset.ia === "1") mostrarIA(c, s.ia);
+        if (c.dataset.rosto === "1") mostrarRosto(c, s.rosto);
+        if (c.dataset.xm === "1") { mostrarXM(c, s.xm); mostrarTarefaSD(c, s.sd); }
+      });
+      document.getElementById("resumo").textContent = online + " de " + CARDS.length + " online";
+      if (btnGeral) {
+        alertaGeralLigado = CARDS.some(c => c._alertaLigada);
+        btnGeral.classList.toggle("ativo", alertaGeralLigado);
+        btnGeral.textContent = alertaGeralLigado ? "⏹ Parar alerta" : "🚨 Alerta geral";
+      }
+    }
+
+    // =============================================================
+    //  Alertas da PRÓPRIA câmera (detecção de corpo humano do app)
+    // =============================================================
+    let ultimoSeqAlerta = null;
+    function mostrarModoAlerta(c, d) {
+      const el = c.querySelector(".modo-alerta-info");
+      if (!el || !d) return;
+      if (d.modo) c.querySelectorAll(".btn-modo-alerta").forEach(x => x.classList.toggle("ativo", x.dataset.modo === d.modo));
+      const k = d.camera;
+      c.querySelectorAll(".btn-modo-alerta").forEach(x => { x.disabled = !!(k && k.ligado === false); });
+      el.textContent = k && k.ligado === false
+        ? "Ligue o Alarme inteligente para escolher o tipo."
+        : k
+        ? "Na câmera agora: humano " + (k.humano ? "LIGADO" : "desligado") + " · movimento " + (k.movimento ? "LIGADO" : "desligado")
+          + " · blocos de detecção: " + k.blocos_humano + " (humano) / " + k.blocos_movimento + " (movimento)"
+          + (k.humano ? " → a câmera manda só alertas de PESSOA" : (k.movimento ? " → a câmera manda alerta de QUALQUER movimento" : " → a câmera não está detectando nada"))
+        : (d.erro ? "⚠ " + d.erro : "");
+    }
+    async function carregarModoAlerta(c) {
+      try {
+        const d = await (await fetch("/api/alertas_camera/" + c.dataset.cid + "/modo", { cache: "no-store" })).json();
+        mostrarModoAlerta(c, d);
+      } catch (e) { /* ignora */ }
+    }
+    async function atualizarAlertasCam() {
+      if (!document.querySelector(".lista.alertas")) return;
+      let d;
+      try { d = await (await fetch("/api/alertas_camera", { cache: "no-store" })).json(); }
+      catch (e) { return; }
+      const itens = d.itens || [];
+      if (ultimoSeqAlerta !== null) {
+        itens.filter(e => e.seq > ultimoSeqAlerta && e.status !== "Stop")
+             .slice(0, 3).forEach(e => aviso("🔔 " + e.nome + ": " + e.texto));
+      }
+      ultimoSeqAlerta = d.ultimo || 0;
+      CARDS.forEach(c => {
+        const lista = c.querySelector(".lista.alertas");
+        if (!lista) return;
+        const cid = c.dataset.cid;
+        const meus = itens.filter(e => e.cid === cid);
+        const info = (d.info || {})[cid] || {};
+        const est = c.querySelector(".alertas-estado");
+        const camCfg = info.camera;
+        const swAl = c.querySelector(".sw-alarme-cam");
+        if (swAl && camCfg && !c._pend[".sw-alarme-cam"]) swAl.checked = !!camCfg.ligado;
+        if (camCfg) mostrarModoAlerta(c, { modo: info.modo, camera: camCfg });
+        const rs = info.rastreio, rb = c.querySelector(".rastreio-bloco");
+        if (rb) {
+          rb.hidden = !rs;
+          if (rs && !c._pend[".rastreio"]) {
+            const sw = rb.querySelector(".sw-rastreio"), se = rb.querySelector(".sel-rastreio-sens"), nv = rb.querySelector(".num-rastreio-volta");
+            if (!c._pend[".sw-rastreio"]) sw.checked = rs.ligado;
+            if (document.activeElement !== se) se.value = String(rs.sensibilidade);
+            if (document.activeElement !== nv) nv.value = Math.round((rs.volta_s || 300) / 60);
+            rb.querySelector(".rastreio-info").textContent = rs.ligado
+              ? "Ligado: a lente móvel gira seguindo a pessoa e volta ao início após " + Math.round((rs.volta_s || 0) / 60) + " min sem ninguém."
+              : "Desligado: a lente móvel fica parada.";
+          }
+        }
+        if (!camCfg && info.erro_cfg) {
+          est.textContent = "⚠ " + info.erro_cfg; est.className = "dica alertas-estado erro";
+        } else if (camCfg && camCfg.ligado === false) {
+          est.textContent = "⏸ Alarme inteligente DESLIGADO na câmera (app ou painel) — nenhum alerta chega";
+          est.className = "dica alertas-estado erro";
+        } else if (info.guard === 100 || info.guard === 515) {
+          est.textContent = "✅ Recebendo os alertas da câmera"; est.className = "dica alertas-estado ok";
+        } else {
+          est.textContent = "⚠ " + (info.erro || "a câmera ainda não aceitou a assinatura dos alertas (GUARD: " + info.guard + ")");
+          est.className = "dica alertas-estado erro";
+        }
+        // badge: último alerta é um início e tem menos de 20 s
+        const u = meus[0];
+        const ativo = !!u && u.status !== "Stop" && (d.agora - u.ts) < 20 && !(camCfg && camCfg.ligado === false);
+        const b = c.querySelector(".badge.camalerta");
+        if (b) { b.hidden = !ativo; if (u) b.textContent = "🔔 " + u.texto.toLowerCase(); }
+        // lista (só redesenha se mudou)
+        const assinatura = meus.map(e => e.seq).join(",");
+        c.querySelectorAll(".btn-modo-alerta").forEach(x => x.classList.toggle("ativo", x.dataset.modo === info.modo));
+        if (lista._ass === assinatura) return;
+        lista._ass = assinatura;
+        lista.innerHTML = "";
+        c.querySelector(".alertas-vazio").hidden = meus.length > 0;
+        meus.slice(0, 40).forEach(e => {
+          const li = document.createElement("li");
+          const h = document.createElement("span"); h.className = "hora"; h.textContent = e.hora.slice(11);
+          li.appendChild(h);
+          const t = document.createElement("span"); t.textContent = e.texto; li.appendChild(t);
+          if (e.status) {
+            const tag = document.createElement("span");
+            tag.className = "alerta-tag" + (e.status === "Stop" ? "" : " inicio");
+            tag.textContent = e.status === "Stop" ? "fim" : (e.status === "Start" ? "início" : e.status);
+            li.appendChild(tag);
+          }
+          const dir = document.createElement("span"); dir.className = "direita";
+          const s = document.createElement("span"); s.className = "sec";
+          s.textContent = (e.tipo === "humano" ? "humano" : "movimento") + " · canal " + e.canal;
+          s.title = "nome que a câmera mandou: " + e.evento;
+          dir.appendChild(s);
+          li.appendChild(dir);
+          lista.appendChild(li);
+        });
+      });
+    }
+
+    aplicaVisibilidade();
+    atualizarStatus();
+    setInterval(atualizarStatus, 1000);
+    atualizarAlertasCam();
+    setInterval(atualizarAlertasCam, 2000);
+  </script>
+</body>
+</html>

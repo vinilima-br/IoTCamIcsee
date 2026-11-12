@@ -1,0 +1,10 @@
+@echo off
+REM Sessao PERMANENTE com as cameras iCSee (porta 34567).
+REM Deixe esta janela aberta. O servidor pode ser reiniciado a vontade.
+REM Para fechar: Ctrl+C nesta janela (logout limpo nas cameras).
+cd /d "%~dp0"
+title Sessao das cameras (34567) - deixe aberta
+python sessao_xm.py
+echo.
+echo A sessao parou. Pressione uma tecla para fechar.
+pause >nul
