@@ -1,0 +1,6 @@
+flask
+opencv-python>=4.8
+numpy
+imageio-ffmpeg
+edge-tts
+pycryptodome
