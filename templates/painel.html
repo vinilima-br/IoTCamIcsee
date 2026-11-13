@@ -290,6 +290,14 @@
     .lista button { padding: 3px 7px; font-size: 11px; }
     .player-grav { width: 100%; border-radius: 8px; background: #000; display: none; margin-bottom: 8px; }
     .player-grav.visivel { display: block; }
+    /* lista de gravações: clicar no título abre/fecha o vídeo logo abaixo */
+    .gravacoes li .hora { cursor: pointer; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .gravacoes li .hora .t1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gravacoes li .hora .t2 { font-size: 11px; color: var(--suave); }
+    .gravacoes li .seta { display: inline-block; width: 14px; transition: transform .15s; }
+    .gravacoes li.aberta .seta { transform: rotate(90deg); }
+    .gravacoes li.li-video { display: block; padding: 0 0 8px; border: 0; background: none; cursor: default; }
+    .gravacoes li.li-video video { width: 100%; border-radius: 8px; background: #000; display: block; }
     .galeria { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
     .galeria a { display: block; color: var(--suave); font-size: 10px; text-decoration: none; }
     .galeria img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 5px; display: block; margin-bottom: 3px; }
@@ -1233,11 +1241,13 @@
       const btnGravar = q(".btn-gravar");
       if (btnGravar) btnGravar.addEventListener("click", async () => {
         btnGravar.disabled = true;
-        const d = await postJSON("/api/gravacao/" + cid, { manual: !c._manual });
+        // grava a lente que está na tela (câmera de 2 lentes): Lente 1, Lente 2 ou as duas
+        const d = await postJSON("/api/gravacao/" + cid, { manual: !c._manual, lente: c._duas ? c._lente : "ambas" });
         btnGravar.disabled = false;
         if (!d.ok) { aviso("Erro: " + d.erro, true); return; }
         c._manual = d.gravacao_manual;
-        aviso(d.gravacao_manual ? "Gravando..." : "Gravação parada");
+        const nomeLente = { ambas: "as 2 lentes", cima: "só a Lente 1", baixo: "só a Lente 2" }[c._duas ? c._lente : "ambas"];
+        aviso(d.gravacao_manual ? (c._duas ? "Gravando " + nomeLente + "..." : "Gravando...") : "Gravação parada");
         if (!d.gravacao_manual) setTimeout(() => carregarGravacoes(c), 1500);
       });
 
@@ -1385,10 +1395,17 @@
         lista.innerHTML = "";
         c.querySelector(".gravacoes-vazia").hidden = gravs.length > 0;
         const player = c.querySelector(".player-grav");
+        if (player) { player.pause(); player.removeAttribute("src"); player.classList.remove("visivel"); }
+        const nomeCam = c.querySelector(".cab .nome") ? c.querySelector(".cab .nome").textContent.trim() : "";
         gravs.forEach(g => {
           const li = document.createElement("li");
           const h = document.createElement("span"); h.className = "hora";
-          h.textContent = g.dia + "  " + g.hora.replace(/-/g, ":");
+          h.title = g.nome || g.arquivo;
+          const t1 = document.createElement("span"); t1.className = "t1";
+          const seta = document.createElement("span"); seta.className = "seta"; seta.textContent = "▸";
+          t1.append(seta, g.dia + "  " + g.hora.replace(/-/g, ":") + (g.lente ? "  ·  " + g.lente : ""));
+          const t2 = document.createElement("span"); t2.className = "t2"; t2.textContent = g.nome || nomeCam;
+          h.append(t1, t2);
           const dir = document.createElement("span"); dir.className = "direita";
           const mb = document.createElement("span"); mb.className = "sec"; mb.textContent = g.mb + " MB";
           const baixar = document.createElement("a");
@@ -1405,12 +1422,19 @@
           });
           dir.append(mb, baixar, apagar);
           li.append(h, dir);
+          // clicar no título: abre o vídeo logo abaixo; clicar de novo: esconde
           li.addEventListener("click", () => {
-            player.src = "/gravacoes/" + c.dataset.cid + "/" + g.arquivo;
-            player.classList.add("visivel");
-            player.play().catch(() => {});
-            lista.querySelectorAll("li").forEach(x => x.classList.remove("tocando"));
-            li.classList.add("tocando");
+            const aberto = li.nextElementSibling && li.nextElementSibling.classList.contains("li-video");
+            lista.querySelectorAll("li.li-video").forEach(x => { const v = x.querySelector("video"); if (v) v.pause(); x.remove(); });
+            lista.querySelectorAll("li").forEach(x => x.classList.remove("tocando", "aberta"));
+            if (aberto) return;
+            const liv = document.createElement("li"); liv.className = "li-video";
+            const v = document.createElement("video"); v.controls = true; v.preload = "metadata";
+            v.src = "/gravacoes/" + c.dataset.cid + "/" + g.arquivo;
+            liv.appendChild(v);
+            li.after(liv);
+            li.classList.add("tocando", "aberta");
+            v.play().catch(() => {});
           });
           lista.appendChild(li);
         });
