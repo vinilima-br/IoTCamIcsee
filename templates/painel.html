@@ -212,6 +212,27 @@
     .linha label { color: var(--suave); }
     .val { min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
     .dica { font-size: 11px; color: var(--apagado); }
+    /* ---------- menu ⚙ Config ---------- */
+    input[type=password] { background: #11151a; color: var(--texto); border: 1px solid #3a4250;
+             border-radius: 7px; padding: 7px 9px; font-size: 13px; flex: 1; min-width: 150px; }
+    #dlg-config { background: var(--cartao); color: var(--texto); border: 1px solid var(--borda2);
+                  border-radius: 12px; padding: 0; width: min(640px, 94vw); }
+    #dlg-config::backdrop { background: rgba(0,0,0,.6); }
+    #dlg-config .cfg-cab { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--borda); }
+    #dlg-config .cfg-cab h2 { margin: 0; font-size: 16px; flex: 1; }
+    #dlg-config .cfg-corpo { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+    #dlg-config .cfg-bloco { background: var(--cartao2); border: 1px solid var(--borda); border-radius: 10px; padding: 12px;
+                             display: flex; flex-direction: column; gap: 8px; }
+    #dlg-config .cfg-bloco h3 { margin: 0; font-size: 13px; }
+    #dlg-config .cfg-info { font-size: 12px; color: var(--suave); }
+    #dlg-config .cfg-info b { color: var(--texto); font-weight: 600; }
+    #dlg-config .cfg-passos { background: #0b0e12; border: 1px solid var(--borda); border-radius: 8px; padding: 8px 10px;
+                              font: 12px/1.45 ui-monospace, Consolas, monospace; max-height: 220px; overflow: auto;
+                              white-space: pre-wrap; margin: 0; }
+    #dlg-config .cfg-passos.ok { border-color: var(--verde); }
+    #dlg-config .cfg-passos.erro { border-color: #ef4444; }
+    #dlg-config .cfg-passos[hidden] { display: none; }
+    #dlg-config button:disabled { opacity: .5; cursor: wait; }
     .vazio { color: var(--apagado); font-size: 12px; padding: 6px 0; }
     .vazio[hidden] { display: none; }
 
@@ -312,6 +333,7 @@
     <div class="direita">
       {% if tem_xm %}<button id="btn-alerta-geral" title="Luz de alerta + sirene em todas as câmeras">🚨 Alerta geral</button>{% endif %}
       {% if tem_xm %}<button id="btn-sons">🔊 Sons</button>{% endif %}
+      {% if tem_xm %}<button id="btn-config" title="Configurações das câmeras">⚙ Config</button>{% endif %}
       <select id="colunas" title="Colunas">
         <option value="auto">Grade automática</option>
         <option value="1">1 coluna</option>
@@ -723,6 +745,47 @@
   </main>
 
   <div id="aviso" class="aviso"></div>
+
+  {% if tem_xm %}
+  <!-- ================= MENU ⚙ CONFIG ================= -->
+  <dialog id="dlg-config">
+    <div class="cfg-cab">
+      <h2>⚙ Configurações — conta da câmera (porta 34567)</h2>
+      <button id="cfg-fechar" class="btn-icone" title="Fechar">✕</button>
+    </div>
+    <div class="cfg-corpo">
+      <div class="linha">
+        <select id="cfg-cam" style="flex:1"></select>
+        <button id="cfg-atualizar" class="btn-icone" title="Ler de novo">↻</button>
+      </div>
+      <div class="cfg-info" id="cfg-info">-</div>
+
+      <div class="cfg-bloco">
+        <h3>🔑 Resetei a câmera — descobrir a conta e fixar a senha</h3>
+        <div class="dica">Use logo depois do reset (e de adicionar a câmera de novo no app iCSee).
+          O sistema entra com o admin de fábrica, descobre a conta real da câmera, fixa a senha abaixo nela,
+          grava no config.py (com backup) e reconecta sozinho. Não precisa fechar nada.</div>
+        <div class="linha">
+          <input type="password" id="cfg-senha-fixa" maxlength="30" autocomplete="new-password"
+                 placeholder="senha fixa (vazio = manter a mesma de antes)">
+          <button id="cfg-recuperar" class="btn-verde">Descobrir e fixar</button>
+        </div>
+      </div>
+
+      <div class="cfg-bloco">
+        <h3>✏ Já sei a conta — só trocar</h3>
+        <div class="dica">Confere se a conta loga (não muda nada na câmera) e, se logar, grava e reconecta.</div>
+        <div class="linha">
+          <input type="text" id="cfg-usuario" maxlength="30" placeholder="usuário (ex.: swua)" style="flex:0 1 160px">
+          <input type="password" id="cfg-senha" maxlength="30" autocomplete="new-password" placeholder="senha">
+          <button id="cfg-conta">Testar e salvar</button>
+        </div>
+      </div>
+
+      <pre class="cfg-passos" id="cfg-passos" hidden></pre>
+    </div>
+  </dialog>
+  {% endif %}
 
   <script>
     // =============================================================
@@ -2033,6 +2096,85 @@
     setInterval(atualizarStatus, 1000);
     atualizarAlertasCam();
     setInterval(atualizarAlertasCam, 2000);
+
+    // =============================================================
+    //  Menu ⚙ Config - trocar/descobrir a conta da porta 34567
+    // =============================================================
+    (function () {
+      const dlg = document.getElementById("dlg-config");
+      if (!dlg) return;
+      const $ = id => document.getElementById(id);
+      const sel = $("cfg-cam"), info = $("cfg-info"), passos = $("cfg-passos");
+      const botoes = [$("cfg-recuperar"), $("cfg-conta"), $("cfg-atualizar")];
+      let cams = [], ocupado = false;
+
+      function camAtual() { return cams.find(c => c.cid === sel.value); }
+
+      function mostraInfo() {
+        const c = camAtual();
+        if (!c) { info.textContent = "Nenhuma câmera iCSee com a porta 34567 no config.py."; return; }
+        const estado = c.conectada ? "✅ conectada" : "⛔ desconectada" + (c.erro ? " — " + c.erro : "");
+        info.innerHTML = "";
+        [["IP", c.ip], ["Conta atual", c.admin_usuario || "admin"], ["Senha fixa no config", c.tem_senha ? "sim" : "não (vazia)"], ["Estado", estado]]
+          .forEach(([k, v], i) => {
+            if (i) info.append(" · ");
+            const b = document.createElement("b"); b.textContent = v;
+            info.append(k + ": ", b);
+          });
+        $("cfg-recuperar").title = c.conectada ? "A câmera está conectada: não precisa descobrir" : "";
+      }
+
+      async function carrega() {
+        let d;
+        try { d = await (await fetch("/api/config/cameras", { cache: "no-store" })).json(); }
+        catch (e) { info.textContent = "servidor fora do ar"; return; }
+        if (!d.ok) { info.textContent = d.erro || "erro ao ler o config.py"; return; }
+        const anterior = sel.value;
+        cams = d.cameras.filter(c => c.pode);
+        sel.innerHTML = "";
+        cams.forEach(c => { const o = document.createElement("option"); o.value = c.cid; o.textContent = c.nome + "  (" + c.ip + ")"; sel.appendChild(o); });
+        if (cams.some(c => c.cid === anterior)) sel.value = anterior;
+        mostraInfo();
+        if (d.sessao_rodando === false) { passos.hidden = false; passos.className = "cfg-passos erro"; passos.textContent = "A sessão das câmeras não está rodando. Abra o INICIAR_SESSAO.bat."; }
+      }
+
+      function trava(sim) { ocupado = sim; botoes.forEach(b => { b.disabled = sim; }); }
+
+      async function executa(corpo, rotulo) {
+        const c = camAtual();
+        if (!c || ocupado) return;
+        trava(true);
+        passos.hidden = false; passos.className = "cfg-passos";
+        passos.textContent = rotulo + " em " + c.nome + " (" + c.ip + ")...\nPode levar até 1 minuto. Não feche esta janela.";
+        const d = await postJSON("/api/config/" + c.cid + "/conta", corpo);
+        const linhas = (d.passos || []).join("\n");
+        passos.className = "cfg-passos " + (d.ok ? "ok" : "erro");
+        passos.textContent = (linhas ? linhas + "\n\n" : "") +
+          (d.ok ? "✅ PRONTO: conta " + d.usuario + " gravada no config.py. A câmera reconecta em ~20 s."
+                : "❌ " + (d.erro || "falhou"));
+        aviso(d.ok ? "Conta da câmera atualizada" : "Não deu: " + (d.erro || "falhou"), !d.ok);
+        $("cfg-senha-fixa").value = ""; $("cfg-senha").value = "";
+        trava(false);
+        carrega();
+      }
+
+      $("btn-config").addEventListener("click", () => { passos.hidden = true; dlg.showModal(); carrega(); });
+      $("cfg-fechar").addEventListener("click", () => { if (!ocupado) dlg.close(); });
+      dlg.addEventListener("cancel", e => { if (ocupado) e.preventDefault(); });
+      sel.addEventListener("change", () => { passos.hidden = true; mostraInfo(); });
+      $("cfg-atualizar").addEventListener("click", carrega);
+      $("cfg-recuperar").addEventListener("click", () => {
+        const c = camAtual(); if (!c) return;
+        if (c.conectada) { aviso("A câmera está conectada com a conta atual: não precisa descobrir.", true); return; }
+        if (!confirm("Descobrir a conta de " + c.nome + " e FIXAR a senha nela?\n\nSó funciona logo depois de um reset da câmera.")) return;
+        executa({ modo: "recuperar", senha_fixa: $("cfg-senha-fixa").value }, "Descobrindo a conta");
+      });
+      $("cfg-conta").addEventListener("click", () => {
+        const u = $("cfg-usuario").value.trim(), s = $("cfg-senha").value;
+        if (!u || !s) { aviso("Preencha usuário e senha", true); return; }
+        executa({ modo: "conta", usuario: u, senha: s }, "Conferindo a conta");
+      });
+    })();
   </script>
 </body>
 </html>

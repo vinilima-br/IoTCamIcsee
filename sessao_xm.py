@@ -21,6 +21,8 @@ Uso:
 Para fechar: Ctrl+C nesta janela (faz logout limpo e apaga a luz de alerta).
 """
 import base64
+import importlib
+import io
 import json
 import os
 import signal
@@ -79,6 +81,127 @@ def monta_sessoes():
                 cid, ip, c["admin_usuario"], c["admin_senha"], log=log)
 
 
+# ------------------------------------------------------------------
+#  Trocar a conta da 34567 SEM fechar nada (menu ⚙ Config do painel)
+#    modo "recuperar": camera recem-resetada -> descobre a conta real e FIXA a senha
+#    modo "conta":     voce ja sabe usuario/senha -> so confere e troca
+#  Sempre: grava no config.py (com backup), libera a trava e reconecta.
+# ------------------------------------------------------------------
+_trava_prov = threading.Lock()
+SENHA_OK = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#_.-!*")
+
+
+class _SoEstaThread(io.TextIOBase):
+    """Copia para 'linhas' o que ESTA thread imprime (o resto segue so na janela)."""
+    def __init__(self, original, linhas):
+        self.original, self.linhas, self.ident = original, linhas, threading.get_ident()
+
+    def write(self, txt):
+        if threading.get_ident() == self.ident:
+            for linha in txt.splitlines():
+                if linha.strip():
+                    self.linhas.append(linha.strip())
+        return self.original.write(txt)
+
+    def flush(self):
+        self.original.flush()
+
+
+def _ferramentas():
+    pasta = os.path.join(PASTA, "ferramentas")
+    if pasta not in sys.path:
+        sys.path.insert(0, pasta)
+    import provisionar                     # noqa: E402  (recupera_e_fixa / confere_conta / config)
+    return provisionar
+
+
+def _nova_sessao(cid, ip, usuario, senha):
+    s = camera_xm.SessaoCamera(cid, ip, usuario, senha, log=log)
+    SESSOES[cid] = s
+    s.iniciar()
+    return s
+
+
+def reprovisionar(cid, modo, senha_fixa="", usuario="", senha=""):
+    passos = []                            # o que ESTA operacao imprimiu (vai pra pagina)
+
+    def passo(msg):
+        log("[%s] config: %s" % (cid, msg))
+
+    cam = next((c for c in config.cameras() if c["cid"] == cid), None)
+    if cam is None:
+        return {"ok": False, "erro": "câmera %s não está no config.py" % cid, "passos": passos}
+    if cam["tipo"] != "icsee":
+        return {"ok": False, "erro": "só câmeras iCSee (a Elsys usa outro login)", "passos": passos}
+    ip = cam["ip"]
+    antiga = SESSOES.get(cid)
+
+    if modo == "recuperar":
+        senha_fixa = (senha_fixa or "").strip() or cam["admin_senha"]
+        if not senha_fixa:
+            return {"ok": False, "erro": "digite a senha fixa que vai ficar na câmera", "passos": passos}
+    elif modo == "conta":
+        usuario, senha_fixa = (usuario or "").strip(), (senha or "").strip()
+        if not usuario or not senha_fixa:
+            return {"ok": False, "erro": "preencha usuário e senha", "passos": passos}
+    else:
+        return {"ok": False, "erro": "modo desconhecido", "passos": passos}
+    if len(senha_fixa) < 6 or not set(senha_fixa) <= SENHA_OK:
+        return {"ok": False, "erro": "senha: mínimo 6 caracteres, só letras, números e @#_.-!*",
+                "passos": passos}
+    if modo == "recuperar" and antiga is not None and antiga.conectada:
+        return {"ok": False, "passos": passos,
+                "erro": "a câmera está CONECTADA com a conta atual - não precisa descobrir "
+                        "(e isso trocaria a senha dela). Use só depois de um reset."}
+    if not _trava_prov.acquire(blocking=False):
+        return {"ok": False, "erro": "já tem uma troca de conta em andamento", "passos": passos}
+
+    linhas = passos
+    saida_original = sys.stdout
+    sys.stdout = _SoEstaThread(saida_original, linhas)
+    try:
+        prov = _ferramentas()
+        if modo == "conta":
+            passo("conferindo a conta %s em %s (não muda nada na câmera)..." % (usuario, ip))
+            ok = prov.confere_conta(ip, usuario, senha_fixa)
+            conta = (usuario, senha_fixa) if ok else None
+            if antiga is not None and conta:
+                passo("parando a conexão antiga...")
+                antiga.encerrar()
+        else:
+            if antiga is not None:
+                passo("parando a conexão antiga (para não tentar logar com a senha velha)...")
+                antiga.encerrar()
+            time.sleep(1)
+            passo("descobrindo a conta real em %s e fixando a senha (admin/branco do reset)..." % ip)
+            conta = prov.recupera_e_fixa(ip, senha_fixa)
+
+        if not conta:
+            if antiga is not None and modo == "recuperar":
+                passo("não deu: volto a tentar com a conta antiga.")
+                _nova_sessao(cid, ip, antiga.usuario, antiga.senha)
+            return {"ok": False, "erro": "não consegui (veja os passos)", "passos": linhas}
+
+        user_final, senha_final = conta
+        backup = prov.atualiza_conta_no_config(cid, ip, user_final, senha_final)
+        importlib.reload(config)
+        passo("config.py atualizado (backup: %s)" % os.path.basename(backup))
+        # os logins acabaram de acontecer: respeita o intervalo minimo (20 s) e tira a trava velha
+        camera_xm.grava_estado(ip, ultima_tentativa=camera_xm.agora(), ultimo_ret=100)
+        _nova_sessao(cid, ip, user_final, senha_final)
+        passo("reconectando com a conta %s (em ~20 s)." % user_final)
+        return {"ok": True, "usuario": user_final, "senha": senha_final,
+                "backup": os.path.basename(backup), "passos": linhas}
+    except Exception as e:  # noqa: BLE001
+        log("[%s] erro na troca de conta: %r" % (cid, e))
+        if antiga is not None and SESSOES.get(cid) is antiga and antiga._parar.is_set():
+            _nova_sessao(cid, ip, antiga.usuario, antiga.senha)     # nao deixa a camera sem sessao
+        return {"ok": False, "erro": "%s: %s" % (type(e).__name__, e), "passos": linhas}
+    finally:
+        sys.stdout = saida_original
+        _trava_prov.release()
+
+
 def estado_resumido():
     cams = {}
     for cid, s in SESSOES.items():
@@ -112,6 +235,16 @@ class Pedido(BaseHTTPRequestHandler):
             self._responde(404, {"ok": False, "erro": "rota desconhecida"})
 
     def do_POST(self):
+        if self.path == "/reprovisionar":
+            try:
+                tam = int(self.headers.get("Content-Length") or 0)
+                p = json.loads(self.rfile.read(tam).decode("utf-8") or "{}")
+            except (ValueError, OSError):
+                self._responde(400, {"ok": False, "erro": "pedido inválido"})
+                return
+            self._responde(200, reprovisionar(p.get("cid"), p.get("modo"), p.get("senha_fixa", ""),
+                                              p.get("usuario", ""), p.get("senha", "")))
+            return
         if self.path != "/rpc":
             self._responde(404, {"ok": False, "erro": "rota desconhecida"})
             return

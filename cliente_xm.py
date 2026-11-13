@@ -52,6 +52,20 @@ def sessao_rodando():
     return estado() is not None
 
 
+def reprovisionar(cid, modo, senha_fixa="", usuario="", senha=""):
+    """Menu ⚙ Config: a sessao troca a conta da 34567 dessa camera (ver sessao_xm.reprovisionar)."""
+    r = _http("POST", "/reprovisionar", {"cid": cid, "modo": modo, "senha_fixa": senha_fixa,
+                                         "usuario": usuario, "senha": senha}, timeout=90.0)
+    if r is None:
+        return {"ok": False, "erro": AVISO_FORA, "passos": []}
+    if r.get("erro") == "rota desconhecida":
+        return {"ok": False, "passos": [], "erro": "a janela da sessão (INICIAR_SESSAO.bat) está com a "
+                                                    "versão antiga: feche-a com Ctrl+C e abra de novo"}
+    with _trava_cache:
+        _cache_estado["quando"] = 0.0
+    return r
+
+
 class SessaoRemota:
     def __init__(self, nome, ip, usuario="admin", senha="", log=print):
         self.nome, self.ip, self.usuario, self.senha = nome, ip, usuario, senha

@@ -40,7 +40,9 @@ Importante: no modo camera nova, a senha da camera E TROCADA mesmo sem --gravar
 import argparse
 import datetime
 import getpass
+import json
 import os
+import re
 import socket
 import sys
 
@@ -221,6 +223,77 @@ def insere_no_config(bloco):
     novo = texto[:linha] + bloco + texto[linha:]
     carimbo = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     backup = CONFIG_PY + ".bak_" + carimbo
+    with open(backup, "w", encoding="utf-8") as f:
+        f.write(texto)
+    with open(CONFIG_PY, "w", encoding="utf-8") as f:
+        f.write(novo)
+    return backup
+
+
+def _acha_bloco(texto, cid, ip):
+    """(inicio, fim) do dicionario { ... } da camera dentro de CAMERAS = [ ... ].
+    Procura pelo "cid"; se o bloco nao tiver cid, procura pelo "ip"."""
+    ini = texto.find("CAMERAS = [")
+    if ini < 0:
+        raise RuntimeError("nao achei 'CAMERAS = [' no config.py")
+    i, prof, blocos, abre = texto.find("[", ini) + 1, 0, [], None
+    while i < len(texto):
+        ch = texto[i]
+        if ch == "#":                                  # comentario: pula a linha
+            i = texto.find("\n", i)
+            if i < 0:
+                break
+            continue
+        if ch in "\"'":                                # string: pula ate fechar
+            fim = i + 1
+            while fim < len(texto) and texto[fim] != ch:
+                fim += 2 if texto[fim] == "\\" else 1
+            i = fim + 1
+            continue
+        if ch == "{":
+            if prof == 0:
+                abre = i
+            prof += 1
+        elif ch == "}":
+            prof -= 1
+            if prof == 0 and abre is not None:
+                blocos.append((abre, i + 1))
+        elif ch == "]" and prof == 0:
+            break
+        i += 1
+    for chave, valor in (("cid", cid), ("ip", ip)):
+        if not valor:
+            continue
+        padrao = re.compile(r"""["']%s["']\s*:\s*["']%s["']""" % (chave, re.escape(valor)))
+        for a, b in blocos:
+            if padrao.search(texto, a, b):
+                return a, b
+    raise RuntimeError("nao achei a camera %s (%s) na lista CAMERAS do config.py" % (cid, ip))
+
+
+def atualiza_conta_no_config(cid, ip, usuario, senha):
+    """Troca SO admin_usuario/admin_senha da camera no config.py (backup antes).
+    Retorna o caminho do backup."""
+    with open(CONFIG_PY, "r", encoding="utf-8") as f:
+        texto = f.read()
+    a, b = _acha_bloco(texto, cid, ip)
+    bloco = texto[a:b]
+    for chave, valor in (("admin_usuario", usuario), ("admin_senha", senha)):
+        literal = json.dumps(valor)                    # "texto" com escapes - vale em Python
+        padrao = re.compile(r"""(["']%s["']\s*:\s*)(["'])(?:\\.|(?!\2).)*\2""" % chave)
+        if padrao.search(bloco):
+            bloco = padrao.sub(lambda m: m.group(1) + literal, bloco, count=1)
+        else:                                          # chave nao existia: entra antes do }
+            fecha = bloco.rstrip().rfind("}")
+            antes = bloco[:fecha].rstrip()
+            sep = "" if antes.endswith(",") or antes.endswith("{") else ","
+            bloco = antes + sep + '\n        "%s": %s,\n    ' % (chave, literal) + bloco[fecha:]
+    novo = texto[:a] + bloco + texto[b:]
+    compile(novo, CONFIG_PY, "exec")                   # nunca grava um config.py quebrado
+    carimbo = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup, n = CONFIG_PY + ".bak_" + carimbo, 2
+    while os.path.exists(backup):
+        backup, n = CONFIG_PY + ".bak_%s_%d" % (carimbo, n), n + 1
     with open(backup, "w", encoding="utf-8") as f:
         f.write(texto)
     with open(CONFIG_PY, "w", encoding="utf-8") as f:

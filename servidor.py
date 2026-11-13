@@ -21,6 +21,7 @@
 # =============================================================
 
 import atexit
+import importlib
 import json
 import os
 import re
@@ -1166,6 +1167,45 @@ def api_xm_status(cid):
         return jsonify(_xm(cid).status())
     except camera_xm.ErroXM as e:
         return jsonify({"erro": str(e)}), 404
+
+
+# ---------------- menu ⚙ Config: conta da porta 34567 ----------------
+@app.route("/api/config/cameras")
+def api_config_cameras():
+    try:
+        importlib.reload(config)
+        lista = config.cameras()
+    except Exception as e:
+        return jsonify({"ok": False, "erro": "config.py com problema: {}".format(e)}), 500
+    sessao_ok = cliente_xm.sessao_rodando() if SESSAO_SEPARADA else None
+    cams = []
+    for c in lista:
+        s = XMS.get(c["cid"])
+        cams.append({"cid": c["cid"], "nome": c["nome"], "tipo": c["tipo"], "ip": c.get("ip", ""),
+                     "admin_usuario": c.get("admin_usuario") if c["tipo"] == "icsee" else None,
+                     "tem_senha": bool(c.get("admin_senha")),
+                     "pode": c["tipo"] == "icsee" and s is not None,
+                     "conectada": bool(s.conectada) if s is not None else False,
+                     "erro": (s.status().get("erro") if s is not None and not s.conectada else None)})
+    return jsonify({"ok": True, "sessao_separada": SESSAO_SEPARADA, "sessao_rodando": sessao_ok,
+                    "cameras": cams})
+
+
+@app.route("/api/config/<cid>/conta", methods=["POST"])
+def api_config_conta(cid):
+    dados = request.get_json(silent=True) or {}
+    s = XMS.get(cid)
+    if s is None:
+        return jsonify({"ok": False, "erro": "essa câmera não usa a porta 34567"}), 404
+    if not SESSAO_SEPARADA:
+        return jsonify({"ok": False, "erro": "precisa da sessão separada (INICIAR_SESSAO.bat)"}), 400
+    r = cliente_xm.reprovisionar(cid, dados.get("modo"), dados.get("senha_fixa", ""),
+                                 dados.get("usuario", ""), dados.get("senha", ""))
+    if r.get("ok"):
+        s.usuario, s.senha = r.get("usuario", s.usuario), r.get("senha", s.senha)   # download do SD usa
+        print("[{}] conta da 34567 trocada para {} pelo menu Config".format(cid, s.usuario))
+    r.pop("senha", None)                                # a senha não volta pra página
+    return jsonify(r)
 
 
 @app.route("/api/xm/<cid>/tentar", methods=["POST"])
