@@ -2,32 +2,15 @@
 REM Cria o atalho "Central de Cameras" (com o icone da Central) que abre o PAINEL.bat:
 REM   - na Area de Trabalho
 REM   - no menu Iniciar (dai da pra fixar na barra de tarefas)
-REM   - aqui na pasta do projeto
 REM Rode de novo se mudar a pasta de lugar.
 REM O INSTALAR.bat chama este arquivo sozinho (com /silencioso = sem pausa no fim).
 cd /d "%~dp0"
-if not exist "icone.ico" (
-  echo [X] Nao achei o icone.ico nesta pasta.
-  pause
-  exit /b 1
-)
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$pasta = (Get-Location).Path;" ^
-  "$ws = New-Object -ComObject WScript.Shell;" ^
-  "$destinos = @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs'), $pasta);" ^
-  "foreach ($d in $destinos) {" ^
-  "  $a = $ws.CreateShortcut((Join-Path $d 'Central de Cameras.lnk'));" ^
-  "  $a.TargetPath = (Join-Path $pasta 'PAINEL.bat');" ^
-  "  $a.WorkingDirectory = $pasta;" ^
-  "  $a.IconLocation = (Join-Path $pasta 'icone.ico') + ',0';" ^
-  "  $a.Description = 'Central de Cameras';" ^
-  "  $a.WindowStyle = 7;" ^
-  "  $a.Save();" ^
-  "  Write-Host ('  [OK] ' + $d)" ^
-  "}"
+REM atalho antigo que ficava dentro da pasta (apontava para outro PC): some
+if exist "Central de Cameras.lnk" del "Central de Cameras.lnk" >nul 2>nul
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0ferramentas\criar_atalho.ps1" -Pasta "%~dp0."
 if errorlevel 1 (
-  echo [X] Nao consegui criar o atalho.
-  pause
+  echo [X] Nao consegui criar o atalho ^(veja a mensagem acima^).
+  if /i not "%~1"=="/silencioso" pause
   exit /b 1
 )
 if /i "%~1"=="/silencioso" exit /b 0

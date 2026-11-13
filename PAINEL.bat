@@ -2,17 +2,18 @@
 REM Abre a Central de Cameras numa JANELA PROPRIA (sem navegador).
 REM Fechar a janela = desligar o servidor (logout limpo nas cameras).
 cd /d "%~dp0"
-python -c "import webview" 2>nul
+title Central de Cameras - janela
+call "%~dp0_python.bat" || (pause & exit /b 1)
+"%PY%" -c "import webview" 2>nul
 if errorlevel 1 (
   echo Instalando a janela propria ^(pywebview^), so na primeira vez...
-  python -m pip install pywebview
+  "%PY%" -m pip install pywebview --disable-pip-version-check
 )
-python sessao_xm.py --checar
+"%PY%" sessao_xm.py --checar
 if errorlevel 1 (
   echo Abrindo a sessao das cameras em outra janela...
-  start "Sessao das cameras" "%~dp0INICIAR_SESSAO.bat"
+  start "Sessao das cameras" /min "%~dp0INICIAR_SESSAO.bat"
   timeout /t 4 /nobreak >nul
 )
-title Central de Cameras - janela
-python janela.py
+"%PY%" janela.py
 if errorlevel 1 pause

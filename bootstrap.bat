@@ -8,30 +8,7 @@ echo   Central de Cameras - baixar do GitHub e instalar
 echo ===================================================
 echo.
 
-REM ---------- Python: instala sozinho se faltar ----------
-where python >nul 2>nul
-if not errorlevel 1 goto baixar
-
-echo [*] Python nao encontrado. Vou tentar instalar pelo winget...
-where winget >nul 2>nul
-if errorlevel 1 (
-  echo [X] Este Windows nao tem o winget.
-  echo     Instale o Python a mao, marcando Add Python to PATH:
-  echo     https://www.python.org/downloads/
-  echo     Depois rode este arquivo de novo.
-  echo.
-  pause
-  exit /b 1
-)
-winget install -e --id Python.Python.3.12 --silent --accept-package-agreements --accept-source-agreements
-echo.
-echo ===================================================
-echo  Python instalado. FECHE esta janela e rode o
-echo  bootstrap de novo, para ele enxergar o Python.
-echo ===================================================
-echo.
-pause
-exit /b 0
+REM O Python (se faltar) e instalado pelo INSTALAR.bat, logo depois de baixar.
 
 :baixar
 echo [1/3] Baixando o projeto do GitHub...

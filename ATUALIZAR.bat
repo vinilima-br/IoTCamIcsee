@@ -20,6 +20,9 @@ set "MSG="
 set /p MSG="O que mudou? (Enter = 'atualizacao do projeto'): "
 if "%MSG%"=="" set "MSG=atualizacao do projeto"
 echo.
+REM atalhos (.lnk) sao de cada PC: tira do GitHub, mas deixa o arquivo aqui
+git rm -r -q --cached --ignore-unmatch "*.lnk" >nul 2>nul
+git add --renormalize . >nul 2>nul
 git add -A
 git commit -m "%MSG%"
 echo.

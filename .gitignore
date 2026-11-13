@@ -62,3 +62,6 @@ modelos/vosk-model-small-pt-0.3/
 
 # --- dados da janela propria (janela.py) ---
 janela_dados/
+
+# --- atalhos do Windows (cada PC cria o seu com o CRIAR_ATALHO.bat) ---
+*.lnk

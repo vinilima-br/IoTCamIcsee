@@ -4,7 +4,8 @@ REM Deixe esta janela aberta. O servidor pode ser reiniciado a vontade.
 REM Para fechar: Ctrl+C nesta janela (logout limpo nas cameras).
 cd /d "%~dp0"
 title Sessao das cameras (34567) - deixe aberta
-python sessao_xm.py
+call "%~dp0_python.bat" || (pause & exit /b 1)
+"%PY%" sessao_xm.py
 echo.
 echo A sessao parou. Pressione uma tecla para fechar.
 pause >nul

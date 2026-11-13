@@ -1,0 +1,5 @@
+# .bat e .ps1 precisam de quebra de linha do Windows (CRLF), inclusive no ZIP
+# baixado pelo bootstrap.bat - senao o cmd quebra comandos de varias linhas.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
