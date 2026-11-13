@@ -55,6 +55,12 @@ if errorlevel 1 (
 echo [OK] Dependencias prontas.
 echo.
 
+REM ---------- Atalho com icone (Area de Trabalho + menu Iniciar) ----------
+echo [*] Criando o atalho "Central de Cameras" na Area de Trabalho...
+call "%~dp0CRIAR_ATALHO.bat" /silencioso
+if errorlevel 1 echo [!] Nao criei o atalho. Da para criar depois com o CRIAR_ATALHO.bat.
+echo.
+
 if not exist "modelos\yolov8n.onnx" (
   echo [!] Aviso: modelos\yolov8n.onnx nao encontrado.
   echo     O servidor sobe, mas a IA de deteccao so funciona com esse arquivo.
@@ -85,12 +91,14 @@ echo O servidor sobe do mesmo jeito.
 echo.
 
 :subir
-echo [3/3] Subindo a Central (sessao das cameras + servidor)...
-start "" "%~dp0INICIAR.bat"
+echo [3/3] Abrindo a Central (sessao das cameras + painel em janela propria)...
+start "" "%~dp0PAINEL.bat"
 echo.
 echo ===================================================
-echo  Pronto! O painel abre em:  http://localhost:5050
-echo  No celular, mesma rede:    http://IP-DESTE-PC:5050
+echo  Pronto! Das proximas vezes, abra pelo atalho
+echo  "Central de Cameras" na Area de Trabalho.
+echo  No navegador deste PC:   http://localhost:5050
+echo  No celular, mesma rede:  http://IP-DESTE-PC:5050
 echo ===================================================
 echo.
 pause
