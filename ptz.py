@@ -59,12 +59,24 @@ def contexto(ip, usuario, senha, porta_onvif=None):
                           '<GetProfiles xmlns="http://www.onvif.org/ver10/media/wsdl"/>',
                           usuario, senha)
     profiles = re.findall(r"<[\w-]*:?Profiles[^>]*\btoken=\"([^\"]+)\"", xml) if status == 200 else []
+    # perfil com PTZConfiguration = o vídeo dessa câmera tem motor ligado a ele
+    perfil_com_ptz = status == 200 and re.search(r"<[\w-]*:?PTZConfiguration\b", xml) is not None
 
     return {
         "ip": ip, "usuario": usuario, "senha": senha,
         "device_url": device_url, "media_url": media_url, "ptz_url": ptz_url,
-        "porta": porta, "profiles": profiles, "tem_ptz": tem_ptz,
+        "porta": porta, "profiles": profiles, "tem_ptz": tem_ptz, "perfil_com_ptz": perfil_com_ptz,
     }
+
+
+def tem_motor(ctx):
+    """A câmera se mexe de verdade? Serviço PTZ + (nó PTZ ou perfil com PTZConfiguration)."""
+    if not ctx.get("tem_ptz"):
+        return False
+    status, xml = o._soap(ctx["ptz_url"], '<GetNodes xmlns="{}"/>'.format(NS_PTZ),
+                          ctx["usuario"], ctx["senha"])
+    nos = len(re.findall(r"<[\w-]*:?PTZNode\b", xml)) if status == 200 and not _tem_fault(xml) else 0
+    return nos > 0 or bool(ctx.get("perfil_com_ptz"))
 
 
 def _tem_fault(xml):
@@ -145,6 +157,19 @@ class Controle:
         self.token = None
         self.erro = None
         self.trava = threading.Lock()
+        self.capaz = None          # None = ainda não sei / True = tem motor / False = câmera fixa
+
+    def verificar(self):
+        """Pergunta à câmera (ONVIF) se ela tem motor. Guarda em self.capaz e devolve."""
+        with self.trava:
+            if not self._garante():
+                return None
+            try:
+                self.capaz = tem_motor(self.ctx)
+            except Exception as e:  # noqa: BLE001
+                self.erro = "não consegui confirmar o PTZ: {}".format(e)
+                return None
+            return self.capaz
 
     def _garante(self):
         if self.ctx and self.token:

@@ -80,9 +80,9 @@
     .lista-sons button { padding: 4px 8px; font-size: 12px; }
 
     /* ---------- grade de câmeras ---------- */
-    .grade { display: grid; gap: 16px; padding: 16px 18px 40px; max-width: 1600px; margin: 0 auto;
-             grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); align-items: start; }
-    .grade.col-1 { grid-template-columns: 1fr; max-width: 1100px; }
+    .grade { display: grid; gap: 16px; padding: 16px 18px 40px; max-width: 1760px; margin: 0 auto;
+             grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); align-items: start; }
+    .grade.col-1 { grid-template-columns: 1fr; max-width: 1760px; }
     .grade.col-2 { grid-template-columns: repeat(2, 1fr); }
     .grade.col-3 { grid-template-columns: repeat(3, 1fr); }
     @media (max-width: 1000px) { .grade.col-2, .grade.col-3 { grid-template-columns: 1fr; } }
@@ -128,22 +128,40 @@
     .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity .3s; }
     .flash.ativo { opacity: .6; transition: none; }
 
-    .ptz { position: absolute; right: 10px; bottom: 10px; z-index: 5; display: flex; flex-direction: column;
-           align-items: flex-end; gap: 6px; opacity: .4; transition: opacity .2s; }
+    /* ---------- PTZ: joystick de vidro (só nas câmeras que se mexem) ---------- */
+    .ptz { position: absolute; right: 12px; bottom: 12px; z-index: 5; display: flex; flex-direction: column;
+           align-items: flex-end; gap: 8px; opacity: .55; transition: opacity .2s, transform .2s; }
+    .ptz[hidden] { display: none; }
     .ptz:hover, .ptz:focus-within, .video-box:hover .ptz { opacity: 1; }
-    .dpad { display: grid; width: 104px; height: 104px; gap: 3px; grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(3, 1fr); grid-template-areas: ". up ." "left mid right" ". down ."; }
-    .dpad .up { grid-area: up; } .dpad .down { grid-area: down; } .dpad .left { grid-area: left; }
-    .dpad .right { grid-area: right; } .dpad .mid { grid-area: mid; }
-    .seta { background: rgba(17,20,24,.7); border: 1px solid rgba(255,255,255,.18); border-radius: 7px; color: #fff;
-            font-size: 15px; display: flex; align-items: center; justify-content: center; padding: 0;
-            user-select: none; -webkit-user-select: none; touch-action: none; backdrop-filter: blur(2px); }
-    .seta:hover { background: rgba(43,55,71,.85); }
-    .seta:active { background: var(--azul); }
-    .seta.mid { border-style: dashed; color: var(--suave); cursor: default; font-size: 13px; }
-    .lista-presets { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; max-width: 220px; }
-    .lista-presets button { background: rgba(17,20,24,.7); border: 1px solid rgba(255,255,255,.18); color: #fff;
-                            font-size: 11px; padding: 4px 9px; }
+    .joy { position: relative; width: 124px; height: 124px; border-radius: 50%;
+           background: radial-gradient(circle at 50% 40%, rgba(40,48,60,.55), rgba(10,13,18,.72));
+           border: 1px solid rgba(255,255,255,.16); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+           box-shadow: 0 10px 30px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.08); }
+    .joy .seta { position: absolute; width: 42px; height: 42px; border-radius: 50%; border: 0; padding: 0;
+                 background: transparent; color: rgba(255,255,255,.85); display: grid; place-items: center;
+                 user-select: none; -webkit-user-select: none; touch-action: none; cursor: pointer;
+                 transition: background .15s, color .15s, transform .1s, box-shadow .15s; }
+    .joy .seta svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2.6;
+                     stroke-linecap: round; stroke-linejoin: round; }
+    .joy .seta:hover { background: rgba(255,255,255,.10); color: #fff; }
+    .joy .seta.apertada, .joy .seta:active { background: var(--azul); color: #fff; transform: scale(.94);
+                                            box-shadow: 0 0 0 4px rgba(37,99,235,.3), 0 0 18px rgba(37,99,235,.6); }
+    .joy .up { left: 41px; top: 4px; } .joy .down { left: 41px; bottom: 4px; }
+    .joy .left { left: 4px; top: 41px; } .joy .right { right: 4px; top: 41px; }
+    .joy .mid { left: 44px; top: 44px; width: 36px; height: 36px; cursor: default;
+                background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); color: var(--suave); font-size: 11px; }
+    .joy .mid:hover { background: rgba(255,255,255,.06); color: var(--suave); }
+    .joy.movendo .mid { color: #93c5fd; border-color: rgba(37,99,235,.6); }
+    .joy::before { content: ""; position: absolute; inset: 30px; border-radius: 50%; border: 1px dashed rgba(255,255,255,.10); pointer-events: none; }
+    .lista-presets { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 240px; }
+    .lista-presets button { background: rgba(10,13,18,.65); border: 1px solid rgba(255,255,255,.16); color: #e5e7eb;
+                            font-size: 11px; padding: 5px 11px; border-radius: 999px; backdrop-filter: blur(6px); }
+    .lista-presets button:hover { border-color: rgba(37,99,235,.7); color: #fff; }
+    .ptz-fixa { position: absolute; right: 12px; bottom: 12px; z-index: 5; font-size: 11px; padding: 5px 11px;
+                border-radius: 999px; background: rgba(10,13,18,.65); border: 1px solid rgba(255,255,255,.14);
+                color: var(--suave); backdrop-filter: blur(6px); opacity: 0; transition: opacity .2s; }
+    .video-box:hover .ptz-fixa { opacity: 1; }
+    .ptz-fixa[hidden] { display: none; }
 
     .barra { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid var(--borda); }
     .grupo { display: flex; border-radius: 7px; overflow: hidden; border: 1px solid var(--borda2); }
@@ -163,6 +181,108 @@
                          box-shadow: inset 0 -2px 0 var(--azul); }
     .aba { display: none; padding: 12px; background: var(--cartao2); }
     .aba.ativa { display: block; }
+
+    /* ---------- janela do CADASTRO FACIAL ---------- */
+    #dlg-cad { width: min(1180px, 96vw); background: radial-gradient(120% 140% at 0% 0%, #17202c 0%, #0f141a 55%, #0b0f14 100%); }
+    #dlg-cad .cad-corpo { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: 18px; padding: 18px; }
+    @media (max-width: 860px) { #dlg-cad .cad-corpo { grid-template-columns: 1fr; } }
+    .cad-palco { position: relative; border-radius: 16px; overflow: hidden; background: #000;
+                 box-shadow: 0 0 0 1px #233041, 0 18px 50px rgba(0,0,0,.55); aspect-ratio: 16 / 9; }
+    .cad-palco img { position: absolute; left: 0; width: 100%; height: 100%; object-fit: fill; }
+    .cad-palco.lente-cima img, .cad-palco.lente-baixo img { height: 200%; }
+    .cad-palco.lente-cima img { top: 0; } .cad-palco.lente-baixo img { top: -100%; }
+    .cad-palco.girada img { transform: rotate(180deg); }
+    .cad-palco.girada.lente-cima img { top: -100%; } .cad-palco.girada.lente-baixo img { top: 0; }
+    .cad-palco svg.guia { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .guia .vinheta { fill: rgba(5, 9, 14, .62); }
+    .guia .oval-base { fill: none; stroke: rgba(255,255,255,.18); stroke-width: 6; }
+    .guia .oval-prog { fill: none; stroke: #22c55e; stroke-width: 6; stroke-linecap: round;
+                       transition: stroke-dashoffset .35s ease, stroke .3s; filter: drop-shadow(0 0 6px rgba(34,197,94,.7)); }
+    .guia .oval-borda { fill: none; stroke-width: 2.5; stroke-dasharray: 7 9; transition: stroke .3s;
+                        animation: gira-borda 14s linear infinite; }
+    .guia.st-sem .oval-borda { stroke: rgba(255,255,255,.55); }
+    .guia.st-ajuste .oval-borda { stroke: #f59e0b; }
+    .guia.st-ok .oval-borda { stroke: #22c55e; stroke-dasharray: none; animation: none; }
+    @keyframes gira-borda { to { stroke-dashoffset: -320; } }
+    .guia .varredura { stroke: rgba(56,189,248,.85); stroke-width: 2; filter: drop-shadow(0 0 5px rgba(56,189,248,.9));
+                       animation: varre 2.2s ease-in-out infinite alternate; }
+    @keyframes varre { from { transform: translateY(var(--vy0)); } to { transform: translateY(var(--vy1)); } }
+    .cad-caixa { position: absolute; border: 2px solid rgba(255,255,255,.0); border-radius: 14px; transition: all .18s ease; pointer-events: none; }
+    .cad-caixa::before, .cad-caixa::after { content: ""; position: absolute; width: 18px; height: 18px; border: 3px solid currentColor; }
+    .cad-caixa::before { left: -3px; top: -3px; border-right: none; border-bottom: none; border-radius: 10px 0 0 0; }
+    .cad-caixa::after { right: -3px; bottom: -3px; border-left: none; border-top: none; border-radius: 0 0 10px 0; }
+    .cad-caixa.ok { color: #22c55e; } .cad-caixa.ajuste { color: #f59e0b; }
+    .cad-seta { position: absolute; top: 50%; font-size: 54px; color: #38bdf8; text-shadow: 0 0 18px rgba(56,189,248,.8);
+                transform: translateY(-50%); opacity: 0; transition: opacity .3s; pointer-events: none; }
+    .cad-seta.esq { left: 6%; animation: puxa-esq 1.1s ease-in-out infinite; }
+    .cad-seta.dir { right: 6%; animation: puxa-dir 1.1s ease-in-out infinite; }
+    .cad-seta.on { opacity: 1; }
+    @keyframes puxa-esq { 50% { transform: translate(-14px, -50%); } }
+    @keyframes puxa-dir { 50% { transform: translate(14px, -50%); } }
+    .cad-dica { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); max-width: 90%;
+                background: rgba(8,12,18,.78); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.12);
+                padding: 10px 18px; border-radius: 999px; font-size: 17px; font-weight: 600; text-align: center; white-space: nowrap;
+                overflow: hidden; text-overflow: ellipsis; transition: border-color .3s; }
+    .cad-dica.ok { border-color: rgba(34,197,94,.6); } .cad-dica.ajuste { border-color: rgba(245,158,11,.6); }
+    .cad-chip { position: absolute; left: 12px; top: 12px; font-size: 12px; background: rgba(8,12,18,.7);
+                border: 1px solid rgba(255,255,255,.12); padding: 4px 10px; border-radius: 999px; color: #cbd5e1; }
+    .cad-chip .rec { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; margin-right: 6px;
+                     animation: pisca-rec 1s steps(2) infinite; }
+    @keyframes pisca-rec { 50% { opacity: .2; } }
+    .cad-lado { display: flex; flex-direction: column; gap: 14px; }
+    .cad-lado[hidden] { display: none; }
+    .pisca-atencao { animation: atencao .45s ease-in-out 4; border-radius: 8px; }
+    @keyframes atencao { 50% { box-shadow: 0 0 0 3px #f59e0b; background: rgba(245,158,11,.12); } }
+    .cad-anel { display: flex; align-items: center; gap: 16px; }
+    .cad-anel svg { width: 104px; height: 104px; transform: rotate(-90deg); flex: none; }
+    .cad-anel .fundo { fill: none; stroke: #1f2a37; stroke-width: 9; }
+    .cad-anel .frente { fill: none; stroke: url(#grad-cad); stroke-width: 9; stroke-linecap: round; transition: stroke-dashoffset .35s ease; }
+    .cad-anel .num { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .cad-anel .sub2 { color: var(--suave); font-size: 13px; }
+    .cad-etapas { display: flex; flex-direction: column; gap: 8px; }
+    .cad-etapa { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 10px; padding: 9px 12px;
+                 border-radius: 12px; background: #121922; border: 1px solid #1f2a37; transition: all .25s; }
+    .cad-etapa .ic { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: #1f2a37; font-size: 15px; }
+    .cad-etapa .nm { font-size: 14px; font-weight: 600; } .cad-etapa .ds { font-size: 12px; color: var(--suave); }
+    .cad-etapa .mini { height: 4px; border-radius: 4px; background: #1f2a37; margin-top: 6px; overflow: hidden; }
+    .cad-etapa .mini i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #38bdf8, #22c55e); transition: width .3s; }
+    .cad-etapa .ct { font-size: 12px; color: var(--suave); font-variant-numeric: tabular-nums; }
+    .cad-etapa.atual { border-color: #2563eb; background: #13213a; box-shadow: 0 0 0 3px rgba(37,99,235,.18); }
+    .cad-etapa.atual .ic { background: #2563eb; }
+    .cad-etapa.feita .ic { background: #16a34a; }
+    .cad-checks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; font-size: 13px; }
+    .cad-checks span { display: flex; gap: 7px; align-items: center; color: var(--suave); }
+    .cad-checks span::before { content: "○"; width: 16px; text-align: center; color: #475569; }
+    .cad-checks span.ok { color: var(--texto); } .cad-checks span.ok::before { content: "✓"; color: #22c55e; font-weight: 700; }
+    .cad-checks span.ruim::before { content: "!"; color: #f59e0b; font-weight: 700; }
+    .cad-rodape { display: flex; align-items: center; gap: 10px; margin-top: auto; }
+    .cad-rodape .tempo { color: var(--suave); font-size: 12px; font-variant-numeric: tabular-nums; flex: 1; }
+    .cad-fim { display: none; text-align: center; padding: 30px 10px 10px; }
+    .cad-fim.on { display: block; }
+    .cad-fim .grande { font-size: 64px; line-height: 1; }
+    .cad-fim .grande.ok { color: #22c55e; animation: surge .5s cubic-bezier(.2,1.6,.4,1); }
+    @keyframes surge { from { transform: scale(.3); opacity: 0; } }
+    .cad-fim h3 { margin: 12px 0 6px; font-size: 20px; }
+    .cad-fim .qual { height: 8px; border-radius: 8px; background: #1f2a37; overflow: hidden; margin: 10px auto; max-width: 260px; }
+    .cad-fim .qual i { display: block; height: 100%; background: linear-gradient(90deg, #f59e0b, #22c55e); }
+
+    /* ---------- cartão LARGO (ex.: 1 câmera na tela): vídeo à esquerda, opções à direita ---------- */
+    .camera { container-type: inline-size; container-name: cartao; }
+    @container cartao (min-width: 980px) {
+      .corpo { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(400px, 1fr);
+               grid-template-rows: auto auto 1fr; align-items: start; }
+      .corpo > .video-box { grid-column: 1; grid-row: 1; }
+      .corpo > .barra { grid-column: 1; grid-row: 2; border-bottom: none; }
+      .corpo > .abas { grid-column: 2; grid-row: 1 / 2; align-self: start; position: sticky; top: 0; z-index: 2;
+                       background: var(--cartao); border-left: 1px solid var(--borda); }
+      .corpo > .aba { grid-column: 2; grid-row: 1 / 4; align-self: stretch; margin-top: var(--alt-abas, 46px);
+                      border-left: 1px solid var(--borda); overflow: auto;
+                      max-height: calc(100vh - 150px - var(--alt-abas, 46px)); }
+      .corpo > .aba .xm-grade { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    }
+    @container cartao (min-width: 1500px) {
+      .corpo { grid-template-columns: minmax(0, 1.6fr) minmax(520px, 1fr); }
+    }
 
     /* painel "Alto-falante e luz" em blocos */
     .xm-topo { margin: 0 0 10px; }
@@ -309,6 +429,14 @@
     .camera.girada .video-box img, .camera.girada video { transform: rotate(180deg); }
     .camera.girada .btn-girar { color: #60a5fa !important; }
     .camera .btn-girar-cam.ativo { color: #f59e0b !important; }
+    .ptz-inv-box { position: relative; display: inline-flex; }
+    .ptz-inv-box[hidden] { display: none; }
+    .camera .btn-ptz-inv.ativo { color: #f59e0b !important; }
+    .ptz-inv-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: 250px; padding: 12px;
+                    display: flex; flex-direction: column; gap: 10px; border-radius: 12px;
+                    background: rgba(17,22,29,.97); border: 1px solid var(--borda2); box-shadow: 0 14px 34px rgba(0,0,0,.5); }
+    .ptz-inv-menu[hidden] { display: none; }
+    .ptz-inv-menu .titulo-mini { font-size: 12px; font-weight: 600; color: var(--texto); }
 
     /* câmera de 2 lentes (X6S): o quadro traz as duas empilhadas, cada uma 16:9.
        Para mostrar só uma, a imagem fica com o dobro da altura e a moldura
@@ -440,6 +568,15 @@
         <div class="acoes-cab">
           <button class="btn-girar" title="Girar só NESTA TELA (não afeta gravações nem o app)">⟲</button>
           {% if cam.tem_xm %}<button class="btn-girar-cam" title="Girar a imagem NA CÂMERA — vale p/ gravações, cartão SD e app">⇅</button>{% endif %}
+          {% if cam.tem_ptz %}<span class="ptz-inv-box" hidden>
+            <button class="btn-ptz-inv" title="Inverter os comandos do movimento (PTZ)">⇄</button>
+            <div class="ptz-inv-menu" hidden>
+              <div class="titulo-mini">Inverter o movimento (PTZ)</div>
+              <label class="chave"><input type="checkbox" class="sw-inv-pan"><span class="trilho"></span><span class="rot">Esquerda ⇄ direita</span></label>
+              <label class="chave"><input type="checkbox" class="sw-inv-tilt"><span class="trilho"></span><span class="rot">Cima ⇅ baixo</span></label>
+              <div class="dica">Use se a câmera vai para o lado contrário da seta (ex.: instalada de cabeça para baixo).</div>
+            </div>
+          </span>{% endif %}
           <button class="btn-tela" title="Tela cheia">⛶</button>
           <button class="btn-minimizar" title="Minimizar">—</button>
           <button class="btn-esconder" title="Esconder (volta pelo topo)">✕</button>
@@ -453,16 +590,17 @@
           <div class="msg-offline"></div>
           <div class="flash"></div>
           {% if cam.tem_ptz %}
-          <div class="ptz">
+          <div class="ptz" hidden>
             <div class="lista-presets"></div>
-            <div class="dpad">
-              <button class="seta up"    data-pan="0"  data-tilt="1">▲</button>
-              <button class="seta left"  data-pan="1"  data-tilt="0">◀</button>
-              <button class="seta mid">⊙</button>
-              <button class="seta right" data-pan="-1" data-tilt="0">▶</button>
-              <button class="seta down"  data-pan="0"  data-tilt="-1">▼</button>
+            <div class="joy">
+              <button class="seta up" data-pan="0" data-tilt="1" title="Subir (segure)"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
+              <button class="seta left" data-pan="1" data-tilt="0" title="Esquerda (segure)"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+              <button class="seta right" data-pan="-1" data-tilt="0" title="Direita (segure)"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+              <button class="seta down" data-pan="0" data-tilt="-1" title="Descer (segure)"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+              <button class="seta mid" title="Segure uma seta para mover">✥</button>
             </div>
           </div>
+          <button class="ptz-fixa" hidden title="Nesta câmera de 2 lentes, só uma lente se mexe">🔒 lente fixa · é esta que se mexe?</button>
           {% endif %}
         </div>
 
@@ -485,7 +623,7 @@
         <nav class="abas">
           {% if cam.tem_xm %}<button data-aba="som">🔊 Alto-falante e luz</button>{% endif %}
           {% if cam.tem_alertas %}<button data-aba="alertas">🔔 Alertas</button>{% endif %}
-          {% if cam.tem_rosto %}<button data-aba="rosto">🙂 Rostos</button>{% endif %}
+          {% if cam.tem_rosto %}<button data-aba="rosto">🙂 Facial</button>{% endif %}
           {% if cam.tem_xm %}<button data-aba="sd">💾 Cartão SD</button>{% endif %}
           {% if cam.tem_ia %}<button data-aba="ia">🧠 IA e gravação</button>{% endif %}
           {% if cam.tem_ia %}<button data-aba="gravacoes">🎞 Gravações</button>{% endif %}
@@ -649,6 +787,7 @@
             <span class="contador rosto-agora">-</span>
           </div>
           <div class="dica rosto-detalhe"></div>
+          <div class="dica aviso-lente-facial" hidden style="color:#f59e0b">⚠ Câmera de 2 lentes: escolha <b>Lente 1</b> ou <b>Lente 2</b> em "Detectar em" — é a lente usada no cadastro e na imagem desta aba.</div>
           <div class="linha linha-lente-det" hidden>
             <label>Detectar em:</label>
             <div class="grupo" title="Câmera de 2 lentes: a IA e o reconhecimento olham só esta parte">
@@ -667,39 +806,7 @@
           </div>
           {% endif %}
 
-          <div class="xm-bloco" style="margin-top:10px">
-            <div class="sub">⚙️ O que fazer nas validações <span class="dica" style="font-weight:400">(vale para todas as câmeras)</span></div>
-            <div class="sub" style="margin-top:6px">✅ No LIBERADO</div>
-            <div class="linha">
-              <label class="chave"><input type="checkbox" class="rcfg-ok-falar"><span class="trilho"></span><span class="rot">Falar</span></label>
-              <input type="text" class="rcfg-ok" maxlength="200" placeholder="Acesso liberado, {nome}" style="flex:1"></div>
-            <div class="linha">
-              <label class="chave"><input type="checkbox" class="rcfg-ok-piscar"><span class="trilho"></span><span class="rot">Piscar o holofote</span></label>
-              <input type="number" class="rcfg-ok-vezes" min="1" max="20" step="1" style="width:64px" title="quantas vezes">
-              <span class="dica">vezes, acesa</span>
-              <input type="number" class="rcfg-ok-tempo" min="0.25" max="10" step="0.05" style="width:70px" title="segundos acesa (e o mesmo apagada)">
-              <span class="dica">s cada</span></div>
-            <div class="sub" style="margin-top:6px">⛔ No NEGADO</div>
-            <div class="linha">
-              <label class="chave"><input type="checkbox" class="rcfg-neg-falar"><span class="trilho"></span><span class="rot">Falar</span></label>
-              <input type="text" class="rcfg-neg" maxlength="200" placeholder="Acesso negado" style="flex:1"></div>
-            <div class="linha">
-              <label class="chave"><input type="checkbox" class="rcfg-neg-luz"><span class="trilho"></span><span class="rot">Acender</span></label>
-              <select class="rcfg-acao" style="flex:1">
-                <option value="alerta">Luz de alerta (vermelho/azul)</option>
-                <option value="holofote">Holofote (luz branca)</option>
-              </select>
-              <span class="dica">por</span>
-              <input type="number" class="rcfg-seg" min="1" max="600" step="1" style="width:70px" title="segundos acesa">
-              <span class="dica">s</span></div>
-            <div class="linha"><label style="min-width:96px">Voz</label>
-              <select class="rcfg-voz" style="flex:1"><option value="">Padrão</option></select></div>
-            <div class="linha"><span class="dica">Use <code>{nome}</code> para dizer o nome de quem foi liberado.</span>
-              <span style="flex:1"></span>
-              <button class="btn-rcfg-salvar btn-verde">Salvar</button></div>
-          </div>
-
-          <div class="xm-grade" style="margin-top:12px">
+          <div class="xm-grade" style="margin-top:10px">
             <div class="xm-bloco">
               <div class="sub">📸 Cadastrar pessoa</div>
               <div class="linha">
@@ -732,6 +839,43 @@
               <div class="vazio rosto-eventos-vazio" hidden>Nenhum acesso desde que o servidor subiu. O histórico completo fica em rostos\historico.csv</div>
             </div>
           </div>
+          <div class="xm-bloco" style="margin-top:12px">
+            <div class="sub">⚙️ O que fazer nas validações <span class="dica" style="font-weight:400">(vale para todas as câmeras)</span></div>
+            <div class="sub" style="margin-top:6px">✅ No LIBERADO</div>
+            <div class="linha">
+              <label class="chave"><input type="checkbox" class="rcfg-ok-falar"><span class="trilho"></span><span class="rot">Falar</span></label>
+              <input type="text" class="rcfg-ok" maxlength="200" placeholder="Acesso liberado, {nome}" style="flex:1"></div>
+            <div class="linha">
+              <label class="chave"><input type="checkbox" class="rcfg-ok-piscar"><span class="trilho"></span><span class="rot">Piscar o holofote</span></label>
+              <input type="number" class="rcfg-ok-vezes" min="1" max="20" step="1" style="width:64px" title="quantas vezes">
+              <span class="dica">vezes, acesa</span>
+              <input type="number" class="rcfg-ok-tempo" min="0.25" max="10" step="0.05" style="width:70px" title="segundos acesa (e o mesmo apagada)">
+              <span class="dica">s cada</span></div>
+            <div class="sub" style="margin-top:6px">⛔ No NEGADO</div>
+            <div class="linha">
+              <label class="chave"><input type="checkbox" class="rcfg-neg-falar"><span class="trilho"></span><span class="rot">Falar</span></label>
+              <input type="text" class="rcfg-neg" maxlength="200" placeholder="Acesso negado" style="flex:1"></div>
+            <div class="linha">
+              <label class="chave"><input type="checkbox" class="rcfg-neg-luz"><span class="trilho"></span><span class="rot">Acender</span></label>
+              <select class="rcfg-acao" style="flex:1">
+                <option value="alerta">Luz de alerta (vermelho/azul)</option>
+                <option value="holofote">Holofote (luz branca)</option>
+              </select>
+              <span class="dica">por</span>
+              <input type="number" class="rcfg-seg" min="1" max="600" step="1" style="width:70px" title="segundos acesa">
+              <span class="dica">s</span></div>
+            <div class="sub" style="margin-top:6px">🔁 Pessoa parada na frente</div>
+            <div class="linha">
+              <span class="rot">Validar de novo a cada</span>
+              <input type="number" class="rcfg-revalidar" min="0" max="300" step="1" style="width:70px" title="0 = só uma vez por pessoa">
+              <span class="dica">s (0 = só uma vez). O som só toca no 1º resultado e quando ele MUDA (ex.: negado → liberado); repetiu: só o aviso visual.</span></div>
+            <div class="linha"><label style="min-width:96px">Voz</label>
+              <select class="rcfg-voz" style="flex:1"><option value="">Padrão</option></select></div>
+            <div class="linha"><span class="dica">Use <code>{nome}</code> para dizer o nome de quem foi liberado.</span>
+              <span style="flex:1"></span>
+              <button class="btn-rcfg-salvar btn-verde">Salvar</button></div>
+          </div>
+
         </section>
         {% endif %}
 
@@ -861,6 +1005,65 @@
       </div>
 
       <pre class="cfg-passos" id="cams-passos" hidden></pre>
+    </div>
+  </dialog>
+
+  <!-- ================= CADASTRO FACIAL (janela guiada) ================= -->
+  <dialog id="dlg-cad" class="dlg">
+    <div class="cfg-cab">
+      <h2 id="cad-titulo">📸 Cadastro facial</h2>
+      <button id="cad-fechar" class="btn-icone" title="Cancelar e fechar">✕</button>
+    </div>
+    <div class="cad-corpo">
+      <div class="cad-palco" id="cad-palco">
+        <img id="cad-video" alt="câmera">
+        <svg class="guia st-sem" id="cad-guia">
+          <defs><mask id="cad-mascara"><rect width="100%" height="100%" fill="#fff"/><ellipse id="cad-furo" fill="#000"/></mask></defs>
+          <rect class="vinheta" width="100%" height="100%" mask="url(#cad-mascara)"/>
+          <ellipse class="oval-base" id="cad-oval-base"/>
+          <ellipse class="oval-prog" id="cad-oval-prog" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/>
+          <ellipse class="oval-borda" id="cad-oval-borda"/>
+          <line class="varredura" id="cad-varre"/>
+        </svg>
+        <div class="cad-caixa" id="cad-caixa" hidden></div>
+        <div class="cad-seta esq" id="cad-seta-esq">‹</div>
+        <div class="cad-seta dir" id="cad-seta-dir">›</div>
+        <div class="cad-chip"><span class="rec"></span><span id="cad-chip-txt">ao vivo</span></div>
+        <div class="cad-dica" id="cad-dica">Preparando...</div>
+      </div>
+
+      <div class="cad-lado">
+        <div id="cad-andamento" class="cad-lado">
+          <div class="cad-anel">
+            <svg viewBox="0 0 110 110"><defs><linearGradient id="grad-cad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#22c55e"/></linearGradient></defs>
+              <circle class="fundo" cx="55" cy="55" r="46"/>
+              <circle class="frente" id="cad-anel" cx="55" cy="55" r="46" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/></svg>
+            <div><div class="num" id="cad-pct">0%</div><div class="sub2" id="cad-fotos">0 de 20 fotos</div>
+              <div class="sub2" id="cad-pessoa"></div></div>
+          </div>
+          <div class="cad-etapas" id="cad-etapas"></div>
+          <div class="cad-checks" id="cad-checks">
+            <span data-k="rosto">Rosto encontrado</span><span data-k="tamanho">Distância</span>
+            <span data-k="centro">Centralizado</span><span data-k="pose">Posição pedida</span>
+            <span data-k="luz">Iluminação</span><span data-k="nitidez">Nitidez</span>
+          </div>
+          <div class="dica">Dica: fique a uns 50 cm a 1 m da câmera, com luz no rosto, sem boné nem óculos escuros.</div>
+          <div class="cad-rodape"><span class="tempo" id="cad-tempo"></span><button id="cad-cancelar">Cancelar</button></div>
+        </div>
+
+        <div class="cad-fim" id="cad-fim">
+          <div class="grande" id="cad-fim-ic">✓</div>
+          <h3 id="cad-fim-tit"></h3>
+          <div class="dica" id="cad-fim-txt"></div>
+          <div class="qual" id="cad-fim-qual"><i></i></div>
+          <div class="dica" id="cad-fim-aviso" style="color:#f59e0b"></div>
+          <div class="linha" style="justify-content:center;margin-top:16px">
+            <button id="cad-de-novo">↻ Tentar de novo</button>
+            <button id="cad-ok" class="btn-verde">Concluir</button>
+          </div>
+        </div>
+      </div>
     </div>
   </dialog>
 
@@ -1000,6 +1203,7 @@
       marca(".rcfg-neg-falar", cfg.neg_falar); marca(".rcfg-neg-luz", cfg.neg_luz);
       num(".rcfg-ok-vezes", cfg.ok_piscadas || 3); num(".rcfg-ok-tempo", cfg.ok_piscar_s || 1);
       num(".rcfg-seg", cfg.segundos || 10);
+      num(".rcfg-revalidar", cfg.revalidar_s != null ? cfg.revalidar_s : 5);
     }
     fetch("/api/rosto/config").then(r => r.json()).then(d => {
       if (d && d.ok) preencheRcfg(d.cfg, d.vozes);
@@ -1013,7 +1217,8 @@
           ok_falar: g(".rcfg-ok-falar").checked, ok_piscar: g(".rcfg-ok-piscar").checked,
           ok_piscadas: Number(g(".rcfg-ok-vezes").value) || 3, ok_piscar_s: Number(g(".rcfg-ok-tempo").value) || 1,
           neg_falar: g(".rcfg-neg-falar").checked, neg_luz: g(".rcfg-neg-luz").checked,
-          segundos: Number(g(".rcfg-seg").value) || 10 });
+          segundos: Number(g(".rcfg-seg").value) || 10,
+          revalidar_s: g(".rcfg-revalidar").value === "" ? 5 : Number(g(".rcfg-revalidar").value) });
         if (d && d.ok) { preencheRcfg(d.cfg, null); aviso("Configuração das validações salva"); }
         else aviso("Erro ao salvar: " + ((d && d.erro) || "?"), true);
       });
@@ -1141,6 +1346,8 @@
       botoes.forEach(b => b.classList.toggle("ativa", b.dataset.aba === nome));
       c.querySelectorAll(".aba").forEach(a => a.classList.toggle("ativa", a.dataset.aba === nome));
       salvo.gravar("aba." + c.dataset.cid, nome);
+      c._abaAtual = nome;
+      if (c._aplicaLente) c._aplicaLente();
       if (nome === "gravacoes") carregarGravacoes(c);
       if (nome === "fotos") carregarGaleria(c);
       if (nome === "ia") carregarEventos(c);
@@ -1161,14 +1368,28 @@
       // lente (câmeras de 2 lentes): "ambas" | "cima" | "baixo", salvo por câmera
       c._lente = (salvo.ler("lentes", {}) || {})[cid] || "ambas";
       c._duas = false;
+      // aba Facial aberta: a imagem mostra a MESMA lente do reconhecimento ("Detectar em")
+      c._lenteFacial = () => (c._duas && c._abaAtual === "rosto" && (c._lenteDet === "cima" || c._lenteDet === "baixo"))
+        ? c._lenteDet : null;
       c._aplicaLente = () => {
-        const box = q(".video-box"), l = c._duas ? c._lente : "ambas";
+        const box = q(".video-box"), forcada = c._lenteFacial();
+        const l = forcada || (c._duas ? c._lente : "ambas");
         box.classList.toggle("lente-cima", l === "cima");
         box.classList.toggle("lente-baixo", l === "baixo");
-        c.querySelectorAll(".btn-lente").forEach(b => b.classList.toggle("ativo", b.dataset.lente === c._lente));
-        q(".grupo-lente").hidden = !c._duas;
+        c.querySelectorAll(".btn-lente").forEach(b => b.classList.toggle("ativo", b.dataset.lente === l));
+        const grupo = q(".grupo-lente");
+        grupo.hidden = !c._duas;
+        grupo.title = forcada ? "Aba Facial: a imagem segue a lente de \"Detectar em\" (clicar aqui muda as duas)"
+                              : "Câmera de 2 lentes: o que mostrar na tela";
+        const av = q(".aviso-lente-facial");
+        if (av) av.hidden = !(c._duas && c._lenteDet !== "cima" && c._lenteDet !== "baixo");
+        if (c._aplicaPtz) c._aplicaPtz();
       };
       c.querySelectorAll(".btn-lente").forEach(b => b.addEventListener("click", () => {
+        if (c._duas && c._abaAtual === "rosto") {        // na aba Facial: muda a lente da detecção
+          const alvo = c.querySelector('.aba[data-aba="rosto"] .btn-lente-det[data-lente="' + b.dataset.lente + '"]');
+          if (alvo) { alvo.click(); return; }
+        }
         const t = salvo.ler("lentes", {}) || {};
         t[cid] = b.dataset.lente;
         salvo.gravar("lentes", t);
@@ -1182,6 +1403,7 @@
         if (!d.ok) { aviso("Erro: " + d.erro, true); return; }
         c._lenteDet = d.lente;
         c.querySelectorAll(".btn-lente-det").forEach(x => x.classList.toggle("ativo", x.dataset.lente === d.lente));
+        c._aplicaLente();
         aviso("Detecção " + nomes[d.lente]);
       }));
       const giradas = new Set(salvo.ler("giradas", []));
@@ -1344,20 +1566,70 @@
     // =============================================================
     function configurarPtz(c) {
       const cid = c.dataset.cid, V = 0.6;
+      const ptz = c.querySelector(".ptz"), joy = c.querySelector(".joy"), chip = c.querySelector(".ptz-fixa");
       let movendo = false;
+      // câmera de 2 lentes: só UMA se mexe (padrão Lente 2; dá pra trocar pelo aviso na lente fixa)
+      const lenteMovel = () => ((salvo.ler("ptzLente", {}) || {})[cid]) || "baixo";
+      c._aplicaPtz = () => {
+        const vista = c._lenteFacial ? (c._lenteFacial() || (c._duas ? c._lente : "ambas")) : "ambas";
+        const naFixa = c._duas && vista !== "ambas" && vista !== lenteMovel();
+        ptz.hidden = c._ptzCapaz !== true || naFixa;
+        if (chip) chip.hidden = !(c._ptzCapaz === true && naFixa);
+        joy.title = c._duas ? "Lente que se mexe: " + (lenteMovel() === "cima" ? "Lente 1" : "Lente 2") : "";
+      };
+      if (chip) chip.addEventListener("click", () => {
+        const vista = c._lenteFacial() || c._lente;
+        const t = salvo.ler("ptzLente", {}) || {};
+        t[cid] = vista; salvo.gravar("ptzLente", t);
+        aviso("Ok: " + (vista === "cima" ? "Lente 1" : "Lente 2") + " é a que se mexe");
+        c._aplicaPtz();
+      });
+      c._aplicaPtz();
       async function mover(pan, tilt, zoom) {
         movendo = true;
+        joy.classList.add("movendo");
         const d = await postJSON("/api/ptz/" + cid + "/mover", { pan, tilt, zoom });
         if (!d.ok) { movendo = false; aviso("Movimento: " + d.erro, true); }
       }
       async function parar() {
+        c.querySelectorAll(".joy .seta.apertada").forEach(x => x.classList.remove("apertada"));
+        joy.classList.remove("movendo");
         if (!movendo) return;
         movendo = false;
         await postJSON("/api/ptz/" + cid + "/parar");
       }
-      c.querySelectorAll(".seta[data-pan], .seta[data-tilt]").forEach(b => {
+      // botão ⇄ (inverter os comandos): só aparece se a câmera se mexe
+      const invBox = c.querySelector(".ptz-inv-box"), invBtn = c.querySelector(".btn-ptz-inv"), invMenu = c.querySelector(".ptz-inv-menu");
+      c._mostraInv = inv => {
+        if (!invBox) return;
+        invBox.hidden = c._ptzCapaz !== true;
+        if (!inv) return;
+        const sp = c.querySelector(".sw-inv-pan"), st = c.querySelector(".sw-inv-tilt");
+        if (!c._pend[".sw-inv-pan"]) sp.checked = !!inv.pan;
+        if (!c._pend[".sw-inv-tilt"]) st.checked = !!inv.tilt;
+        invBtn.classList.toggle("ativo", !!(inv.pan || inv.tilt));
+        invBtn.title = "Inverter os comandos do movimento (PTZ)" + (inv.pan || inv.tilt
+          ? " — invertido: " + [inv.pan ? "esquerda/direita" : "", inv.tilt ? "cima/baixo" : ""].filter(Boolean).join(" e ") : "");
+      };
+      if (invBtn) {
+        invBtn.addEventListener("click", e => { e.stopPropagation(); invMenu.hidden = !invMenu.hidden; });
+        invMenu.addEventListener("click", e => e.stopPropagation());
+        document.addEventListener("click", () => { invMenu.hidden = true; });
+        [[".sw-inv-pan", "pan", "esquerda/direita"], [".sw-inv-tilt", "tilt", "cima/baixo"]].forEach(([sel, eixo, nome]) => {
+          const el = c.querySelector(sel);
+          el.addEventListener("change", async () => {
+            c._pend[sel] = true;
+            const d = await postJSON("/api/ptz/" + cid + "/inverter", { [eixo]: el.checked });
+            c._pend[sel] = false;
+            if (!d.ok) { el.checked = !el.checked; aviso("Erro: " + d.erro, true); return; }
+            c._mostraInv(d);
+            aviso((el.checked ? "Invertido: " : "Normal: ") + nome);
+          });
+        });
+      }
+      c.querySelectorAll(".joy .seta[data-pan], .joy .seta[data-tilt]").forEach(b => {
         const pan = Number(b.dataset.pan || 0) * V, tilt = Number(b.dataset.tilt || 0) * V;
-        b.addEventListener("pointerdown", e => { e.preventDefault(); mover(pan, tilt, 0); });
+        b.addEventListener("pointerdown", e => { e.preventDefault(); b.classList.add("apertada"); mover(pan, tilt, 0); });
         ["pointerup", "pointerleave", "pointercancel"].forEach(ev => b.addEventListener(ev, parar));
       });
       document.addEventListener("pointerup", parar);
@@ -1905,6 +2177,218 @@
     }
 
     // =============================================================
+    //  Janela do CADASTRO FACIAL (guia, progresso e orientações)
+    // =============================================================
+    const Cadastro = (function () {
+      const dlg = document.getElementById("dlg-cad");
+      if (!dlg) return { abrir() {} };
+      const $ = id => document.getElementById(id);
+      const ETAPAS = {
+        frente: ["🙂", "De frente", "Olhe direto para a câmera"],
+        lado1: ["↔", "Vire para um lado", "Devagar, até o nariz apontar para o lado"],
+        lado2: ["↔", "Agora o outro lado", "Devagar, para o lado oposto"],
+      };
+      let card = null, cid = null, nome = "", negado = false, timer = null, ocupado = false, fim = false, geo = null, aspecto = false;
+
+      function geometria() {
+        const p = $("cad-palco"), W = p.clientWidth, H = p.clientHeight;
+        if (!W || !H) return null;
+        const ry = H * 0.40, rx = Math.min(W * 0.30, ry * 0.80), cx = W / 2, cy = H * 0.47;
+        $("cad-guia").setAttribute("viewBox", "0 0 " + W + " " + H);
+        ["cad-furo", "cad-oval-base", "cad-oval-prog", "cad-oval-borda"].forEach(id => {
+          const e = $(id); e.setAttribute("cx", cx); e.setAttribute("cy", cy); e.setAttribute("rx", rx); e.setAttribute("ry", ry);
+        });
+        const l = $("cad-varre");
+        l.setAttribute("x1", cx - rx * 0.78); l.setAttribute("x2", cx + rx * 0.78); l.setAttribute("y1", cy); l.setAttribute("y2", cy);
+        l.style.setProperty("--vy0", (-ry * 0.72) + "px"); l.style.setProperty("--vy1", (ry * 0.72) + "px");
+        return { W, H, cx, cy, rx, ry };
+      }
+
+      function lenteAtual(d) { return card && card._duas && d && (d.lente === "cima" || d.lente === "baixo") ? d.lente : "ambas"; }
+
+      function ajustaPalco(d) {
+        const p = $("cad-palco"), img = $("cad-video"), l = lenteAtual(d);
+        p.classList.toggle("lente-cima", l === "cima");
+        p.classList.toggle("lente-baixo", l === "baixo");
+        p.classList.toggle("girada", !!(card && card.classList.contains("girada")));
+        if (img.naturalWidth && !aspecto) {
+          const h = img.naturalHeight / (l === "ambas" ? 1 : 2);
+          p.style.aspectRatio = img.naturalWidth + " / " + h;
+          aspecto = true;
+          setTimeout(() => { geo = geometria(); }, 30);
+        }
+        $("cad-chip-txt").textContent = "ao vivo" + (l === "cima" ? " · Lente 1" : l === "baixo" ? " · Lente 2" : "");
+        return l;
+      }
+
+      function caixa(cad, l) {
+        const el = $("cad-caixa");
+        if (!cad.rosto || !geo) { el.hidden = true; return; }
+        let { x, y, w, h } = cad.rosto;
+        if (l === "cima") { y = y * 2; h = h * 2; }
+        else if (l === "baixo") { y = (y - 0.5) * 2; h = h * 2; }
+        if (card && card.classList.contains("girada")) { x = 1 - x - w; y = 1 - y - h; }
+        const ch = cad.checks || {};
+        el.hidden = false;
+        el.className = "cad-caixa " + (ch.tamanho && ch.centro && ch.pose ? "ok" : "ajuste");
+        Object.assign(el.style, { left: (x * geo.W) + "px", top: (y * geo.H) + "px", width: (w * geo.W) + "px", height: (h * geo.H) + "px" });
+      }
+
+      function setas(cad, etapa) {
+        const esq = $("cad-seta-esq"), dir = $("cad-seta-dir"), ch = cad.checks || {};
+        let e = false, d = false;
+        if (etapa && !ch.pose && ch.rosto) {
+          if (etapa.id === "lado1") { e = d = true; }
+          else if (etapa.id === "lado2" && cad.lado1) {
+            let lado = -cad.lado1;                                   // o contrário do 1º lado, na tela
+            if (card && card.classList.contains("girada")) lado = -lado;
+            if (lado > 0) d = true; else e = true;
+          }
+        }
+        esq.classList.toggle("on", e); dir.classList.toggle("on", d);
+      }
+
+      function etapas(cad) {
+        const box = $("cad-etapas"); box.innerHTML = "";
+        (cad.etapas || []).forEach((e, i) => {
+          const [ic, nm, ds] = ETAPAS[e.id] || ["•", e.id, ""];
+          const feita = e.feitas >= e.total, atual = i === cad.etapa && !feita;
+          const div = document.createElement("div");
+          div.className = "cad-etapa" + (atual ? " atual" : "") + (feita ? " feita" : "");
+          const a = document.createElement("div"); a.className = "ic"; a.textContent = feita ? "✓" : ic;
+          const b = document.createElement("div");
+          const n = document.createElement("div"); n.className = "nm"; n.textContent = nm;
+          const t = document.createElement("div"); t.className = "ds"; t.textContent = ds;
+          const mini = document.createElement("div"); mini.className = "mini";
+          const barra = document.createElement("i"); barra.style.width = Math.round(100 * e.feitas / e.total) + "%"; mini.appendChild(barra);
+          b.append(n, t, mini);
+          const ct = document.createElement("div"); ct.className = "ct"; ct.textContent = e.feitas + "/" + e.total;
+          div.append(a, b, ct); box.appendChild(div);
+        });
+      }
+
+      function checks(cad) {
+        const ch = cad.checks || {};
+        $("cad-checks").querySelectorAll("span").forEach(sp => {
+          const k = sp.dataset.k, v = ch[k];
+          sp.className = v ? "ok" : (ch.rosto && k !== "rosto" ? "ruim" : "");
+          if (k === "tamanho") sp.textContent = "Distância" + (cad.px ? " (" + cad.px + "/" + cad.min_px + " px)" : "");
+        });
+      }
+
+      function mostraFim(cad) {
+        fim = true;
+        $("cad-andamento").hidden = true; $("cad-fim").classList.add("on");
+        $("cad-caixa").hidden = true; setas({}, null);
+        const ic = $("cad-fim-ic"), qual = $("cad-fim-qual");
+        $("cad-fim-aviso").textContent = "";
+        if (cad.estado === "ok" && cad.resultado) {
+          const x = cad.resultado, sem = x.semelhanca_media || 0;
+          ic.textContent = "✓"; ic.className = "grande ok";
+          $("cad-fim-tit").textContent = x.nome + (x.somou ? ": fotos somadas ao cadastro" : " cadastrado(a)");
+          $("cad-fim-txt").textContent = (x.permitido ? "✅ PERMITIDO" : "⛔ NEGADO") + " · " + x.aproveitadas + " fotos aproveitadas · semelhança "
+            + sem + (sem >= 0.45 ? " (boa)" : " (fraca: vale refazer mais perto)");
+          qual.hidden = false; qual.firstElementChild.style.width = Math.min(100, Math.round(sem / 0.7 * 100)) + "%";
+          if (x.alerta_parecido) $("cad-fim-aviso").textContent = "⚠ parecido demais com " + x.mais_parecido + " (" + x.semelhanca_outro + ")";
+          $("cad-de-novo").hidden = true;
+          $("cad-dica").textContent = "Pronto!"; $("cad-dica").className = "cad-dica ok";
+          $("cad-oval-prog").style.strokeDashoffset = 0; $("cad-guia").setAttribute("class", "guia st-ok");
+        } else {
+          ic.textContent = "✕"; ic.className = "grande"; ic.style.color = "#ef4444";
+          $("cad-fim-tit").textContent = "Não deu certo";
+          $("cad-fim-txt").textContent = cad.msg || "o cadastro não terminou";
+          qual.hidden = true; $("cad-de-novo").hidden = false;
+          $("cad-dica").textContent = "Vamos tentar de novo?"; $("cad-dica").className = "cad-dica ajuste";
+          $("cad-guia").setAttribute("class", "guia st-sem");
+        }
+      }
+
+      function render(d) {
+        const cad = d.cadastro;
+        const l = ajustaPalco(d);
+        if (!geo) geo = geometria();
+        if (!cad) return;
+        if (cad.estado === "ok" || cad.estado === "erro" || cad.estado === "cancelado") {
+          if (cad.estado === "cancelado") { fecha(false); return; }
+          if (!fim) mostraFim(cad);
+          return;
+        }
+        const pct = Math.round(100 * cad.amostras / Math.max(cad.total, 1));
+        $("cad-pct").textContent = pct + "%";
+        $("cad-fotos").textContent = cad.amostras + " de " + cad.total + " fotos";
+        $("cad-anel").style.strokeDashoffset = 100 - pct;
+        $("cad-oval-prog").style.strokeDashoffset = 100 - pct;
+        const ch = cad.checks || {}, bom = ch.tamanho && ch.centro && ch.pose;
+        $("cad-guia").setAttribute("class", "guia " + (!ch.rosto ? "st-sem" : bom ? "st-ok" : "st-ajuste"));
+        const dica = $("cad-dica");
+        dica.textContent = cad.estado === "salvando" ? "Conferindo as fotos..." : (cad.dica || cad.msg || "");
+        dica.className = "cad-dica" + (!ch.rosto ? "" : bom ? " ok" : " ajuste");
+        $("cad-tempo").textContent = cad.estado === "salvando" ? "salvando..." : "restam " + (cad.restante_s != null ? cad.restante_s : "-") + " s";
+        etapas(cad); checks(cad); caixa(cad, l);
+        setas(cad, (cad.etapas || [])[cad.etapa]);
+      }
+
+      async function puxa() {
+        if (ocupado || !cid) return;
+        ocupado = true;
+        try { render(await (await fetch("/api/rosto/" + cid + "/cadastro", { cache: "no-store" })).json()); }
+        catch (e) { /* servidor ocupado */ }
+        ocupado = false;
+      }
+
+      function zera() {
+        fim = false; aspecto = false; geo = null;
+        $("cad-andamento").hidden = false; $("cad-fim").classList.remove("on");
+        $("cad-fim-ic").style.color = "";
+        $("cad-pct").textContent = "0%"; $("cad-fotos").textContent = "olhe para a câmera";
+        $("cad-anel").style.strokeDashoffset = 100; $("cad-oval-prog").style.strokeDashoffset = 100;
+        $("cad-dica").textContent = "Preparando a câmera..."; $("cad-dica").className = "cad-dica";
+        $("cad-caixa").hidden = true; $("cad-etapas").innerHTML = "";
+      }
+
+      function abrir(c, n, neg) {
+        card = c; cid = c.dataset.cid; nome = n; negado = !!neg;
+        zera();
+        $("cad-titulo").textContent = "📸 Cadastro facial · " + (c.querySelector(".cab h2") || {}).textContent;
+        $("cad-pessoa").textContent = n + (negado ? " (como NEGADO)" : "");
+        $("cad-video").src = "/video/" + cid + "?cad=" + Date.now();
+        if (!dlg.open) dlg.showModal();
+        clearInterval(timer); timer = setInterval(puxa, 300);
+        setTimeout(() => { geo = geometria(); }, 60);
+      }
+
+      async function fecha(cancelar) {
+        clearInterval(timer); timer = null;
+        if (cancelar && !fim && cid) await postJSON("/api/rosto/" + cid + "/cancelar");
+        $("cad-video").removeAttribute("src");
+        if (dlg.open) dlg.close();
+        cid = null;
+      }
+
+      $("cad-fechar").addEventListener("click", () => fecha(true));
+      $("cad-cancelar").addEventListener("click", () => fecha(true));
+      $("cad-ok").addEventListener("click", () => fecha(false));
+      dlg.addEventListener("cancel", e => { e.preventDefault(); fecha(true); });
+      $("cad-de-novo").addEventListener("click", async () => {
+        const c = card, n = nome, neg = negado;
+        const d = await postJSON("/api/rosto/" + c.dataset.cid + "/cadastrar", { nome: n, negado: neg });
+        if (!d.ok) { aviso("Erro: " + d.erro, true); return; }
+        abrir(c, n, neg);
+      });
+      window.addEventListener("resize", () => { if (dlg.open) geo = geometria(); });
+      return { abrir };
+    })();
+
+    // largura das abas (layout lado a lado do cartão largo)
+    (function () {
+      const ro = new ResizeObserver(lista => lista.forEach(e => {
+        const card = e.target.closest(".camera");
+        if (card) card.style.setProperty("--alt-abas", e.target.offsetHeight + "px");
+      }));
+      document.querySelectorAll(".camera .abas").forEach(n => ro.observe(n));
+    })();
+
+    // =============================================================
     //  Rostos (reconhecimento facial)
     // =============================================================
     function configurarRosto(c) {
@@ -1913,12 +2397,18 @@
       async function cadastrar() {
         const n = nome.value.trim();
         if (!n) { aviso("Digite o nome da pessoa", true); nome.focus(); return; }
+        if (c._duas && c._lenteDet !== "cima" && c._lenteDet !== "baixo") {
+          aviso("Escolha Lente 1 ou Lente 2 em \"Detectar em\" antes de cadastrar", true);
+          const l = c.querySelector('.aba[data-aba="rosto"] .linha-lente-det');
+          if (l) { l.scrollIntoView({ block: "center", behavior: "smooth" }); l.classList.add("pisca-atencao"); setTimeout(() => l.classList.remove("pisca-atencao"), 1900); }
+          return;
+        }
         btn.disabled = true;
         const d = await postJSON("/api/rosto/" + cid + "/cadastrar", { nome: n, negado: q(".sw-rosto-negado").checked });
         btn.disabled = false;
         if (!d.ok) { aviso("Erro: " + d.erro, true); return; }
         q(".rosto-cad-res").textContent = "";
-        aviso("Cadastrando " + n + ": olhe para a câmera");
+        Cadastro.abrir(c, n, q(".sw-rosto-negado").checked);      // janela guiada
       }
       btn.addEventListener("click", cadastrar);
       nome.addEventListener("keydown", e => { if (e.key === "Enter") cadastrar(); });
@@ -2121,10 +2611,12 @@
         if (s.online && s.largura && s.altura) {          // 2 lentes = quadro mais alto que largo (2304x2592)
           const duas = s.altura / s.largura > 0.9;
           if (duas !== c._duas) { c._duas = duas; c._aplicaLente(); }
+          if (s.ptz !== undefined && s.ptz !== c._ptzCapaz) { c._ptzCapaz = s.ptz; if (c._aplicaPtz) c._aplicaPtz(); }
+          if (c._mostraInv && s.ptz !== undefined) c._mostraInv(s.ptz_inv);
         }
         c.querySelectorAll(".linha-lente-det").forEach(l => { l.hidden = !c._duas; });
         if (s.lente_det) {
-          c._lenteDet = s.lente_det;
+          if (c._lenteDet !== s.lente_det) { c._lenteDet = s.lente_det; c._aplicaLente(); }
           c.querySelectorAll(".btn-lente-det").forEach(x => x.classList.toggle("ativo", x.dataset.lente === s.lente_det));
         }
         const msg = q(".msg-offline");

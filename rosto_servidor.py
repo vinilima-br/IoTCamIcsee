@@ -51,6 +51,12 @@ CONFIANCA_MIN = 0.90
 AMOSTRAS_CADASTRO = 20
 INTERVALO_CADASTRO_S = 0.5
 LIMITE_CADASTRO_S = 60
+# cadastro guiado: de frente, depois vira para um lado, depois para o outro
+# (o "lado" vale qualquer um no começo - assim não importa se a imagem está espelhada/girada)
+ETAPAS_CADASTRO = (("frente", 8), ("lado1", 6), ("lado2", 6))
+YAW_FRENTE = 0.14            # nariz quase no meio dos olhos
+YAW_LADO = 0.20              # nariz deslocado (rosto virado)
+PACIENCIA_ETAPA_S = 12       # não conseguiu virar? depois disso aceita do jeito que der
 
 PASTA_EVENTOS = os.path.join(ia.PASTA_ROSTOS, "eventos")
 PASTA_REMOVIDOS = os.path.join(ia.PASTA_ROSTOS, "removidos")
@@ -66,7 +72,8 @@ ARQ_CFG = os.path.join(ia.PASTA_ROSTOS, "config_validacao.json")
 _CFG_PADRAO = {"frase_ok": FRASE_OK, "frase_negado": FRASE_NEGADO,
                "voz": "", "acao_negado": "alerta", "segundos": ALERTA_S,
                "ok_falar": True, "ok_piscar": False, "ok_piscadas": 3, "ok_piscar_s": 1.0,
-               "neg_falar": True, "neg_luz": True}
+               "neg_falar": True, "neg_luz": True,
+               "revalidar_s": 5}           # mesma pessoa parada: valida de novo a cada X s (0 = só 1 vez)
 PISCAR_MAX = 20
 PISCAR_S_MIN, PISCAR_S_MAX = 0.25, 10.0   # 0,25 s ~ o tempo de 1 comando na câmera
 
@@ -92,6 +99,11 @@ def _normaliza(c):
         c["segundos"] = max(1.0, min(600.0, float(c.get("segundos") or ALERTA_S)))
     except (TypeError, ValueError):
         c["segundos"] = ALERTA_S
+    try:
+        v = float(c.get("revalidar_s") if c.get("revalidar_s") is not None else 5)
+        c["revalidar_s"] = 0 if v <= 0 else max(2.0, min(300.0, v))
+    except (TypeError, ValueError):
+        c["revalidar_s"] = 5
     return c
 _cfg = dict(_CFG_PADRAO)
 _cfg_trava = threading.Lock()
@@ -342,6 +354,9 @@ class Reconhecedor:
 
     def set_lente(self, lente):
         with self.trava:
+            if self.cadastro and self.cadastro["estado"] == "capturando" and lente != self.lente:
+                self.cadastro.update(estado="cancelado", msg="a lente mudou no meio do cadastro - comece de novo",
+                                     _recortes=[])
             self.lente = lente
             self.validador = ia.Validador()      # recomeça a contagem na lente nova
             self.atuais = []
@@ -357,11 +372,20 @@ class Reconhecedor:
             raise ValueError("digite o nome da pessoa")
         if len(nome) > 40:
             raise ValueError("nome muito longo (máx. 40 letras)")
+        quadro = getattr(self.camera, "frame", None)
+        if quadro is not None and lentes.eh_duas_lentes(quadro) and self.lente not in ("cima", "baixo"):
+            raise ValueError("esta câmera tem 2 lentes: escolha Lente 1 ou Lente 2 em \"Detectar em\" "
+                             "antes de cadastrar (com as 2 lentes juntas a foto sai ruim)")
         with self.trava:
             if self.cadastro and self.cadastro["estado"] == "capturando":
                 raise ValueError("já está cadastrando nesta câmera")
             self.cadastro = {"estado": "capturando", "nome": nome, "negado": bool(negado),
-                             "amostras": 0, "total": AMOSTRAS_CADASTRO, "inicio": time.time(),
+                             "amostras": 0, "total": sum(n for _, n in ETAPAS_CADASTRO), "inicio": time.time(),
+                             "etapa": 0, "lado1": None, "dica": "Olhe direto para a câmera",
+                             "etapas": [{"id": e, "feitas": 0, "total": n, "desde": time.time()}
+                                        for e, n in ETAPAS_CADASTRO],
+                             "checks": {}, "rosto": None, "px": 0, "min_px": TAMANHO_CADASTRO_PX,
+                             "yaw": None, "restante_s": LIMITE_CADASTRO_S, "lente": self.lente,
                              "msg": "olhe para a câmera e vire o rosto devagar", "resultado": None,
                              "_recortes": [], "_ultima": 0.0}
         self._ajusta_stream()
@@ -374,23 +398,100 @@ class Reconhecedor:
                 self.cadastro.update(estado="cancelado", msg="cancelado - nada foi salvo", _recortes=[])
         self._ajusta_stream()
 
-    def _cadastro_passo(self, validos):
+    @staticmethod
+    def _yaw(r):
+        """Quanto o rosto está virado: 0 = de frente; < 0 / > 0 = um lado / o outro."""
+        pts = r.get("pontos")
+        if not pts:
+            return None
+        (ex1, _), (ex2, _), (nx, _) = pts[0], pts[1], pts[2]
+        dist = abs(ex2 - ex1)
+        if dist < 4:
+            return None
+        return (nx - (ex1 + ex2) / 2.0) / dist
+
+    @staticmethod
+    def _qualidade(recorte):
+        try:
+            cinza = cv2.cvtColor(recorte, cv2.COLOR_BGR2GRAY)
+            return float(cinza.mean()), float(cv2.Laplacian(cinza, cv2.CV_64F).var())
+        except Exception:  # noqa: BLE001
+            return 128.0, 100.0
+
+    def _cadastro_passo(self, validos, dims=None):
+        """dims = (altura e largura do quadro inteiro, deslocamento e altura da parte analisada)."""
         cad = self.cadastro
         agora = time.time()
-        grandes = [r for r in validos if r["caixa"][2] >= TAMANHO_CADASTRO_PX]
         if agora - cad["inicio"] > LIMITE_CADASTRO_S:
-            cad.update(estado="erro", msg="não achei um rosto bom em {} s (chegue mais perto, mín. {} px)"
-                       .format(LIMITE_CADASTRO_S, TAMANHO_CADASTRO_PX), _recortes=[])
+            cad.update(estado="erro", msg="o tempo acabou ({} s) sem fotos suficientes: chegue mais perto, "
+                                          "com o rosto bem iluminado".format(LIMITE_CADASTRO_S), _recortes=[])
             return True
-        if not grandes:
-            cad["msg"] = ("rosto pequeno ({} px) - chegue mais perto".format(validos[0]["caixa"][2])
-                          if validos else "nenhum rosto - olhe para a câmera")
+        etapas = cad["etapas"]
+        etapa = etapas[cad["etapa"]]
+        cad["restante_s"] = int(LIMITE_CADASTRO_S - (agora - cad["inicio"]))
+        checks = {"rosto": False, "tamanho": False, "centro": False, "luz": False, "nitidez": False, "pose": False}
+        cad["checks"], cad["rosto"], cad["px"], cad["yaw"] = checks, None, 0, None
+        if not validos:
+            cad["dica"] = cad["msg"] = "Não estou vendo um rosto - olhe para a câmera"
             return False
-        if agora - cad["_ultima"] >= INTERVALO_CADASTRO_S:
-            cad["_recortes"].append(grandes[0]["recorte"].copy())
+        r = validos[0]
+        x, y, w, h = r["caixa"]
+        checks["rosto"] = True
+        cad["px"] = w
+        checks["tamanho"] = w >= TAMANHO_CADASTRO_PX
+        if dims:
+            alt, larg, dy, alt_parte = dims
+            cad["rosto"] = {"x": x / larg, "y": y / alt, "w": w / larg, "h": h / alt}
+            cx, cy = (x + w / 2.0) / larg, (y - dy + h / 2.0) / max(alt_parte, 1)
+            checks["centro"] = 0.22 <= cx <= 0.78 and 0.18 <= cy <= 0.82
+        else:
+            checks["centro"] = True
+        brilho, nitidez = self._qualidade(r["recorte"])
+        checks["luz"] = 55 <= brilho <= 215
+        checks["nitidez"] = nitidez >= 25
+        yaw = self._yaw(r)
+        cad["yaw"] = None if yaw is None else round(yaw, 2)
+
+        # a pose pedida nesta etapa
+        relaxado = agora - etapa["desde"] > PACIENCIA_ETAPA_S and etapa["id"] != "frente"
+        if yaw is None:
+            pose_ok = True
+        elif etapa["id"] == "frente":
+            pose_ok = abs(yaw) <= YAW_FRENTE
+        elif etapa["id"] == "lado1":
+            pose_ok = abs(yaw) >= YAW_LADO
+        else:                                   # lado2: o contrário do lado1
+            lado1 = cad.get("lado1") or 1
+            pose_ok = yaw * lado1 <= -YAW_LADO
+        checks["pose"] = pose_ok or relaxado
+
+        if not checks["tamanho"]:
+            cad["dica"] = "Chegue mais perto ({} px, precisa de {})".format(w, TAMANHO_CADASTRO_PX)
+        elif not checks["centro"]:
+            cad["dica"] = "Centralize o rosto no oval"
+        elif not checks["pose"]:
+            cad["dica"] = {"frente": "Olhe direto para a câmera",
+                           "lado1": "Vire o rosto devagar para um lado",
+                           "lado2": "Agora vire devagar para o OUTRO lado"}[etapa["id"]]
+        elif not checks["luz"]:
+            cad["dica"] = "Pouca luz no rosto" if brilho < 55 else "Luz forte demais no rosto"
+        else:
+            cad["dica"] = {"frente": "Isso! Fique de frente...", "lado1": "Ótimo, segure um pouco...",
+                           "lado2": "Quase lá, segure..."}[etapa["id"]]
+        cad["msg"] = cad["dica"]
+
+        aceita = checks["tamanho"] and checks["centro"] and checks["pose"] and brilho >= 35
+        if aceita and agora - cad["_ultima"] >= INTERVALO_CADASTRO_S:
+            if etapa["id"] == "lado1" and yaw is not None and abs(yaw) >= YAW_LADO and not cad.get("lado1"):
+                cad["lado1"] = 1 if yaw > 0 else -1
+            cad["_recortes"].append(r["recorte"].copy())
             cad["_ultima"] = agora
+            etapa["feitas"] += 1
             cad["amostras"] = len(cad["_recortes"])
-            cad["msg"] = "vire o rosto devagar: frente, lados, cima, baixo"
+            if etapa["feitas"] >= etapa["total"] and cad["etapa"] < len(etapas) - 1:
+                cad["etapa"] += 1
+                etapas[cad["etapa"]]["desde"] = agora
+        cad["lado_tela"] = cad.get("lado1")       # para a seta na página
         return cad["amostras"] >= cad["total"]
 
     def _cadastro_fim(self):
@@ -440,7 +541,8 @@ class Reconhecedor:
 
             if self.cadastro is not None and self.cadastro["estado"] == "capturando":
                 with self.trava:
-                    terminou = self._cadastro_passo(validos)
+                    terminou = self._cadastro_passo(
+                        validos, (frame.shape[0], frame.shape[1], dy, parte.shape[0]))
                     self.atuais = [(r["caixa"], {"status": "incerto", "nome": "cadastro", "sim": 0.0})
                                    for r in validos[:1]]
                     self.analisado_em = time.time()
@@ -448,6 +550,7 @@ class Reconhecedor:
                     self._cadastro_fim()
             elif self.ativo:
                 resultados = [ia.classifica(self.motor.banco, r["codigo"]) for r in validos]
+                self.validador.revalidar_s = float(cfg().get("revalidar_s") or 0)
                 evento = self.validador.atualiza(resultados)
                 with self.trava:
                     self.atuais = [(r["caixa"], res) for r, res in zip(validos, resultados)]
@@ -476,8 +579,18 @@ class Reconhecedor:
         foto = None
         if salva_jpg(os.path.join(PASTA_EVENTOS, self.cid, rel), marcado):
             foto = "/rostos/eventos/{}/{}".format(self.cid, rel)
+        # som: só no 1º resultado da pessoa e quando o resultado MUDA (ex.: negado -> permitido).
+        # Repetiu o mesmo resultado com ela parada na frente: só o aviso visual (luz), sem falar.
+        pres = evento.get("presenca", 0)
+        if pres != getattr(self, "_pres_atual", None):
+            self._pres_atual, self._falado = pres, None
+        chave = (evento["status"], evento["nome"])
+        falar = chave != self._falado
+        if falar:
+            self._falado = chave
         ev = {"hora": agora.strftime("%Y-%m-%d %H:%M:%S"), "status": evento["status"], "nome": evento["nome"],
-              "motivo": evento["motivo"], "sim": round(evento["sim"], 2), "foto": foto, "acao": None}
+              "motivo": evento["motivo"], "sim": round(evento["sim"], 2), "foto": foto, "acao": None,
+              "repeticao": bool(evento.get("repeticao")), "falar": falar}
         with self.trava:
             self.eventos.appendleft(ev)
             self.ultimo_evento = ev
@@ -502,11 +615,16 @@ class Reconhecedor:
             c = cfg()
             voz = c.get("voz") or None
             segundos = float(c.get("segundos") or ALERTA_S)
+            falar = ev.get("falar", True)
             try:
                 if ev["status"] == "permitido":
                     if time.time() < self.luz_ate:
                         self._apaga_luzes()
                         feito.append("luz apagada")
+                    if not falar:                     # mesmo liberado de novo: não repete nada
+                        ev["acao"] = "liberado de novo (sem repetir aviso)"
+                        self.ultima_acao = ev["acao"]
+                        continue
                     if c.get("ok_piscar") and self._holofote is not None:
                         n, t = int(c["ok_piscadas"]), float(c["ok_piscar_s"])
                         if self._piscando.acquire(blocking=False):      # 1 pisca-pisca por vez
@@ -529,7 +647,9 @@ class Reconhecedor:
                         feito.append("holofote (luz branca) {:.0f} s".format(segundos))
                         threading.Timer(segundos, self._apaga_luzes).start()
                     frase = (c.get("frase_negado") or "").strip()
-                    if c.get("neg_falar") and frase and self._falar is not None:
+                    if not falar:
+                        feito.append("sem som (negado de novo: só o aviso visual)")
+                    elif c.get("neg_falar") and frase and self._falar is not None:
                         self._falar(frase, voz)
                         feito.append('falou "{}"'.format(frase))
                 ev["acao"] = ", ".join(feito) or "-"
@@ -574,7 +694,7 @@ class Reconhecedor:
         for (x, y, w, h), res in atuais:
             cor = CORES.get(res["status"], (200, 200, 200))
             if res["nome"] == "cadastro":
-                cor, texto = (255, 170, 0), "cadastrando"
+                continue                         # no cadastro a janela da página desenha o guia
             elif res["status"] == "permitido":
                 texto = "{} {:.0f}%".format(res["nome"], res["sim"] * 100)
             elif res["status"] == "negado":
@@ -620,6 +740,15 @@ class Reconhecedor:
                 "tem_holofote": self._holofote is not None,
                 "cfg": cfg(),
             }
+
+    def status_cadastro(self):
+        """Só o andamento do cadastro (a janela da página pergunta várias vezes por segundo)."""
+        with self.trava:
+            if not self.cadastro:
+                return {"cadastro": None, "lente": self.lente}
+            cad = {k: v for k, v in self.cadastro.items() if not k.startswith("_")}
+            cad["etapas"] = [{k: v for k, v in e.items() if k != "desde"} for e in cad.get("etapas", [])]
+            return {"cadastro": cad, "lente": self.lente}
 
     def lista_eventos(self, limite=20):
         with self.trava:

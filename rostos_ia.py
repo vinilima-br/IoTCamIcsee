@@ -156,8 +156,10 @@ class Rostos:
                 recorte = self.rec.alignCrop(frame, original)
                 codigo = self.codigo_do_recorte(recorte)
                 ms_cod += (time.perf_counter() - t1) * 1000
+                pontos = [(float(original[4 + 2 * i]), float(original[5 + 2 * i])) for i in range(5)]
                 rostos.append({"caixa": (x, y, w, h), "conf": float(linha[14]),
-                               "codigo": codigo, "recorte": recorte})
+                               "codigo": codigo, "recorte": recorte,
+                               "pontos": pontos})     # olho, olho, nariz, boca, boca
             rostos.sort(key=lambda r: r["caixa"][2], reverse=True)
             return rostos, ms_det, ms_cod
 
@@ -328,7 +330,9 @@ class Validador:
     lentes da X6S vendo a mesma pessoa de ângulos diferentes), vale o permitido.
     """
 
-    def __init__(self, seguidos=3, seguidos_negado=6, sem_rosto_s=3.0, intervalo_s=3.0):
+    def __init__(self, seguidos=3, seguidos_negado=6, sem_rosto_s=3.0, intervalo_s=3.0, revalidar_s=0.0):
+        self.revalidar_s = revalidar_s            # > 0: a mesma pessoa parada é validada de novo a cada X s
+        self.presenca = 0                         # muda quando a pessoa sai e chega outra (ou volta)
         self.seguidos = seguidos
         self.seguidos_negado = seguidos_negado    # negar exige mais certeza que liberar
         self.sem_rosto_s = sem_rosto_s
@@ -344,6 +348,8 @@ class Validador:
         agora = time.time() if agora is None else agora
         if not resultados:
             if agora - self.ultimo_rosto >= self.sem_rosto_s:
+                if self.ultima_chave_disparada is not None or self.chave_atual is not None:
+                    self.presenca += 1                  # a pessoa foi embora
                 self.chave_atual, self.contagem = None, 0
                 self.ultima_chave_disparada = None      # rearma para a próxima pessoa
             return None
@@ -367,12 +373,15 @@ class Validador:
             self.chave_atual, self.contagem = chave, 1
 
         precisa = self.seguidos if chave[0] == "permitido" else self.seguidos_negado
-        if (self.contagem >= precisa and chave != self.ultima_chave_disparada
-                and agora - self.ultimo_disparo >= self.intervalo_s):
+        nova = chave != self.ultima_chave_disparada
+        repete = (not nova and self.revalidar_s > 0
+                  and agora - self.ultimo_disparo >= max(self.revalidar_s, self.intervalo_s))
+        if self.contagem >= precisa and (nova or repete) and agora - self.ultimo_disparo >= self.intervalo_s:
             self.ultima_chave_disparada = chave
             self.ultimo_disparo = agora
             return {"status": chave[0], "nome": chave[1], "sim": melhor["sim"],
-                    "motivo": melhor["status"], "quando": agora}
+                    "motivo": melhor["status"], "quando": agora,
+                    "repeticao": not nova, "presenca": self.presenca}
         return None
 
 

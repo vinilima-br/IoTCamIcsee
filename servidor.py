@@ -660,6 +660,32 @@ IPS = {}          # cid -> IP da câmera na rede (do config), mostrado no títul
 IAS = {}          # cid -> IA
 GRAVADORES = {}   # cid -> Gravador
 PTZS = {}         # cid -> ptz.Controle
+ARQ_PTZ_INV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ptz_inverter.json")
+_ptz_inv_trava = threading.Lock()
+
+
+def ptz_inversao(cid=None):
+    """{"pan": bool, "tilt": bool} de cada câmera (botão ⇄ do cartão)."""
+    try:
+        with open(ARQ_PTZ_INV, "r", encoding="utf-8") as f:
+            dados = json.load(f)
+    except (OSError, ValueError):
+        dados = {}
+    if cid is None:
+        return dados
+    d = dados.get(cid) or {}
+    return {"pan": bool(d.get("pan")), "tilt": bool(d.get("tilt"))}
+
+
+def grava_ptz_inversao(cid, pan, tilt):
+    with _ptz_inv_trava:
+        dados = ptz_inversao()
+        dados[cid] = {"pan": bool(pan), "tilt": bool(tilt)}
+        tmp = ARQ_PTZ_INV + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(dados, f, indent=1)
+        os.replace(tmp, ARQ_PTZ_INV)
+    return dados[cid]
 XMS = {}          # cid -> sessão da porta 34567 (alto-falante, luz, alarme)
 # True (padrão): quem fala com a porta 34567 é o sessao_xm.py, numa janela
 # separada que fica sempre aberta. False: volta ao jeito antigo (o próprio
@@ -845,6 +871,9 @@ def status():
         if cid in RECS:
             d["rosto"] = RECS[cid].status()
             d["lente_det"] = RECS[cid].lente
+        if cid in PTZS:
+            d["ptz"] = PTZS[cid].capaz        # True: se mexe · False: fixa · None: ainda vendo
+            d["ptz_inv"] = ptz_inversao(cid)
         if cid in XMS:
             with _xm_status_trava:          # lê do cache (nunca bloqueia a página)
                 d["xm"] = _xm_status.get(cid)
@@ -987,13 +1016,34 @@ def api_ptz_mover(cid):
         except (TypeError, ValueError):
             return 0.0
 
+    inv = ptz_inversao(cid)                     # botão ⇄: câmera instalada ao contrário
     try:
-        controle.mover(pan=faixa(dados.get("pan", 0)),
-                       tilt=faixa(dados.get("tilt", 0)),
+        controle.mover(pan=faixa(dados.get("pan", 0)) * (-1 if inv["pan"] else 1),
+                       tilt=faixa(dados.get("tilt", 0)) * (-1 if inv["tilt"] else 1),
                        zoom=faixa(dados.get("zoom", 0)))
     except mod_ptz.ErroPTZ as erro:
         return jsonify({"ok": False, "erro": str(erro)}), 503
     return jsonify({"ok": True})
+
+
+@app.route("/api/ptz/<cid>/inverter", methods=["GET", "POST"])
+def api_ptz_inverter(cid):
+    """GET: {"pan","tilt"} · POST {"pan": bool, "tilt": bool}: inverte os comandos do joystick."""
+    if cid not in PTZS:
+        return jsonify({"ok": False, "erro": "essa câmera não tem movimento"}), 404
+    if request.method == "GET":
+        return jsonify(dict(ok=True, **ptz_inversao(cid)))
+    d = request.get_json(silent=True) or {}
+    atual = ptz_inversao(cid)
+    pan = d["pan"] if isinstance(d.get("pan"), bool) else atual["pan"]
+    tilt = d["tilt"] if isinstance(d.get("tilt"), bool) else atual["tilt"]
+    try:
+        novo = grava_ptz_inversao(cid, pan, tilt)
+    except OSError as e:
+        return jsonify({"ok": False, "erro": "não salvei: {}".format(e)}), 500
+    print("[{}] PTZ invertido: esquerda/direita={} cima/baixo={}".format(
+        cid, "SIM" if novo["pan"] else "não", "SIM" if novo["tilt"] else "não"))
+    return jsonify(dict(ok=True, **novo))
 
 
 @app.route("/api/ptz/<cid>/parar", methods=["POST"])
@@ -1988,6 +2038,15 @@ def api_rosto_cadastrar(cid):
     return jsonify({"ok": True})
 
 
+@app.route("/api/rosto/<cid>/cadastro")
+def api_rosto_cadastro(cid):
+    """Andamento do cadastro (janela de cadastro da página, ~4x por segundo)."""
+    rec = RECS.get(cid)
+    if rec is None:
+        return jsonify({"cadastro": None})
+    return jsonify(rec.status_cadastro())
+
+
 @app.route("/api/rosto/<cid>/cancelar", methods=["POST"])
 def api_rosto_cancelar(cid):
     r = RECS.get(cid)
@@ -2513,9 +2572,25 @@ def iniciar_tudo():
     inicia_alertas_cam()
     # faxina periódica de arquivos antigos
     threading.Thread(target=_ronda_limpeza, daemon=True).start()
+    # PTZ: confirma com cada câmera se ela tem motor (o controle só aparece nas que se mexem)
+    for cid, controle in PTZS.items():
+        threading.Thread(target=_ronda_ptz, args=(cid, controle), daemon=True, name="ptz-" + cid).start()
     # atualização automática pelo GitHub (não roda no PC com .git)
     threading.Thread(target=atualizador.ronda, args=(_pode_atualizar, _lancador(), _fecha_para_atualizar),
                      daemon=True, name="atualizacao").start()
+
+
+def _ronda_ptz(cid, controle):
+    time.sleep(3)
+    espera = 20
+    while controle.capaz is None:
+        r = controle.verificar()
+        if r is not None:
+            print("[{}] PTZ: {}".format(cid, "câmera SE MEXE - controle ligado" if r
+                                        else "câmera FIXA - controle escondido"))
+            return
+        time.sleep(espera)
+        espera = min(espera * 2, 300)
 
 
 def encerrar_xm():
