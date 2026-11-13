@@ -64,11 +64,13 @@ def log(msg):
 #    iCSee  -> SessaoCamera, com a conta REAL da 34567
 #    Elsys  -> ElsysSessao (login RSA "DVRIP-FutureHome")
 # ------------------------------------------------------------------
-def monta_sessoes():
+def monta_sessoes(pular=()):
     for c in config.cameras():
         if not c["xm"]:
             continue
         cid, ip = c["cid"], c["ip"]
+        if cid in pular:
+            continue
         if c["tipo"] == "elsys":
             if elsys_xm is None:
                 continue
@@ -202,6 +204,29 @@ def reprovisionar(cid, modo, senha_fixa="", usuario="", senha=""):
         _trava_prov.release()
 
 
+def recarregar():
+    """Le o config.py de novo (menu ➕ Câmeras): abre sessao das cameras novas e fecha
+    a das que sairam / mudaram de IP / ficaram sem som. As outras seguem intactas."""
+    importlib.reload(config)
+    atuais = {c["cid"]: c for c in config.cameras()}
+    fechadas, abertas = [], []
+    for cid in list(SESSOES):
+        c = atuais.get(cid)
+        if c is None or not c["xm"] or c["ip"] != SESSOES[cid].ip:
+            try:
+                SESSOES.pop(cid).encerrar()
+            except Exception as e:  # noqa: BLE001
+                log("[%s] erro ao fechar: %r" % (cid, e))
+            fechadas.append(cid)
+    antes = set(SESSOES)
+    monta_sessoes(pular=antes)
+    for cid in set(SESSOES) - antes:
+        SESSOES[cid].iniciar()
+        abertas.append(cid)
+    log("recarregar: novas=%s fechadas=%s" % (abertas or "-", fechadas or "-"))
+    return {"ok": True, "novas": abertas, "fechadas": fechadas}
+
+
 def estado_resumido():
     cams = {}
     for cid, s in SESSOES.items():
@@ -235,6 +260,12 @@ class Pedido(BaseHTTPRequestHandler):
             self._responde(404, {"ok": False, "erro": "rota desconhecida"})
 
     def do_POST(self):
+        if self.path == "/recarregar":
+            try:
+                self._responde(200, recarregar())
+            except Exception as e:  # noqa: BLE001
+                self._responde(200, {"ok": False, "erro": "%s: %s" % (type(e).__name__, e)})
+            return
         if self.path == "/reprovisionar":
             try:
                 tam = int(self.headers.get("Content-Length") or 0)

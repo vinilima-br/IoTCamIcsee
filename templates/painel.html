@@ -212,27 +212,47 @@
     .linha label { color: var(--suave); }
     .val { min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
     .dica { font-size: 11px; color: var(--apagado); }
-    /* ---------- menu ⚙ Config ---------- */
+    /* ---------- janelas (⚙ Config / ➕ Câmeras) ---------- */
     input[type=password] { background: #11151a; color: var(--texto); border: 1px solid #3a4250;
              border-radius: 7px; padding: 7px 9px; font-size: 13px; flex: 1; min-width: 150px; }
-    #dlg-config { background: var(--cartao); color: var(--texto); border: 1px solid var(--borda2);
+    dialog.dlg { background: var(--cartao); color: var(--texto); border: 1px solid var(--borda2);
                   border-radius: 12px; padding: 0; width: min(640px, 94vw); }
-    #dlg-config::backdrop { background: rgba(0,0,0,.6); }
-    #dlg-config .cfg-cab { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--borda); }
-    #dlg-config .cfg-cab h2 { margin: 0; font-size: 16px; flex: 1; }
-    #dlg-config .cfg-corpo { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
-    #dlg-config .cfg-bloco { background: var(--cartao2); border: 1px solid var(--borda); border-radius: 10px; padding: 12px;
+    dialog.dlg::backdrop { background: rgba(0,0,0,.6); }
+    dialog.dlg .cfg-cab { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--borda); }
+    dialog.dlg .cfg-cab h2 { margin: 0; font-size: 16px; flex: 1; }
+    dialog.dlg .cfg-corpo { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+    dialog.dlg .cfg-bloco { background: var(--cartao2); border: 1px solid var(--borda); border-radius: 10px; padding: 12px;
                              display: flex; flex-direction: column; gap: 8px; }
-    #dlg-config .cfg-bloco h3 { margin: 0; font-size: 13px; }
-    #dlg-config .cfg-info { font-size: 12px; color: var(--suave); }
-    #dlg-config .cfg-info b { color: var(--texto); font-weight: 600; }
-    #dlg-config .cfg-passos { background: #0b0e12; border: 1px solid var(--borda); border-radius: 8px; padding: 8px 10px;
+    dialog.dlg .cfg-bloco h3 { margin: 0; font-size: 13px; }
+    dialog.dlg .cfg-info { font-size: 12px; color: var(--suave); }
+    dialog.dlg .cfg-info b { color: var(--texto); font-weight: 600; }
+    dialog.dlg .cfg-passos { background: #0b0e12; border: 1px solid var(--borda); border-radius: 8px; padding: 8px 10px;
                               font: 12px/1.45 ui-monospace, Consolas, monospace; max-height: 220px; overflow: auto;
                               white-space: pre-wrap; margin: 0; }
-    #dlg-config .cfg-passos.ok { border-color: var(--verde); }
-    #dlg-config .cfg-passos.erro { border-color: #ef4444; }
-    #dlg-config .cfg-passos[hidden] { display: none; }
-    #dlg-config button:disabled { opacity: .5; cursor: wait; }
+    dialog.dlg .cfg-passos.ok { border-color: var(--verde); }
+    dialog.dlg .cfg-passos.erro { border-color: #ef4444; }
+    dialog.dlg .cfg-passos[hidden] { display: none; }
+    dialog.dlg button:disabled { opacity: .5; cursor: wait; }
+    #dlg-cams { width: min(760px, 96vw); }
+    #dlg-cams .cam-linha { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--borda);
+                           border-radius: 8px; background: #0f1318; font-size: 13px; }
+    #dlg-cams .cam-linha .nome { font-weight: 600; }
+    #dlg-cams .cam-linha .det { color: var(--suave); font-size: 12px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #dlg-cams .etq { font-size: 11px; padding: 2px 7px; border-radius: 99px; border: 1px solid var(--borda2); color: var(--suave); white-space: nowrap; }
+    #dlg-cams .etq.verde { color: #4ade80; border-color: #166534; }
+    #dlg-cams .etq.azul { color: #93c5fd; border-color: #1e40af; }
+    #dlg-cams .lista { display: flex; flex-direction: column; gap: 6px; }
+    #dlg-cams label.opcao { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; cursor: pointer; }
+    #dlg-cams label.opcao input { margin-top: 3px; }
+    #dlg-cams .sub { padding-left: 24px; }
+    #dlg-cams .sub[hidden], #dlg-cams [hidden] { display: none !important; }
+    #dlg-cams .previa { width: 100%; max-height: 260px; object-fit: contain; background: #000; border-radius: 8px; }
+    #dlg-cams .rot { font-size: 12px; color: var(--suave); min-width: 110px; }
+    .grade-vazia { grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--suave); }
+    .grade-vazia button { margin-top: 14px; font-size: 15px; padding: 10px 18px; }
+    #reiniciando { position: fixed; inset: 0; background: rgba(8,10,13,.88); display: none; z-index: 9999;
+                   align-items: center; justify-content: center; flex-direction: column; gap: 10px; font-size: 16px; }
+    #reiniciando.visivel { display: flex; }
     .vazio { color: var(--apagado); font-size: 12px; padding: 6px 0; }
     .vazio[hidden] { display: none; }
 
@@ -333,6 +353,7 @@
     <div class="direita">
       {% if tem_xm %}<button id="btn-alerta-geral" title="Luz de alerta + sirene em todas as câmeras">🚨 Alerta geral</button>{% endif %}
       {% if tem_xm %}<button id="btn-sons">🔊 Sons</button>{% endif %}
+      <button id="btn-cams" title="Buscar, adicionar e remover câmeras">➕ Câmeras</button>
       {% if tem_xm %}<button id="btn-config" title="Configurações das câmeras">⚙ Config</button>{% endif %}
       <select id="colunas" title="Colunas">
         <option value="auto">Grade automática</option>
@@ -382,6 +403,13 @@
 
   <!-- ================= CÂMERAS ================= -->
   <main class="grade" id="grade">
+    {% if sem_cameras %}
+    <div class="grade-vazia">
+      <div style="font-size:42px">📷</div>
+      <div>Nenhuma câmera neste PC ainda.</div>
+      <button class="btn-verde" onclick="document.getElementById('btn-cams').click()">➕ Adicionar câmeras</button>
+    </div>
+    {% endif %}
     {% for cam in cameras %}
     <article class="camera" data-cid="{{ cam.id }}" data-xm="{{ 1 if cam.tem_xm else 0 }}" data-ia="{{ 1 if cam.tem_ia else 0 }}" data-rosto="{{ 1 if cam.tem_rosto else 0 }}">
       <div class="cab">
@@ -746,9 +774,90 @@
 
   <div id="aviso" class="aviso"></div>
 
+  <!-- ================= MENU ➕ CÂMERAS ================= -->
+  <dialog id="dlg-cams" class="dlg" data-vazio="{{ 1 if sem_cameras else 0 }}">
+    <div class="cfg-cab">
+      <h2>📷 Câmeras</h2>
+      <button id="cams-fechar" class="btn-icone" title="Fechar">✕</button>
+    </div>
+    <div class="cfg-corpo">
+      <!-- tela 1: lista + busca -->
+      <div id="cams-tela-lista">
+        <div class="cfg-bloco">
+          <h3>No painel</h3>
+          <div class="lista" id="cams-painel"><div class="dica">carregando...</div></div>
+        </div>
+        <div class="cfg-bloco" style="margin-top:12px">
+          <div class="linha">
+            <h3 style="flex:1">🔍 Câmeras na rede</h3>
+            <button id="cams-buscar" class="btn-verde">Buscar na rede</button>
+          </div>
+          <div class="dica" id="cams-busca-info">Procura câmeras na(s) rede(s) deste PC (leva uns 5 segundos).</div>
+          <div class="lista" id="cams-rede"></div>
+          <div class="linha" style="margin-top:6px">
+            <input type="text" id="cams-ip-manual" placeholder="ou digite o IP (ex.: 192.168.3.50)" style="flex:0 1 240px">
+            <button id="cams-add-manual">Adicionar pelo IP</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- tela 2: assistente -->
+      <div id="cams-tela-add" hidden>
+        <div class="cfg-bloco">
+          <h3 id="cams-add-titulo">Adicionar câmera</h3>
+          <div class="linha"><span class="rot">Tipo</span>
+            <select id="ca-tipo" style="flex:1">
+              <option value="icsee">iCSee / ONVIF (e-mail e senha do app)</option>
+              <option value="elsys">Elsys (vídeo RTSP direto)</option>
+            </select></div>
+          <div class="linha"><span class="rot">Nome</span><input type="text" id="ca-nome" maxlength="40" placeholder="ex.: Portão"></div>
+          <div class="linha"><span class="rot">IP</span><input type="text" id="ca-ip" maxlength="15"></div>
+          <div id="ca-icsee">
+            <div class="linha"><span class="rot">E-mail do app</span><input type="text" id="ca-usuario" maxlength="80" autocomplete="off"></div>
+            <div class="linha"><span class="rot">Senha do app</span><input type="password" id="ca-senha" maxlength="60" autocomplete="new-password"></div>
+          </div>
+          <div id="ca-elsys" hidden>
+            <div class="linha"><span class="rot">Senha do vídeo</span><input type="password" id="ca-senha-elsys" maxlength="60" autocomplete="new-password"></div>
+          </div>
+          <div class="linha"><button id="ca-testar">▶ Testar vídeo</button><span class="dica" id="ca-teste-info"></span></div>
+          <img id="ca-previa" class="previa" alt="prévia do vídeo" hidden>
+        </div>
+
+        <div class="cfg-bloco" id="ca-bloco-som" style="margin-top:12px">
+          <h3>🔊 Som e luz (porta 34567)</h3>
+          <label class="opcao"><input type="radio" name="ca-som" value="conta" checked>
+            <span><b>Já sei a conta</b> — a câmera já funciona em outro PC (ou você já fixou a senha). Não muda nada na câmera.</span></label>
+          <div class="sub linha" id="ca-sub-conta">
+            <input type="text" id="ca-admin-usuario" maxlength="30" placeholder="usuário (ex.: swua)" style="flex:0 1 160px">
+            <input type="password" id="ca-admin-senha" maxlength="30" autocomplete="new-password" placeholder="senha fixa">
+          </div>
+          <label class="opcao"><input type="radio" name="ca-som" value="resetada">
+            <span><b>Câmera recém-resetada</b> — descobre a conta e fixa a senha abaixo. <span style="color:#f87171">Não use numa câmera que já funciona em outro PC</span> (ela trocaria a senha de lá).</span></label>
+          <div class="sub linha" id="ca-sub-resetada" hidden>
+            <input type="password" id="ca-senha-fixa" maxlength="30" autocomplete="new-password" placeholder="senha fixa que vai ficar na câmera">
+          </div>
+          <label class="opcao"><input type="radio" name="ca-som" value="nenhum">
+            <span><b>Só vídeo</b> — sem alto-falante/luz por enquanto (dá pra ligar depois no ⚙ Config).</span></label>
+          <label class="opcao" style="margin-top:6px"><input type="checkbox" id="ca-ptz" checked><span>A câmera se mexe (PTZ)</span></label>
+        </div>
+
+        <div class="linha" style="margin-top:12px">
+          <button id="ca-voltar">← Voltar</button>
+          <span style="flex:1"></span>
+          <button id="ca-salvar" class="btn-verde">💾 Salvar e pôr no painel</button>
+        </div>
+      </div>
+
+      <pre class="cfg-passos" id="cams-passos" hidden></pre>
+    </div>
+  </dialog>
+
+  <div id="reiniciando"><div style="font-size:34px">⟳</div><div>Reiniciando a Central para montar as câmeras...</div>
+    <div class="dica">A página volta sozinha em alguns segundos.</div></div>
+
   {% if tem_xm %}
   <!-- ================= MENU ⚙ CONFIG ================= -->
-  <dialog id="dlg-config">
+  <dialog id="dlg-config" class="dlg">
     <div class="cfg-cab">
       <h2>⚙ Configurações — conta da câmera (porta 34567)</h2>
       <button id="cfg-fechar" class="btn-icone" title="Fechar">✕</button>
@@ -2096,6 +2205,165 @@
     setInterval(atualizarStatus, 1000);
     atualizarAlertasCam();
     setInterval(atualizarAlertasCam, 2000);
+
+    // =============================================================
+    //  Menu ➕ Câmeras - buscar na rede, adicionar, remover
+    // =============================================================
+    (function () {
+      const dlg = document.getElementById("dlg-cams");
+      if (!dlg) return;
+      const $ = id => document.getElementById(id);
+      const passos = $("cams-passos");
+      let ocupado = false, bootAtual = null, portaOnvif = null;
+      fetch("/api/boot").then(r => r.json()).then(d => { bootAtual = d.boot; }).catch(() => {});
+
+      const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+      function linha(nome, det, extras) {
+        const l = el("div", "cam-linha");
+        l.append(el("span", "nome", nome), el("span", "det", det));
+        extras.forEach(x => l.append(x));
+        return l;
+      }
+      function mostraPassos(txt, tipo) { passos.hidden = !txt; passos.className = "cfg-passos" + (tipo ? " " + tipo : ""); passos.textContent = txt || ""; }
+      function trava(sim) { ocupado = sim; dlg.querySelectorAll("button").forEach(b => { if (b.id !== "cams-fechar") b.disabled = sim; }); }
+      function tela(qual) { $("cams-tela-lista").hidden = qual !== "lista"; $("cams-tela-add").hidden = qual !== "add"; }
+
+      function esperaReinicio() {
+        if (dlg.open) dlg.close();
+        $("reiniciando").classList.add("visivel");
+        const inicio = Date.now();
+        const t = setInterval(async () => {
+          try {
+            const d = await (await fetch("/api/boot", { cache: "no-store" })).json();
+            if (d.boot && d.boot !== bootAtual) { clearInterval(t); location.reload(); }
+          } catch (e) { /* servidor subindo */ }
+          if (Date.now() - inicio > 90000) { clearInterval(t); location.reload(); }
+        }, 1000);
+      }
+
+      async function carregaLista() {
+        const box = $("cams-painel");
+        let d;
+        try { d = await (await fetch("/api/cameras/lista", { cache: "no-store" })).json(); }
+        catch (e) { box.textContent = "servidor fora do ar"; return; }
+        box.innerHTML = "";
+        if (!d.ok) { box.append(el("div", "dica", d.erro || "erro")); return; }
+        if (!d.cameras.length) { box.append(el("div", "dica", "Nenhuma câmera ainda. Use \"Buscar na rede\" abaixo.")); return; }
+        d.cameras.forEach(c => {
+          const est = !c.no_ar ? el("span", "etq", "aguardando reinício") : (c.online ? el("span", "etq verde", "ao vivo") : el("span", "etq", "offline"));
+          const rm = el("button", "btn-icone", "🗑"); rm.title = "Remover do painel";
+          rm.onclick = () => remover(c);
+          box.append(linha(c.nome, c.ip + " · " + (c.tipo === "elsys" ? "Elsys" : "iCSee") + (c.som ? " · som/luz" : " · só vídeo"), [est, rm]));
+        });
+      }
+
+      async function buscar() {
+        if (ocupado) return;
+        trava(true);
+        const box = $("cams-rede"); box.innerHTML = "";
+        $("cams-busca-info").textContent = "Procurando câmeras na rede...";
+        let d;
+        try { d = await (await fetch("/api/cameras/buscar", { cache: "no-store" })).json(); }
+        catch (e) { d = { ok: false, erro: "servidor fora do ar" }; }
+        trava(false);
+        if (!d.ok) { $("cams-busca-info").textContent = "Erro: " + (d.erro || "?"); return; }
+        $("cams-busca-info").textContent = "Rede(s) " + d.redes.join(", ") + ": " + d.cameras.length + " câmera(s) encontrada(s).";
+        if (!d.cameras.length) box.append(el("div", "dica", "Nenhuma câmera respondeu. Ela está ligada e no mesmo Wi-Fi/roteador deste PC?"));
+        d.cameras.forEach(c => {
+          const det = (c.modelo ? c.modelo + " · " : "") + (c.tipo === "elsys" ? "RTSP" : "ONVIF " + c.porta_onvif) + (c.som ? " · som/luz" : "");
+          let fim;
+          if (c.no_painel) fim = el("span", "etq azul", "no painel: " + c.nome_painel);
+          else { fim = el("button", "btn-verde", "Adicionar"); fim.onclick = () => abreAssistente(c); }
+          box.append(linha(c.ip, det, [fim]));
+        });
+      }
+
+      function radioSom() { return (dlg.querySelector('input[name="ca-som"]:checked') || {}).value; }
+      function ajustaForm() {
+        const elsys = $("ca-tipo").value === "elsys";
+        $("ca-icsee").hidden = elsys; $("ca-elsys").hidden = !elsys; $("ca-bloco-som").hidden = elsys;
+        const som = radioSom();
+        $("ca-sub-conta").hidden = som !== "conta"; $("ca-sub-resetada").hidden = som !== "resetada";
+      }
+      function abreAssistente(c) {
+        portaOnvif = c.porta_onvif || null;
+        $("ca-tipo").value = c.tipo || "icsee";
+        $("ca-ip").value = c.ip || "";
+        $("ca-nome").value = "";
+        ["ca-usuario", "ca-senha", "ca-senha-elsys", "ca-admin-usuario", "ca-admin-senha", "ca-senha-fixa"].forEach(i => { $(i).value = ""; });
+        $("ca-previa").hidden = true; $("ca-teste-info").textContent = "";
+        const temSom = c.som !== false;
+        dlg.querySelectorAll('input[name="ca-som"]').forEach(r => { r.disabled = !temSom && r.value !== "nenhum"; r.checked = temSom ? r.value === "conta" : r.value === "nenhum"; });
+        $("cams-add-titulo").textContent = "Adicionar câmera " + (c.ip || "");
+        mostraPassos("");
+        ajustaForm(); tela("add"); $("ca-nome").focus();
+      }
+
+      function dadosForm() {
+        const tipo = $("ca-tipo").value;
+        const d = { tipo, ip: $("ca-ip").value.trim(), nome: $("ca-nome").value.trim(), porta_onvif: portaOnvif };
+        if (tipo === "elsys") { d.senha = $("ca-senha-elsys").value; d.usuario = "admin"; }
+        else {
+          d.usuario = $("ca-usuario").value.trim(); d.senha = $("ca-senha").value;
+          d.som = radioSom(); d.ptz = $("ca-ptz").checked;
+          d.admin_usuario = $("ca-admin-usuario").value.trim(); d.admin_senha = $("ca-admin-senha").value;
+          d.senha_fixa = $("ca-senha-fixa").value;
+        }
+        return d;
+      }
+
+      async function testar() {
+        if (ocupado) return;
+        trava(true); $("ca-teste-info").textContent = "testando (até 20 s)..."; $("ca-previa").hidden = true;
+        const d = await postJSON("/api/cameras/testar", dadosForm());
+        trava(false);
+        if (d.ok) {
+          if (d.porta_onvif) portaOnvif = d.porta_onvif;
+          $("ca-teste-info").textContent = "✅ vídeo OK" + (d.modelo ? " · " + d.modelo : "") + (d.aviso ? " · " + d.aviso : "");
+          if (d.foto) { $("ca-previa").src = d.foto; $("ca-previa").hidden = false; }
+        } else $("ca-teste-info").textContent = "❌ " + (d.erro || "falhou");
+      }
+
+      async function salvar() {
+        if (ocupado) return;
+        const d = dadosForm();
+        if (!d.ip) { aviso("Falta o IP", true); return; }
+        if (d.som === "resetada" && !confirm("Descobrir a conta e FIXAR a senha nesta câmera?\n\nSó faça isso se ela foi resetada agora. Se ela já funciona em outro PC, lá ela vai parar de conectar.")) return;
+        trava(true);
+        mostraPassos("Salvando" + (d.som === "resetada" ? " (descobrindo a conta, até 1 minuto)" : "") + "...", "");
+        const r = await postJSON("/api/cameras/adicionar", d);
+        trava(false);
+        mostraPassos(((r.passos || []).join("\n") + "\n\n" + (r.ok ? "✅ " + r.nome + " adicionada." : "❌ " + (r.erro || "falhou"))).trim(), r.ok ? "ok" : "erro");
+        if (r.ok && r.reiniciando) setTimeout(esperaReinicio, 1200);
+      }
+
+      async function remover(c) {
+        if (ocupado) return;
+        if (!confirm("Remover \"" + c.nome + "\" (" + c.ip + ") do painel?\n\nGravações e fotos dela continuam no PC. O config.py ganha um backup antes.")) return;
+        trava(true);
+        const r = await postJSON("/api/cameras/" + c.cid + "/remover", {});
+        trava(false);
+        if (r.ok) { aviso(c.nome + " removida"); if (r.reiniciando) esperaReinicio(); }
+        else aviso("Não removi: " + (r.erro || "falhou"), true);
+      }
+
+      $("btn-cams").addEventListener("click", () => { tela("lista"); mostraPassos(""); dlg.showModal(); carregaLista(); });
+      $("cams-fechar").addEventListener("click", () => { if (!ocupado) dlg.close(); });
+      dlg.addEventListener("cancel", e => { if (ocupado) e.preventDefault(); });
+      $("cams-buscar").addEventListener("click", buscar);
+      $("cams-add-manual").addEventListener("click", () => {
+        const ip = $("cams-ip-manual").value.trim();
+        if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) { aviso("Digite um IP válido", true); return; }
+        abreAssistente({ ip, tipo: "icsee", som: true });
+      });
+      $("ca-tipo").addEventListener("change", ajustaForm);
+      dlg.querySelectorAll('input[name="ca-som"]').forEach(r => r.addEventListener("change", ajustaForm));
+      $("ca-testar").addEventListener("click", testar);
+      $("ca-salvar").addEventListener("click", salvar);
+      $("ca-voltar").addEventListener("click", () => { mostraPassos(""); tela("lista"); });
+
+      if (dlg.dataset.vazio === "1") { tela("lista"); dlg.showModal(); carregaLista(); buscar(); }
+    })();
 
     // =============================================================
     //  Menu ⚙ Config - trocar/descobrir a conta da porta 34567

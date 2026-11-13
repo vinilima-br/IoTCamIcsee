@@ -43,6 +43,7 @@ import onvif_rtsp  # noqa: E402
 import biblioteca_sons  # noqa: E402
 import camera_xm  # noqa: E402
 import cliente_xm  # noqa: E402
+import cameras_cfg  # noqa: E402  (menu ➕ Câmeras)
 try:
     import elsys_xm  # noqa: E402  (cameras Elsys com login RSA)
 except Exception as _e_elsys:
@@ -800,7 +801,7 @@ def index():
                 "ip": IPS.get(cid, "")}
                for cid in ORDEM]
     return render_template("painel.html", cameras=cameras, modos_luz=camera_xm.MODOS_LUZ,
-                           tem_xm=bool(XMS))
+                           tem_xm=bool(XMS), sem_cameras=not cameras)
 
 
 @app.route("/video/<cid>")
@@ -1167,6 +1168,103 @@ def api_xm_status(cid):
         return jsonify(_xm(cid).status())
     except camera_xm.ErroXM as e:
         return jsonify({"erro": str(e)}), 404
+
+
+# ---------------- menu ➕ Câmeras: buscar / adicionar / remover ----------------
+BOOT_ID = "%x" % int(time.time() * 1000)     # muda a cada subida (a página percebe o reinício)
+AO_REINICIAR = None                          # janela.py põe aqui como fechar a janela
+CODIGO_REINICIO = 3                          # PAINEL.bat / INICIAR.bat sobem de novo com este código
+_reiniciando = threading.Event()
+
+
+def pedir_reinicio(motivo):
+    """Fecha a Central com o código 3: o .bat sobe tudo de novo (câmeras novas montadas)."""
+    if _reiniciando.is_set():
+        return
+    _reiniciando.set()
+
+    def _faz():
+        time.sleep(1.5)                      # dá tempo da resposta chegar na página
+        print(" Reiniciando a Central ({})...".format(motivo))
+        if AO_REINICIAR is not None:
+            try:
+                AO_REINICIAR()
+                return
+            except Exception as e:  # noqa: BLE001
+                print(" [reinicio] janela não fechou: {!r}".format(e))
+        try:
+            atexit._run_exitfuncs()
+        finally:
+            os._exit(CODIGO_REINICIO)
+    threading.Thread(target=_faz, daemon=True, name="reinicio").start()
+
+
+def _depois_de_mudar_cameras(motivo):
+    if SESSAO_SEPARADA:
+        r = cliente_xm.recarregar()
+        if not r.get("ok"):
+            print(" [câmeras] a sessão não recarregou: {}".format(r.get("erro")))
+    pedir_reinicio(motivo)
+
+
+@app.route("/api/boot")
+def api_boot():
+    return jsonify({"boot": BOOT_ID, "reiniciando": _reiniciando.is_set()})
+
+
+@app.route("/api/cameras/lista")
+def api_cameras_lista():
+    try:
+        cams = cameras_cfg.lista()
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "erro": "config.py com problema: {}".format(e)}), 500
+    for c in cams:
+        cam = CAMERAS.get(c["cid"])
+        c["no_ar"] = cam is not None
+        c["online"] = bool(cam.online) if cam is not None else False
+    return jsonify({"ok": True, "cameras": cams})
+
+
+@app.route("/api/cameras/buscar")
+def api_cameras_buscar():
+    try:
+        return jsonify(cameras_cfg.buscar())
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "erro": "{}: {}".format(type(e).__name__, e)}), 500
+
+
+@app.route("/api/cameras/testar", methods=["POST"])
+def api_cameras_testar():
+    try:
+        return jsonify(cameras_cfg.testar_video(request.get_json(silent=True) or {}))
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "erro": "{}: {}".format(type(e).__name__, e)})
+
+
+@app.route("/api/cameras/adicionar", methods=["POST"])
+def api_cameras_adicionar():
+    try:
+        r = cameras_cfg.adicionar(request.get_json(silent=True) or {})
+    except Exception as e:  # noqa: BLE001
+        r = {"ok": False, "erro": "{}: {}".format(type(e).__name__, e), "passos": []}
+    if r.get("ok"):
+        print("[{}] câmera adicionada pelo painel: {}".format(r["cid"], r["nome"]))
+        _depois_de_mudar_cameras("câmera nova: {}".format(r["nome"]))
+        r["reiniciando"] = True
+    return jsonify(r)
+
+
+@app.route("/api/cameras/<cid>/remover", methods=["POST"])
+def api_cameras_remover(cid):
+    try:
+        r = cameras_cfg.remover(cid)
+    except Exception as e:  # noqa: BLE001
+        r = {"ok": False, "erro": "{}: {}".format(type(e).__name__, e)}
+    if r.get("ok"):
+        print("[{}] câmera removida pelo painel: {}".format(cid, r["nome"]))
+        _depois_de_mudar_cameras("câmera removida: {}".format(r["nome"]))
+        r["reiniciando"] = True
+    return jsonify(r)
 
 
 # ---------------- menu ⚙ Config: conta da porta 34567 ----------------

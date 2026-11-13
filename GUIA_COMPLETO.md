@@ -91,6 +91,19 @@ Para desligar: **Ctrl+C** na janela do servidor (faz logout limpo nas câmeras).
 
 ## 4. Câmera nova — o caminho certo (checklist)
 
+### Jeito fácil: botão ➕ Câmeras do painel
+No topo do painel, **➕ Câmeras** (abre sozinho num PC sem câmeras, ex.: depois do `bootstrap.bat`):
+- **No painel**: as câmeras do `config.py`, com 🗑 para remover.
+- **🔍 Buscar na rede**: varre a(s) rede(s) do PC (portas 34567/554/8899 + descoberta ONVIF) e lista as câmeras, marcando as que já estão no painel. Ou **Adicionar pelo IP**.
+- **Assistente**: tipo (iCSee/ONVIF ou Elsys/RTSP), nome, e-mail e senha do app → **▶ Testar vídeo** (mostra uma foto) → som e luz:
+  - **Já sei a conta**: câmera que já roda em outro PC (usuário + senha fixa que estão no `config.py` de lá). Só confere, não muda nada na câmera.
+  - **Câmera recém-resetada**: descobre a conta e fixa a senha. **Nunca** numa câmera que já funciona em outro PC (lá ela pararia de conectar).
+  - **Só vídeo**: liga o som depois pelo ⚙ Config.
+- **Salvar**: grava no `config.py` (com backup), a sessão abre a conexão da câmera e a Central **reinicia sozinha** (a janela fecha e abre de novo) já com a câmera nova.
+
+O caminho manual abaixo continua valendo (e é o que o assistente faz por dentro).
+
+
 > Faça **na ordem**. Cada passo tem que funcionar antes do próximo.
 
 ### Passo 1 — Instalar no app do fabricante

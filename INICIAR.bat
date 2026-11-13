@@ -11,7 +11,10 @@ if errorlevel 1 (
   timeout /t 4 /nobreak >nul
 )
 title Central de Cameras
+:subir
 "%PY%" servidor.py
+REM codigo 3 = a Central pediu para subir de novo (camera adicionada/removida)
+if "%errorlevel%"=="3" goto subir
 echo.
 echo O servidor parou. Pressione uma tecla para fechar.
 pause >nul

@@ -52,6 +52,16 @@ def sessao_rodando():
     return estado() is not None
 
 
+def recarregar():
+    """Menu ➕ Câmeras: a sessao le o config.py de novo (abre as cameras novas)."""
+    r = _http("POST", "/recarregar", {}, timeout=20.0)
+    if r is None:
+        return {"ok": False, "erro": AVISO_FORA}
+    if r.get("erro") == "rota desconhecida":
+        return {"ok": False, "erro": "a janela da sessão (INICIAR_SESSAO.bat) está com a versão antiga"}
+    return r
+
+
 def reprovisionar(cid, modo, senha_fixa="", usuario="", senha=""):
     """Menu ⚙ Config: a sessao troca a conta da 34567 dessa camera (ver sessao_xm.reprovisionar)."""
     r = _http("POST", "/reprovisionar", {"cid": cid, "modo": modo, "senha_fixa": senha_fixa,

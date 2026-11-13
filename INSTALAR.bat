@@ -71,27 +71,11 @@ if not exist "modelos\yolov8n.onnx" (
   echo.
 )
 
-REM ---------- 3) Camera nova (opcional) ----------
-echo [2/3] Camera nova
-echo     Antes de responder "s": a camera deve estar RECEM-configurada no app
-echo     do fabricante, com a janela do admin aberta, e com IP FIXO no roteador.
-echo.
-set "RESP="
-set /p "RESP=Configurar uma camera nova agora? (s/n): "
-if /i not "%RESP%"=="s" goto subir
-
-set "IP="
-set "EMAIL="
-set "FIXA="
-set /p "IP=  IP da camera (ex 192.168.3.50): "
-set /p "EMAIL=  E-mail do app da camera: "
-set /p "FIXA=  Senha FIXA que a camera vai passar a usar: "
-echo.
-echo Provisionando... a senha do app sera pedida e nao aparece ao digitar.
-"%PY%" ferramentas\provisionar.py %IP% %EMAIL% --senha-fixa %FIXA% --gravar
-echo.
-echo Se deu erro acima, da para configurar depois com o provisionar.py.
-echo O servidor sobe do mesmo jeito.
+REM ---------- 3) Cameras ----------
+REM As cameras agora sao adicionadas pela JANELA do painel (botao "+ Cameras"):
+REM ela busca as cameras na rede e abre sozinha quando o PC ainda nao tem nenhuma.
+echo [2/3] Cameras: voce adiciona pela janela do painel (botao "+ Cameras").
+echo       Ela abre sozinha e ja procura as cameras da rede.
 echo.
 
 :subir

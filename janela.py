@@ -38,6 +38,8 @@ try:
 except Exception:
     PORTA = 5050
 URL = "http://127.0.0.1:{}/".format(PORTA)
+REINICIAR = threading.Event()      # o servidor pediu reinício (câmera adicionada/removida)
+CODIGO_REINICIO = 3                # o PAINEL.bat abre de novo quando sai com este código
 
 
 def servidor_no_ar():
@@ -134,12 +136,26 @@ def abre_edge_modo_app():
     return True
 
 
-def desligar_e_sair():
-    print("\n Janela fechada: desligando o servidor (logout nas câmeras)...")
+def desligar_e_sair(codigo=0):
+    if codigo == CODIGO_REINICIO:
+        print("\n Reiniciando a Central (câmeras mudaram)...")
+    else:
+        print("\n Janela fechada: desligando o servidor (logout nas câmeras)...")
     try:
         atexit._run_exitfuncs()        # encerrar_xm / encerrar_gravadores do servidor.py
     finally:
-        os._exit(0)                    # não deixa nenhuma thread segurar o processo aberto
+        os._exit(codigo)               # não deixa nenhuma thread segurar o processo aberto
+
+
+def _ao_reiniciar():
+    """Chamado pelo servidor (thread dele) quando precisa subir de novo."""
+    REINICIAR.set()
+    try:
+        import webview
+        for w in list(webview.windows):
+            w.destroy()                # webview.start() volta e o main() sai com o código 3
+    except Exception:
+        pass
 
 
 def main():
@@ -150,6 +166,7 @@ def main():
         print(" Servidor já está rodando (porta {}). Só vou abrir a janela.".format(PORTA))
     else:
         import servidor
+        servidor.AO_REINICIAR = _ao_reiniciar
         servidor.preparar_servidor()                       # thread principal (signal)
         threading.Thread(target=servidor.rodar_web, daemon=True, name="web").start()
         if not espera_servidor():
@@ -160,7 +177,7 @@ def main():
     if abre_janela_pywebview():
         if ja_rodava:
             return                     # o servidor é do INICIAR.bat: deixa ele lá
-        desligar_e_sair()
+        desligar_e_sair(CODIGO_REINICIO if REINICIAR.is_set() else 0)
 
     # Plano B
     abre_edge_modo_app()
@@ -168,8 +185,9 @@ def main():
         return
     print(" Servidor rodando. Para desligar: Ctrl+C nesta janela.")
     try:
-        while True:
+        while not REINICIAR.is_set():
             time.sleep(1)
+        desligar_e_sair(CODIGO_REINICIO)
     except (KeyboardInterrupt, SystemExit):
         desligar_e_sair()
 
