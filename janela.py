@@ -38,7 +38,8 @@ try:
 except Exception:
     PORTA = 5050
 URL = "http://127.0.0.1:{}/".format(PORTA)
-REINICIAR = threading.Event()      # o servidor pediu reinício (câmera adicionada/removida)
+REINICIAR = threading.Event()      # o servidor pediu reinício (câmera nova) ou atualização
+_SERVIDOR = None                   # módulo servidor (quando esta janela subiu o servidor)
 CODIGO_REINICIO = 3                # o PAINEL.bat abre de novo quando sai com este código
 
 
@@ -139,12 +140,19 @@ def abre_edge_modo_app():
 def desligar_e_sair(codigo=0):
     if codigo == CODIGO_REINICIO:
         print("\n Reiniciando a Central (câmeras mudaram)...")
+    elif REINICIAR.is_set():
+        print("\n Fechando para atualizar (abre de novo sozinha)...")
     else:
         print("\n Janela fechada: desligando o servidor (logout nas câmeras)...")
     try:
         atexit._run_exitfuncs()        # encerrar_xm / encerrar_gravadores do servidor.py
     finally:
         os._exit(codigo)               # não deixa nenhuma thread segurar o processo aberto
+
+
+def _codigo_saida():
+    """3 = o PAINEL.bat sobe de novo; 0 = atualização (o ajudante abre de novo depois)."""
+    return getattr(_SERVIDOR, "CODIGO_SAIDA", CODIGO_REINICIO)
 
 
 def _ao_reiniciar():
@@ -166,6 +174,8 @@ def main():
         print(" Servidor já está rodando (porta {}). Só vou abrir a janela.".format(PORTA))
     else:
         import servidor
+        global _SERVIDOR
+        _SERVIDOR = servidor
         servidor.AO_REINICIAR = _ao_reiniciar
         servidor.preparar_servidor()                       # thread principal (signal)
         threading.Thread(target=servidor.rodar_web, daemon=True, name="web").start()
@@ -177,7 +187,7 @@ def main():
     if abre_janela_pywebview():
         if ja_rodava:
             return                     # o servidor é do INICIAR.bat: deixa ele lá
-        desligar_e_sair(CODIGO_REINICIO if REINICIAR.is_set() else 0)
+        desligar_e_sair(_codigo_saida() if REINICIAR.is_set() else 0)
 
     # Plano B
     abre_edge_modo_app()
@@ -187,7 +197,7 @@ def main():
     try:
         while not REINICIAR.is_set():
             time.sleep(1)
-        desligar_e_sair(CODIGO_REINICIO)
+        desligar_e_sair(_codigo_saida())
     except (KeyboardInterrupt, SystemExit):
         desligar_e_sair()
 

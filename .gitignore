@@ -65,3 +65,8 @@ janela_dados/
 
 # --- atalhos do Windows (cada PC cria o seu com o CRIAR_ATALHO.bat) ---
 *.lnk
+
+# --- atualização automática (atualizador.py) ---
+versao.txt
+_atualizacao/
+atualizacao.json

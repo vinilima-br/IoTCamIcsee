@@ -253,6 +253,9 @@
     #reiniciando { position: fixed; inset: 0; background: rgba(8,10,13,.88); display: none; z-index: 9999;
                    align-items: center; justify-content: center; flex-direction: column; gap: 10px; font-size: 16px; }
     #reiniciando.visivel { display: flex; }
+    #btn-versao { font-size: 11px; padding: 4px 8px; color: var(--suave); }
+    #btn-versao.nova { color: #fff; background: var(--verde); border-color: var(--verde); }
+
     .vazio { color: var(--apagado); font-size: 12px; padding: 6px 0; }
     .vazio[hidden] { display: none; }
 
@@ -362,7 +365,8 @@
       {% if tem_xm %}<button id="btn-alerta-geral" title="Luz de alerta + sirene em todas as câmeras">🚨 Alerta geral</button>{% endif %}
       {% if tem_xm %}<button id="btn-sons">🔊 Sons</button>{% endif %}
       <button id="btn-cams" title="Buscar, adicionar e remover câmeras">➕ Câmeras</button>
-      {% if tem_xm %}<button id="btn-config" title="Configurações das câmeras">⚙ Config</button>{% endif %}
+      <button id="btn-versao" title="Versão e atualização automática">versão</button>
+      <button id="btn-config" title="Configurações (atualização automática e conta das câmeras)">⚙ Config</button>
       <select id="colunas" title="Colunas">
         <option value="auto">Grade automática</option>
         <option value="1">1 coluna</option>
@@ -860,17 +864,34 @@
     </div>
   </dialog>
 
-  <div id="reiniciando"><div style="font-size:34px">⟳</div><div>Reiniciando a Central para montar as câmeras...</div>
+  <div id="reiniciando"><div style="font-size:34px">⟳</div><div id="reiniciando-txt">Reiniciando a Central para montar as câmeras...</div>
     <div class="dica">A página volta sozinha em alguns segundos.</div></div>
 
-  {% if tem_xm %}
   <!-- ================= MENU ⚙ CONFIG ================= -->
   <dialog id="dlg-config" class="dlg">
     <div class="cfg-cab">
-      <h2>⚙ Configurações — conta da câmera (porta 34567)</h2>
+      <h2>⚙ Configurações</h2>
       <button id="cfg-fechar" class="btn-icone" title="Fechar">✕</button>
     </div>
     <div class="cfg-corpo">
+      <div class="cfg-bloco">
+        <h3>⬆ Atualização pelo GitHub</h3>
+        <label class="sw-linha" style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <span class="chave"><input type="checkbox" id="ver-auto-sw" checked><span class="trilho"></span></span>
+          <span><b>Atualizar sozinho</b> — quando tiver versão nova (e nada gravando), baixa, confere e reabre a Central</span>
+        </label>
+        <div class="cfg-info" id="ver-info">-</div>
+        <div class="dica" id="ver-auto"></div>
+        <div class="linha">
+          <button id="ver-verificar">↻ Verificar agora</button>
+          <span style="flex:1"></span>
+          <button id="ver-aplicar" class="btn-verde" hidden>⬆ Atualizar agora</button>
+        </div>
+        <pre class="cfg-passos" id="ver-passos" hidden></pre>
+      </div>
+
+      {% if tem_xm %}
+      <h3 style="margin:6px 0 0">🔑 Conta da câmera (porta 34567)</h3>
       <div class="linha">
         <select id="cfg-cam" style="flex:1"></select>
         <button id="cfg-atualizar" class="btn-icone" title="Ler de novo">↻</button>
@@ -900,9 +921,9 @@
       </div>
 
       <pre class="cfg-passos" id="cfg-passos" hidden></pre>
+      {% endif %}
     </div>
   </dialog>
-  {% endif %}
 
   <script>
     // =============================================================
@@ -2231,6 +2252,93 @@
     setInterval(atualizarAlertasCam, 2000);
 
     // =============================================================
+    //  Versão / atualização automática pelo GitHub
+    // =============================================================
+    (function () {
+      const btn = document.getElementById("btn-versao"), dlg = document.getElementById("dlg-config");
+      if (!btn || !dlg) return;
+      const $ = id => document.getElementById(id);
+      let est = null, boot0 = null, esperando = false;
+      fetch("/api/boot").then(r => r.json()).then(d => { boot0 = d.boot; }).catch(() => {});
+
+      function esperaVoltar() {
+        if (esperando) return;
+        esperando = true;
+        if (dlg.open) dlg.close();
+        $("reiniciando-txt").textContent = "Atualizando a Central com a versão nova do GitHub...";
+        $("reiniciando").classList.add("visivel");
+        const inicio = Date.now();
+        const t = setInterval(async () => {
+          try {
+            const d = await (await fetch("/api/boot", { cache: "no-store" })).json();
+            if (d.boot && d.boot !== boot0) { clearInterval(t); location.reload(); }
+          } catch (e) { /* fechada / subindo */ }
+          if (Date.now() - inicio > 180000) { clearInterval(t); location.reload(); }
+        }, 1500);
+      }
+
+      function mostra(e) {
+        est = e;
+        if (e.aplicando) { esperaVoltar(); return; }
+        btn.textContent = e.disponivel ? "⬆ atualização" : (e.local_curto ? "v " + e.local_curto : (e.dev ? "v dev" : "versão"));
+        btn.classList.toggle("nova", !!e.disponivel);
+        const linhas = [];
+        linhas.push("Neste PC: " + (e.local_curto || (e.dev ? "PC de desenvolvimento (git)" : "desconhecida")));
+        if (e.remoto_curto) linhas.push("No GitHub: " + e.remoto_curto + (e.data ? " (" + e.data + ")" : "") + (e.mensagem ? " — " + e.mensagem : ""));
+        if (e.verificado_em) linhas.push("Verificado às " + e.verificado_em + ".");
+        if (e.erro) linhas.push("⚠ " + e.erro);
+        $("ver-info").innerText = linhas.join("\n");
+        $("ver-auto").textContent = e.dev
+          ? "Este é o PC com o Git (de onde você manda as mudanças): ele não se atualiza sozinho."
+          : (e.automatica ? "Ligado: verifica a cada 30 minutos. Seu config.py, gravações e ajustes nunca são mexidos."
+                          : "Desligado: a Central só avisa (botão verde no topo) e você clica em \"Atualizar agora\".");
+        $("ver-aplicar").hidden = !e.disponivel || e.dev;
+        const sw = $("ver-auto-sw");
+        if (!sw._pend) sw.checked = !!e.automatica;
+        sw.disabled = !!e.dev;
+      }
+
+      async function le() {
+        try { mostra(await (await fetch("/api/atualizacao", { cache: "no-store" })).json()); } catch (e) { /* ignora */ }
+      }
+      // ⚙ Config e o botão de versão abrem a mesma janela
+      function abre() {
+        $("ver-passos").hidden = true;
+        if (!dlg.open) dlg.showModal();
+        le();
+        dlg.dispatchEvent(new Event("cfg-aberto"));      // a parte da conta da câmera recarrega
+      }
+      btn.addEventListener("click", abre);
+      $("btn-config").addEventListener("click", abre);
+      $("cfg-fechar").addEventListener("click", () => { if (dlg.dataset.ocupado !== "1") dlg.close(); });
+      dlg.addEventListener("cancel", e => { if (dlg.dataset.ocupado === "1") e.preventDefault(); });
+      $("ver-auto-sw").addEventListener("change", async () => {
+        const sw = $("ver-auto-sw"); sw._pend = true;
+        const d = await postJSON("/api/atualizacao/automatica", { ligada: sw.checked });
+        sw._pend = false;
+        if (!d.ok) { sw.checked = !sw.checked; aviso("Não salvei: " + (d.erro || "falhou"), true); return; }
+        aviso(d.automatica ? "Atualizar sozinho: LIGADO" : "Atualizar sozinho: desligado");
+        le();
+      });
+      $("ver-verificar").addEventListener("click", async () => {
+        $("ver-verificar").disabled = true;
+        mostra(await postJSON("/api/atualizacao/verificar", {}));
+        $("ver-verificar").disabled = false;
+      });
+      $("ver-aplicar").addEventListener("click", async () => {
+        if (!confirm("Baixar a versão nova e reabrir a Central?\n\nSeu config.py, gravações e ajustes não são mexidos.")) return;
+        $("ver-aplicar").disabled = true;
+        const p = $("ver-passos"); p.hidden = false; p.className = "cfg-passos"; p.textContent = "Baixando e conferindo a versão nova...";
+        const d = await postJSON("/api/atualizacao/aplicar", {});
+        $("ver-aplicar").disabled = false;
+        if (d.ok) esperaVoltar();
+        else { p.className = "cfg-passos erro"; p.textContent = "❌ " + (d.erro || "falhou"); }
+      });
+      le();
+      setInterval(le, 60000);
+    })();
+
+    // =============================================================
     //  Menu ➕ Câmeras - buscar na rede, adicionar, remover
     // =============================================================
     (function () {
@@ -2394,7 +2502,7 @@
     // =============================================================
     (function () {
       const dlg = document.getElementById("dlg-config");
-      if (!dlg) return;
+      if (!dlg || !document.getElementById("cfg-cam")) return;   // PC sem câmera com porta 34567
       const $ = id => document.getElementById(id);
       const sel = $("cfg-cam"), info = $("cfg-info"), passos = $("cfg-passos");
       const botoes = [$("cfg-recuperar"), $("cfg-conta"), $("cfg-atualizar")];
@@ -2430,7 +2538,7 @@
         if (d.sessao_rodando === false) { passos.hidden = false; passos.className = "cfg-passos erro"; passos.textContent = "A sessão das câmeras não está rodando. Abra o INICIAR_SESSAO.bat."; }
       }
 
-      function trava(sim) { ocupado = sim; botoes.forEach(b => { b.disabled = sim; }); }
+      function trava(sim) { ocupado = sim; dlg.dataset.ocupado = sim ? "1" : ""; botoes.forEach(b => { b.disabled = sim; }); }
 
       async function executa(corpo, rotulo) {
         const c = camAtual();
@@ -2450,9 +2558,7 @@
         carrega();
       }
 
-      $("btn-config").addEventListener("click", () => { passos.hidden = true; dlg.showModal(); carrega(); });
-      $("cfg-fechar").addEventListener("click", () => { if (!ocupado) dlg.close(); });
-      dlg.addEventListener("cancel", e => { if (ocupado) e.preventDefault(); });
+      dlg.addEventListener("cfg-aberto", () => { if (!ocupado) { passos.hidden = true; carrega(); } });
       sel.addEventListener("change", () => { passos.hidden = true; mostraInfo(); });
       $("cfg-atualizar").addEventListener("click", carrega);
       $("cfg-recuperar").addEventListener("click", () => {

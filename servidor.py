@@ -44,6 +44,7 @@ import biblioteca_sons  # noqa: E402
 import camera_xm  # noqa: E402
 import cliente_xm  # noqa: E402
 import cameras_cfg  # noqa: E402  (menu ➕ Câmeras)
+import atualizador  # noqa: E402  (atualização automática pelo GitHub)
 try:
     import elsys_xm  # noqa: E402  (cameras Elsys com login RSA)
 except Exception as _e_elsys:
@@ -551,7 +552,7 @@ class IA:
             self.camera.cid, quantidade, evento["foto"] or "(sem foto: intervalo)"))
         # grava o trecho só se a gravação automática estiver ligada
         if self.gravador is not None and self.gravar_auto:
-            self.gravador.inicia()
+            self.gravador.inicia(getattr(self, "lente", "ambas"))   # mesma lente da detecção
 
     def _registra_saida(self):
         if self._evento_atual is not None:
@@ -569,20 +570,21 @@ class IA:
         if self.gravador is None:
             return False
         if ligado and self.ativa and self.presenca:
-            self.gravador.inicia()            # já tem gente: começa agora
+            self.gravador.inicia(getattr(self, "lente", "ambas"))   # já tem gente: começa agora
         elif not ligado and gravando_evento:
             self.gravador.para()
         print("[grav:{}] Gravação automática {}".format(self.camera.cid, "LIGADA" if ligado else "desligada"))
         return True
 
-    def gravar_manual(self, ligar):
+    def gravar_manual(self, ligar, lente="ambas"):
+        """lente: a que está na tela ("ambas" | "cima" = Lente 1 | "baixo" = Lente 2)."""
         if self.gravador is None or not self.gravador.disponivel():
             return False
         with self.trava:
             self.gravacao_manual = bool(ligar)
             continua_por_evento = self.gravar_auto and self.ativa and self.presenca
         if ligar:
-            self.gravador.inicia()
+            self.gravador.inicia(lente)
         elif not continua_por_evento:
             self.gravador.para()
         print("[grav:{}] Gravação manual {}".format(self.camera.cid, "iniciada" if ligar else "parada"))
@@ -675,6 +677,7 @@ def _liga_gravador(cid, camera, ia):
         cid, pasta_gravacoes(cid),
         obtem_url=lambda c=camera: c.urls.get(1) or c.urls.get(0),
         duracao_max_s=GRAV_DURACAO_MAX_S,
+        nome=camera.nome,
     )
     ia.gravador = grav
     GRAVADORES[cid] = grav
@@ -940,7 +943,8 @@ def api_gravacao(cid):
     if "manual" in dados:
         if not isinstance(dados["manual"], bool):
             return jsonify({"ok": False, "erro": "manual deve ser true/false"}), 400
-        ia.gravar_manual(dados["manual"])
+        lente = dados.get("lente") if dados.get("lente") in lentes.OPCOES else "ambas"
+        ia.gravar_manual(dados["manual"], lente)
     s = ia.status()
     return jsonify({"ok": True, "gravar_auto": s["gravar_auto"],
                     "gravacao_manual": s["gravacao_manual"], "gravando": s["gravando"]})
@@ -1174,14 +1178,18 @@ def api_xm_status(cid):
 BOOT_ID = "%x" % int(time.time() * 1000)     # muda a cada subida (a página percebe o reinício)
 AO_REINICIAR = None                          # janela.py põe aqui como fechar a janela
 CODIGO_REINICIO = 3                          # PAINEL.bat / INICIAR.bat sobem de novo com este código
+CODIGO_SAIDA = CODIGO_REINICIO               # o que a janela.py usa ao fechar (0 = atualização)
 _reiniciando = threading.Event()
 
 
-def pedir_reinicio(motivo):
-    """Fecha a Central com o código 3: o .bat sobe tudo de novo (câmeras novas montadas)."""
+def pedir_reinicio(motivo, codigo=CODIGO_REINICIO):
+    """Fecha a Central. Código 3: o .bat sobe tudo de novo (câmeras novas montadas).
+    Código 0: só fecha (a atualização automática abre de novo depois de trocar os .bat)."""
+    global CODIGO_SAIDA
     if _reiniciando.is_set():
         return
     _reiniciando.set()
+    CODIGO_SAIDA = codigo
 
     def _faz():
         time.sleep(1.5)                      # dá tempo da resposta chegar na página
@@ -1195,8 +1203,58 @@ def pedir_reinicio(motivo):
         try:
             atexit._run_exitfuncs()
         finally:
-            os._exit(CODIGO_REINICIO)
+            os._exit(CODIGO_SAIDA)
     threading.Thread(target=_faz, daemon=True, name="reinicio").start()
+
+
+# ---------------- atualização automática (GitHub) ----------------
+def _lancador():
+    return "PAINEL.bat" if AO_REINICIAR is not None else "INICIAR.bat"
+
+
+def _pode_atualizar():
+    """Não atualiza no meio de uma gravação nem de outra troca."""
+    if _reiniciando.is_set():
+        return False
+    return not any(g.gravando() for g in GRAVADORES.values())
+
+
+def _fecha_para_atualizar():
+    pedir_reinicio("atualização do GitHub", codigo=0)
+
+
+@app.route("/api/atualizacao")
+def api_atualizacao():
+    e = dict(atualizador.estado)
+    e["local_curto"] = (e.get("local") or "")[:7]
+    e["remoto_curto"] = (e.get("remoto") or "")[:7]
+    return jsonify(e)
+
+
+@app.route("/api/atualizacao/verificar", methods=["POST"])
+def api_atualizacao_verificar():
+    e = atualizador.verificar()
+    e["local_curto"], e["remoto_curto"] = (e.get("local") or "")[:7], (e.get("remoto") or "")[:7]
+    return jsonify(e)
+
+
+@app.route("/api/atualizacao/automatica", methods=["POST"])
+def api_atualizacao_automatica():
+    ligada = (request.get_json(silent=True) or {}).get("ligada")
+    if not isinstance(ligada, bool):
+        return jsonify({"ok": False, "erro": "envie {\"ligada\": true/false}"}), 400
+    try:
+        return jsonify({"ok": True, "automatica": atualizador.grava_automatica(ligada)})
+    except OSError as e:
+        return jsonify({"ok": False, "erro": "não consegui salvar: {}".format(e)})
+
+
+@app.route("/api/atualizacao/aplicar", methods=["POST"])
+def api_atualizacao_aplicar():
+    if any(g.gravando() for g in GRAVADORES.values()):
+        return jsonify({"ok": False, "erro": "tem gravação em andamento: pare antes de atualizar"})
+    ok, msg = atualizador.aplicar(_lancador(), _fecha_para_atualizar)
+    return jsonify({"ok": ok, "erro": None if ok else msg, "msg": msg})
 
 
 def _depois_de_mudar_cameras(motivo):
@@ -2455,6 +2513,9 @@ def iniciar_tudo():
     inicia_alertas_cam()
     # faxina periódica de arquivos antigos
     threading.Thread(target=_ronda_limpeza, daemon=True).start()
+    # atualização automática pelo GitHub (não roda no PC com .git)
+    threading.Thread(target=atualizador.ronda, args=(_pode_atualizar, _lancador(), _fecha_para_atualizar),
+                     daemon=True, name="atualizacao").start()
 
 
 def encerrar_xm():

@@ -260,6 +260,20 @@ class Pedido(BaseHTTPRequestHandler):
             self._responde(404, {"ok": False, "erro": "rota desconhecida"})
 
     def do_POST(self):
+        if self.path == "/sair":
+            # atualização automática: logout limpo e sai com o código 5
+            # (o INICIAR_SESSAO.bat fecha; a Central abre a sessão nova)
+            self._responde(200, {"ok": True, "pid": os.getpid()})
+
+            def _sai():
+                time.sleep(0.5)
+                log("saindo para atualizar: logout nas cameras...")
+                try:
+                    encerrar()
+                finally:
+                    os._exit(5)
+            threading.Thread(target=_sai, daemon=True).start()
+            return
         if self.path == "/recarregar":
             try:
                 self._responde(200, recarregar())
