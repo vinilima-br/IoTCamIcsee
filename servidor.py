@@ -794,19 +794,103 @@ def monta_rostos():
     for cid, ia_cam in IAS.items():
         ia_cam.lente = escolhidas.get(cid, "ambas")
     for cid in ORDEM:
-        cam = CAMERAS[cid]
-        falar = alerta = holofote = None
-        if cid in XMS:
-            falar = lambda texto, voz=None, cid=cid: _rosto_falar(cid, texto, voz)  # noqa: E731
-            alerta = lambda ligar, segundos, cid=cid: _xm(cid).set_alerta(ligar, segundos)  # noqa: E731
-            holofote = lambda estado, cid=cid: _holofote(cid, estado)  # noqa: E731
-        rec = rosto_servidor.Reconhecedor(cam, MOTOR_ROSTO, falar, alerta, holofote)
-        RECS[cid] = rec
-        anterior = cam.sobreposicao          # junta com as caixas da IA de pessoas
-        if anterior is None:
-            cam.sobreposicao = rec.sobreposicao
+        _monta_rosto(cid)
+
+
+def _monta_rosto(cid):
+    cam = CAMERAS[cid]
+    falar = alerta = holofote = None
+    if cid in XMS:
+        falar = lambda texto, voz=None, cid=cid: _rosto_falar(cid, texto, voz)  # noqa: E731
+        alerta = lambda ligar, segundos, cid=cid: _xm(cid).set_alerta(ligar, segundos)  # noqa: E731
+        holofote = lambda estado, cid=cid: _holofote(cid, estado)  # noqa: E731
+    rec = rosto_servidor.Reconhecedor(cam, MOTOR_ROSTO, falar, alerta, holofote)
+    RECS[cid] = rec
+    anterior = cam.sobreposicao          # junta com as caixas da IA de pessoas
+    if anterior is None:
+        cam.sobreposicao = rec.sobreposicao
+    else:
+        cam.sobreposicao = lambda f, a=anterior, r=rec: r.sobreposicao(a(f))  # noqa: E731
+    return rec
+
+
+# ---------------- câmera nova / removida COM a Central rodando (sem reiniciar) ----------------
+_montagem_trava = threading.Lock()
+REMOVIDAS = set()
+
+
+def adiciona_ao_vivo(cid):
+    """Monta e liga uma câmera que acabou de entrar no config.py (menu ➕ Câmeras)."""
+    with _montagem_trava:
+        importlib.reload(config)
+        c = next((x for x in config.cameras() if x["cid"] == cid), None)
+        if c is None:
+            raise RuntimeError("{} não está no config.py".format(cid))
+        if cid in CAMERAS:
+            raise RuntimeError("{} já está montada".format(cid))
+        REMOVIDAS.discard(cid)
+        IPS[cid] = c.get("ip", "")
+        if c["tipo"] == "elsys":
+            _monta_elsys(cid, c["nome"], c["ip"], c["porta"], c["usuario"], c["senha"], c["stream"])
+            if c["xm"] and SESSAO_SEPARADA:
+                XMS[cid] = cliente_xm.SessaoRemota(cid, c["ip"], "admin", "")
         else:
-            cam.sobreposicao = lambda f, a=anterior, r=rec: r.sobreposicao(a(f))  # noqa: E731
+            _monta_icsee(cid, c["nome"], c["ip"], c["usuario"], c["senha"], c["porta_onvif"],
+                         perfil_ptz=c["ptz_perfil"], usuario_admin=c["admin_usuario"],
+                         senha_admin=c["admin_senha"], tem_xm=c["xm"], tem_ptz=c["ptz"])
+        if cid in IAS:
+            IAS[cid].lente = lentes.le().get(cid, "ambas")
+        if MOTOR_ROSTO is not None and cid in CAMERAS:
+            _monta_rosto(cid)
+        _liga_portoes()
+        _liga_pausa_ociosa()
+        CAMERAS[cid].iniciar()
+        if cid in IAS:
+            IAS[cid].iniciar()
+        if cid in XMS:
+            XMS[cid].iniciar()
+            _xm_status[cid] = {"estado": "aguardando", "logada": False, "ip": getattr(XMS[cid], "ip", None)}
+            threading.Thread(target=_ronda_status_xm, args=(cid, XMS[cid]), daemon=True).start()
+        if cid in RECS:
+            RECS[cid].iniciar()
+        if cid in ALERTAS_CIDS and cid in XMS:
+            ALERTAS_INFO[cid] = {"guard": None, "erro": "iniciando"}
+            threading.Thread(target=_ronda_alertas_cam, args=(cid, XMS[cid]), daemon=True).start()
+        if cid in PTZS:
+            threading.Thread(target=_ronda_ptz, args=(cid, PTZS[cid]), daemon=True).start()
+        print("[{}] câmera montada AO VIVO (sem reiniciar): {}".format(cid, c["nome"]))
+
+
+def remove_ao_vivo(cid):
+    """Tira a câmera do painel com a Central rodando: solta o vídeo e para IA/rosto/gravação."""
+    with _montagem_trava:
+        REMOVIDAS.add(cid)
+        g = GRAVADORES.pop(cid, None)
+        if g is not None:
+            try:
+                g.para()
+            except Exception:
+                pass
+        ia = IAS.pop(cid, None)
+        if ia is not None:
+            try:
+                ia.ligar(False)
+            except Exception:
+                pass
+        rec = RECS.pop(cid, None)
+        if rec is not None:
+            rec.ativo = False
+            rec.cadastro = None
+        cam = CAMERAS.pop(cid, None)
+        if cam is not None:
+            cam.precisa_frames = lambda: False      # o laço da câmera solta o vídeo e fica parado
+            cam.espectadores = 0
+        if cid in ORDEM:
+            ORDEM.remove(cid)
+        for d in (XMS, PTZS, IPS, ALERTAS_INFO):
+            d.pop(cid, None)
+        ALERTAS_CIDS.discard(cid)
+        print("[{}] câmera removida AO VIVO (sem reiniciar)".format(cid))
 
 
 # =============================================================
@@ -1262,11 +1346,41 @@ def _lancador():
     return "PAINEL.bat" if AO_REINICIAR is not None else "INICIAR.bat"
 
 
+_ultimo_clique = [time.time()]                # última ação de alguém na página (POST)
+SOSSEGO_ATUALIZAR_S = 10 * 60                 # só atualiza sozinha 10 min depois do último clique
+
+
+@app.before_request
+def _marca_uso():
+    if request.method in ("POST", "DELETE") and not request.path.startswith("/api/atualizacao"):
+        _ultimo_clique[0] = time.time()
+
+
 def _pode_atualizar():
-    """Não atualiza no meio de uma gravação nem de outra troca."""
+    """True, ou o motivo de não atualizar agora (nunca no meio do uso)."""
     if _reiniciando.is_set():
-        return False
-    return not any(g.gravando() for g in GRAVADORES.values())
+        return "reiniciando"
+    if any(g.gravando() for g in GRAVADORES.values()):
+        return "gravando"
+    if any(r.cadastro and r.cadastro.get("estado") == "capturando" for r in RECS.values()):
+        return "cadastrando rosto"
+    if cameras_cfg._trava.locked():
+        return "adicionando câmera"
+    if any(t.estado in ("na fila", "baixando", "convertendo") for t in SD_TAREFAS.values() if t):
+        return "baixando do cartão SD"
+    parado = time.time() - _ultimo_clique[0]
+    if parado < SOSSEGO_ATUALIZAR_S:
+        return "alguém usando o painel ({} min atrás)".format(int(parado // 60))
+    return True
+
+
+@app.route("/api/desligar", methods=["POST"])
+def api_desligar():
+    """Janela do painel fechada no X: desliga a Central (só pedido do próprio PC)."""
+    if request.remote_addr not in ("127.0.0.1", "::1"):
+        return jsonify({"ok": False, "erro": "só pelo próprio PC"}), 403
+    pedir_reinicio("janela fechada", codigo=0)
+    return jsonify({"ok": True})
 
 
 def _fecha_para_atualizar():
@@ -1301,18 +1415,31 @@ def api_atualizacao_automatica():
 
 @app.route("/api/atualizacao/aplicar", methods=["POST"])
 def api_atualizacao_aplicar():
-    if any(g.gravando() for g in GRAVADORES.values()):
-        return jsonify({"ok": False, "erro": "tem gravação em andamento: pare antes de atualizar"})
+    motivo = _pode_atualizar()
+    if motivo in ("gravando", "cadastrando rosto", "adicionando câmera", "baixando do cartão SD"):
+        return jsonify({"ok": False, "erro": "agora não: {} (termine e tente de novo)".format(motivo)})
     ok, msg = atualizador.aplicar(_lancador(), _fecha_para_atualizar)
     return jsonify({"ok": ok, "erro": None if ok else msg, "msg": msg})
 
 
-def _depois_de_mudar_cameras(motivo):
+def _depois_de_mudar_cameras(motivo, cid=None, acao=None):
+    """Sessão lê o config de novo; a câmera entra/sai AO VIVO. Só reinicia se isso falhar.
+    Devolve True se reiniciou."""
     if SESSAO_SEPARADA:
         r = cliente_xm.recarregar()
         if not r.get("ok"):
             print(" [câmeras] a sessão não recarregou: {}".format(r.get("erro")))
+    try:
+        if acao == "adicionar" and cid:
+            adiciona_ao_vivo(cid)
+            return False
+        if acao == "remover" and cid:
+            remove_ao_vivo(cid)
+            return False
+    except Exception as e:  # noqa: BLE001
+        print(" [câmeras] não montei ao vivo ({!r}): reiniciando a Central".format(e))
     pedir_reinicio(motivo)
+    return True
 
 
 @app.route("/api/boot")
@@ -1357,8 +1484,7 @@ def api_cameras_adicionar():
         r = {"ok": False, "erro": "{}: {}".format(type(e).__name__, e), "passos": []}
     if r.get("ok"):
         print("[{}] câmera adicionada pelo painel: {}".format(r["cid"], r["nome"]))
-        _depois_de_mudar_cameras("câmera nova: {}".format(r["nome"]))
-        r["reiniciando"] = True
+        r["reiniciando"] = _depois_de_mudar_cameras("câmera nova: {}".format(r["nome"]), r["cid"], "adicionar")
     return jsonify(r)
 
 
@@ -1370,8 +1496,7 @@ def api_cameras_remover(cid):
         r = {"ok": False, "erro": "{}: {}".format(type(e).__name__, e)}
     if r.get("ok"):
         print("[{}] câmera removida pelo painel: {}".format(cid, r["nome"]))
-        _depois_de_mudar_cameras("câmera removida: {}".format(r["nome"]))
-        r["reiniciando"] = True
+        r["reiniciando"] = _depois_de_mudar_cameras("câmera removida: {}".format(r["nome"]), cid, "remover")
     return jsonify(r)
 
 

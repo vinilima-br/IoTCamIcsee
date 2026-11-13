@@ -150,6 +150,31 @@ def desligar_e_sair(codigo=0):
         os._exit(codigo)               # não deixa nenhuma thread segurar o processo aberto
 
 
+def _post_local(url, timeout=4):
+    try:
+        import urllib.request
+        req = urllib.request.Request(url, data=b"{}", method="POST",
+                                     headers={"Content-Type": "application/json"})
+        urllib.request.urlopen(req, timeout=timeout).read()
+        return True
+    except Exception:
+        return False
+
+
+def fecha_tudo(desligar_servidor):
+    """Janela fechada no X pelo usuário: fecha também a sessão das câmeras (logout limpo,
+    a janela INICIAR_SESSAO.bat some) e, se a Central rodava por fora (INICIAR.bat), ela também."""
+    try:
+        import camera_xm
+        porta_sessao = camera_xm.PORTA_SESSAO
+    except Exception:
+        porta_sessao = 5051
+    if _post_local("http://127.0.0.1:{}/sair".format(porta_sessao)):
+        print(" Sessão das câmeras: fechando (logout nas câmeras)...")
+    if desligar_servidor and _post_local("http://127.0.0.1:{}/api/desligar".format(PORTA)):
+        print(" Central (INICIAR.bat): desligando...")
+
+
 def _codigo_saida():
     """3 = o PAINEL.bat sobe de novo; 0 = atualização (o ajudante abre de novo depois)."""
     return getattr(_SERVIDOR, "CODIGO_SAIDA", CODIGO_REINICIO)
@@ -185,9 +210,12 @@ def main():
             desligar_e_sair()
 
     if abre_janela_pywebview():
+        if REINICIAR.is_set():         # reinício/atualização: a sessão continua (ou o ajudante cuida)
+            desligar_e_sair(_codigo_saida())
+        fecha_tudo(desligar_servidor=ja_rodava)     # fechou no X: fecha tudo
         if ja_rodava:
-            return                     # o servidor é do INICIAR.bat: deixa ele lá
-        desligar_e_sair(_codigo_saida() if REINICIAR.is_set() else 0)
+            return
+        desligar_e_sair(0)
 
     # Plano B
     abre_edge_modo_app()

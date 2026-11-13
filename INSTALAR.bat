@@ -71,6 +71,11 @@ if not exist "modelos\yolov8n.onnx" (
   echo.
 )
 
+REM ---------- Versao instalada (a atualizacao automatica nao refaz o que acabou de baixar) ----------
+if exist "%~dp0..\IoTCamIcsee.zip" (
+  "%PY%" -c "import zipfile,sys,re; c=zipfile.ZipFile(sys.argv[1]).comment.decode('ascii','ignore').strip(); m=re.fullmatch('[0-9a-f]{40}', c); open('versao.txt','w').write(m.group(0)+'\n') if m else None" "%~dp0..\IoTCamIcsee.zip" 2>nul
+)
+
 REM ---------- 3) Cameras ----------
 REM As cameras agora sao adicionadas pela JANELA do painel (botao "+ Cameras"):
 REM ela busca as cameras na rede e abre sozinha quando o PC ainda nao tem nenhuma.
@@ -89,4 +94,6 @@ echo  No navegador deste PC:   http://localhost:5050
 echo  No celular, mesma rede:  http://IP-DESTE-PC:5050
 echo ===================================================
 echo.
-pause
+echo Esta janela fecha sozinha em 8 segundos...
+timeout /t 8 >nul
+exit

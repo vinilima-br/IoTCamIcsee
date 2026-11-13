@@ -120,6 +120,16 @@ def verificar():
         except Exception as e:  # noqa: BLE001
             estado["erro"] = "não consegui falar com o GitHub: {}".format(e)
         estado["verificado_em"] = time.strftime("%H:%M")
+        # instalação nova (sem versao.txt): acabou de baixar a versão do GitHub -> só registra,
+        # não "atualiza" no meio da primeira configuração
+        if estado["remoto"] and not estado["local"] and not estado["dev"]:
+            try:
+                with open(ARQ_VERSAO, "w", encoding="utf-8") as f:
+                    f.write(estado["remoto"] + "\n")
+                estado["local"] = estado["remoto"]
+                _log("primeira verificação: versão {} registrada como a instalada".format(estado["remoto"][:7]))
+            except OSError:
+                pass
         estado["disponivel"] = bool(estado["remoto"]) and estado["remoto"] != estado["local"] and not estado["dev"]
         return dict(estado)
 
@@ -263,11 +273,12 @@ def ronda(pode_atualizar, lancador, ao_fechar):
         try:
             verificar()
             if estado["disponivel"] and estado["automatica"] and not estado["aplicando"]:
-                if pode_atualizar():
+                motivo = pode_atualizar()
+                if motivo is True:
                     _log("versão nova no GitHub ({}): {}".format(estado["remoto"][:7], estado["mensagem"]))
                     aplicar(lancador, ao_fechar)
                 else:
-                    _log("versão nova no GitHub, mas está gravando: tento de novo depois")
+                    _log("versão nova no GitHub, mas agora não ({}): tento de novo depois".format(motivo))
         except Exception as e:  # noqa: BLE001
             _log("erro na verificação: {!r}".format(e))
         time.sleep(INTERVALO_S if not estado["disponivel"] else 5 * 60)

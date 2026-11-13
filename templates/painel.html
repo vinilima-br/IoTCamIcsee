@@ -2958,7 +2958,11 @@
         const r = await postJSON("/api/cameras/adicionar", d);
         trava(false);
         mostraPassos(((r.passos || []).join("\n") + "\n\n" + (r.ok ? "✅ " + r.nome + " adicionada." : "❌ " + (r.erro || "falhou"))).trim(), r.ok ? "ok" : "erro");
-        if (r.ok && r.reiniciando) setTimeout(esperaReinicio, 1200);
+        if (r.ok && r.reiniciando) setTimeout(esperaReinicio, 1200);        // não montou ao vivo: reinicia
+        else if (r.ok) {                                                      // montada ao vivo: só recarrega a página
+          passos.textContent += "\n\nPronto! A câmera já está no painel.";
+          setTimeout(() => location.reload(), 1300);
+        }
       }
 
       async function remover(c) {
@@ -2967,7 +2971,7 @@
         trava(true);
         const r = await postJSON("/api/cameras/" + c.cid + "/remover", {});
         trava(false);
-        if (r.ok) { aviso(c.nome + " removida"); if (r.reiniciando) esperaReinicio(); }
+        if (r.ok) { aviso(c.nome + " removida"); if (r.reiniciando) esperaReinicio(); else setTimeout(() => location.reload(), 700); }
         else aviso("Não removi: " + (r.erro || "falhou"), true);
       }
 

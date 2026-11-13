@@ -15,6 +15,8 @@ title Central de Cameras
 "%PY%" servidor.py
 REM codigo 3 = a Central pediu para subir de novo (camera adicionada/removida)
 if "%errorlevel%"=="3" goto subir
+REM codigo 0 = desligou normal (ex.: fechou a janela do painel): fecha esta janela tambem
+if "%errorlevel%"=="0" exit
 echo.
 echo O servidor parou. Pressione uma tecla para fechar.
 pause >nul

@@ -267,7 +267,7 @@ class Pedido(BaseHTTPRequestHandler):
 
             def _sai():
                 time.sleep(0.5)
-                log("saindo para atualizar: logout nas cameras...")
+                log("fechando a sessao: logout nas cameras...")
                 try:
                     encerrar()
                 finally:
