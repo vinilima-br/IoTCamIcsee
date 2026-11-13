@@ -17,7 +17,9 @@ Situação em 09/11/2026: 3 câmeras funcionando no mini PC (Windows, Celeron N5
 ```
 C:\Dev\Projeto_Esp+Cam\
   servidor.py            <- o sistema (rode este)
-  INICIAR.bat            <- dois cliques = sobe o servidor
+  INICIAR.bat            <- dois cliques = sobe o servidor (painel no navegador)
+  PAINEL.bat             <- dois cliques = servidor + painel em JANELA PRÓPRIA
+  janela.py  icone.ico   <- a janela própria (pywebview) e o ícone dela
   config.py              <- IPs, usuários e senhas (só aqui)
   camera_xm.py           <- sessão com a porta 34567 (fala, volume, luz, alarme)
   sd_xm.py               <- cartão SD da câmera (listar, baixar, converter em MP4)
@@ -54,17 +56,24 @@ Para arrumar a pasta (move os antigos para `historico\`, **não apaga nada**):
 2. Copie a pasta inteira do projeto (inclusive `modelos\yolov8n.onnx`, `config.py`, `sons\`).
 3. No terminal, dentro da pasta: `pip install -r requirements.txt`
 4. O PC precisa estar na **mesma rede das câmeras** (aqui: 192.168.3.x).
-5. Dois cliques em `INICIAR.bat` (ou `python servidor.py`).
+5. Dois cliques em `PAINEL.bat` (janela própria) ou `INICIAR.bat` (navegador; ou `python servidor.py`).
 6. Abra `http://localhost:5050`. No celular, na mesma rede: `http://IP-DO-MINI-PC:5050`.
 
-Para desligar: **Ctrl+C** na janela do servidor (faz logout limpo nas câmeras).
+Para desligar: **Ctrl+C** na janela do servidor (faz logout limpo nas câmeras). Com o `PAINEL.bat`, basta **fechar a janela** do painel.
 
 ---
 
 ## 3. Usando a página
 
+**Janela própria (`PAINEL.bat`)**: o mesmo painel numa janela sem barra de navegador, com nome e ícone da Central (biblioteca `pywebview`, instalada sozinha na 1ª vez).
+- Fechar a janela = desligar o servidor (com logout nas câmeras). Se o `INICIAR.bat` já estiver aberto, o `PAINEL.bat` só abre a janela e não sobe um 2º servidor (evita sessão dupla e 205).
+- A janela guarda as preferências da página (câmeras escondidas, colunas, aba) em `janela_dados\`, separado do navegador.
+- Sem pywebview ou sem o WebView2 do Windows, ela abre o Edge em modo aplicativo (também sem barra).
+- O celular continua em `http://IP-DO-MINI-PC:5050`.
+
 - **🚨 Alerta geral** (topo): luz de alerta + sirene em todas as câmeras por 15 s. Clicar de novo para.
 - **Topo**: cada câmera tem um botão. Clique para **mostrar/esconder**. Em "Grade automática" você escolhe 1, 2 ou 3 colunas. O botão **🔊 Sons** abre a biblioteca.
+- **Título de cada câmera**: nome · estado (ao vivo/offline/em pausa) · **IP** da câmera. Offline aparece em vermelho "tentando 192.168.3.X" (o IP do `config.py` que o sistema está tentando).
 - **Em cada câmera**: ⟲ girar 180° (câmera instalada de cabeça pra baixo; vale pro ao vivo e pros vídeos) · ⛶ tela cheia · — minimizar · ✕ esconder. Câmera escondida ou minimizada **para de transmitir** e o mini PC gasta menos CPU.
 - **Barra da câmera**: Leve/Alta · 🎧 Ouvir (som ambiente) · ⏺ Gravar (manual, até 5 min) · 📷 Foto.
 - **Abas**:

@@ -4,3 +4,4 @@ numpy
 imageio-ffmpeg
 edge-tts
 pycryptodome
+pywebview

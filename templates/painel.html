@@ -95,6 +95,9 @@
     .cab { display: flex; align-items: center; gap: 9px; padding: 10px 12px; border-bottom: 1px solid var(--borda); }
     .cab h2 { font-size: 14px; margin: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .cab .texto-status { font-size: 12px; color: var(--suave); white-space: nowrap; }
+    .cab .texto-ip { font-size: 12px; color: var(--apagado); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .cab .texto-ip::before { content: "· "; }
+    .cab .texto-ip.falhando { color: #f87171; }
     .cab .badges { display: flex; gap: 5px; flex: 1; justify-content: flex-end; }
     .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #1f2630; border: 1px solid var(--borda2); white-space: nowrap; }
     .badge[hidden] { display: none; }
@@ -363,6 +366,7 @@
         <span class="ponto"></span>
         <h2>{{ cam.nome }}</h2>
         <span class="texto-status">Conectando...</span>
+        {% if cam.ip %}<span class="texto-ip" data-ip="{{ cam.ip }}" title="IP da câmera na rede">{{ cam.ip }}</span>{% endif %}
         <div class="badges">
           <span class="badge pessoa" hidden>👤 0</span>
           <span class="badge ia" hidden>IA</span>
@@ -1889,6 +1893,12 @@
         const chip = document.querySelector('.chip[data-cid="' + c.dataset.cid + '"] .ponto');
         if (chip) chip.className = "ponto " + estado;
         q(".texto-status").textContent = s.pausada ? "em pausa" : (s.online ? "ao vivo" : "offline");
+        const ipEl = q(".texto-ip");
+        if (ipEl) {
+          const falhando = !s.online && !s.pausada;
+          ipEl.textContent = (falhando ? "tentando " : "") + ipEl.dataset.ip;
+          ipEl.classList.toggle("falhando", falhando);
+        }
         q(".sobre-info").textContent = s.online && s.largura ? s.largura + "×" + s.altura + " · " + s.fps + " fps" : "-";
         c.querySelectorAll(".btn-stream").forEach(b => b.classList.toggle("ativo", Number(b.dataset.stream) === s.stream));
         if (s.online && s.largura && s.altura) {          // 2 lentes = quadro mais alto que largo (2304x2592)

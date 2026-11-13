@@ -652,6 +652,7 @@ def tirar_foto(camera, pasta):
 #  Montagem das câmeras
 # =============================================================
 CAMERAS = {}      # cid -> Camera
+IPS = {}          # cid -> IP da câmera na rede (do config), mostrado no título do cartão
 IAS = {}          # cid -> IA
 GRAVADORES = {}   # cid -> Gravador
 PTZS = {}         # cid -> ptz.Controle
@@ -725,6 +726,7 @@ def monta_cameras():
     """Monta todas as câmeras a partir da lista única config.cameras()."""
     for c in config.cameras():
         cid = c["cid"]
+        IPS[cid] = c.get("ip", "")
         try:
             if c["tipo"] == "elsys":
                 _monta_elsys(cid, c["nome"], c["ip"], c["porta"],
@@ -793,7 +795,8 @@ def _camera(cid):
 def index():
     cameras = [{"id": cid, "nome": CAMERAS[cid].nome,
                 "tem_ia": cid in IAS, "tem_ptz": cid in PTZS, "tem_xm": cid in XMS,
-                "tem_rosto": cid in RECS, "tem_alertas": cid in ALERTAS_CIDS}
+                "tem_rosto": cid in RECS, "tem_alertas": cid in ALERTAS_CIDS,
+                "ip": IPS.get(cid, "")}
                for cid in ORDEM]
     return render_template("painel.html", cameras=cameras, modos_luz=camera_xm.MODOS_LUZ,
                            tem_xm=bool(XMS))
@@ -2332,7 +2335,8 @@ def _ao_sinal(*_):
     raise SystemExit(0)          # garante o logout (atexit) também ao fechar a janela
 
 
-if __name__ == "__main__":
+def preparar_servidor():
+    """Monta câmeras, rostos e rondas. Chamar na thread principal (por causa do signal)."""
     _liga_log_arquivo()
     monta_cameras()
     monta_rostos()
@@ -2360,4 +2364,13 @@ if __name__ == "__main__":
     if hasattr(signal, "SIGBREAK"):          # Windows: Ctrl+Break / fechar console
         signal.signal(signal.SIGBREAK, _ao_sinal)
     iniciar_tudo()
-    app.run(host="0.0.0.0", port=WEB_PORTA, threaded=True, debug=False)
+
+
+def rodar_web():
+    """Sobe a página (bloqueia). A janela própria (janela.py) roda isto numa thread."""
+    app.run(host="0.0.0.0", port=WEB_PORTA, threaded=True, debug=False, use_reloader=False)
+
+
+if __name__ == "__main__":
+    preparar_servidor()
+    rodar_web()
