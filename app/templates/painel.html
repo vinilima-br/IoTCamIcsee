@@ -231,6 +231,8 @@
     @keyframes pisca-rec { 50% { opacity: .2; } }
     .cad-lado { display: flex; flex-direction: column; gap: 14px; }
     .cad-lado[hidden] { display: none; }
+    .caixa-senha { margin-top: 10px; padding: 12px; border-radius: 10px; background: #102018; border: 1px solid #166534; }
+    .caixa-senha .s { font: 600 18px/1.3 ui-monospace, Consolas, monospace; letter-spacing: 1px; color: #bbf7d0; }
     .pisca-atencao { animation: atencao .45s ease-in-out 4; border-radius: 8px; }
     @keyframes atencao { 50% { box-shadow: 0 0 0 3px #f59e0b; background: rgba(245,158,11,.12); } }
     .cad-anel { display: flex; align-items: center; gap: 16px; }
@@ -969,8 +971,12 @@
           <div class="linha"><span class="rot">Nome</span><input type="text" id="ca-nome" maxlength="40" placeholder="ex.: Portão"></div>
           <div class="linha"><span class="rot">IP</span><input type="text" id="ca-ip" maxlength="15"></div>
           <div id="ca-icsee">
-            <div class="linha"><span class="rot">E-mail do app</span><input type="text" id="ca-usuario" maxlength="80" autocomplete="off"></div>
-            <div class="linha"><span class="rot">Senha do app</span><input type="password" id="ca-senha" maxlength="60" autocomplete="new-password"></div>
+            <div class="dica" id="ca-login-link"><a href="#" id="ca-login-abrir">A câmera pede login para o vídeo? Preencher o e-mail e a senha do app</a></div>
+            <div id="ca-login" hidden>
+              <div class="dica" style="color:#f59e0b" id="ca-login-aviso" hidden>Esta câmera pediu login: use o e-mail e a senha do app iCSee.</div>
+              <div class="linha"><span class="rot">E-mail do app</span><input type="text" id="ca-usuario" maxlength="80" autocomplete="off"></div>
+              <div class="linha"><span class="rot">Senha do app</span><input type="password" id="ca-senha" maxlength="60" autocomplete="new-password"></div>
+            </div>
           </div>
           <div id="ca-elsys" hidden>
             <div class="linha"><span class="rot">Senha do vídeo</span><input type="password" id="ca-senha-elsys" maxlength="60" autocomplete="new-password"></div>
@@ -988,9 +994,9 @@
             <input type="password" id="ca-admin-senha" maxlength="30" autocomplete="new-password" placeholder="senha fixa">
           </div>
           <label class="opcao"><input type="radio" name="ca-som" value="resetada">
-            <span><b>Câmera recém-resetada</b> — descobre a conta e fixa a senha abaixo. <span style="color:#f87171">Não use numa câmera que já funciona em outro PC</span> (ela trocaria a senha de lá).</span></label>
+            <span><b>Câmera recém-resetada</b> — descobre a conta da câmera e deixa uma senha fixa nela (o sistema cria uma senha forte e te mostra no final). <span style="color:#f87171">Não use numa câmera que já funciona em outro PC</span> (lá ela pararia de conectar).</span></label>
           <div class="sub linha" id="ca-sub-resetada" hidden>
-            <input type="password" id="ca-senha-fixa" maxlength="30" autocomplete="new-password" placeholder="senha fixa que vai ficar na câmera">
+            <input type="text" id="ca-senha-fixa" maxlength="30" autocomplete="off" placeholder="opcional: deixe vazio e o sistema cria (recomendado)">
           </div>
           <label class="opcao"><input type="radio" name="ca-som" value="nenhum">
             <span><b>Só vídeo</b> — sem alto-falante/luz por enquanto (dá pra ligar depois no ⚙ Config).</span></label>
@@ -1108,7 +1114,7 @@
           grava no config.py (com backup) e reconecta sozinho. Não precisa fechar nada.</div>
         <div class="linha">
           <input type="password" id="cfg-senha-fixa" maxlength="30" autocomplete="new-password"
-                 placeholder="senha fixa (vazio = manter a mesma de antes)">
+                 placeholder="opcional: vazio = mantém a de antes (ou o sistema cria uma)">
           <button id="cfg-recuperar" class="btn-verde">Descobrir e fixar</button>
         </div>
       </div>
@@ -2830,6 +2836,31 @@
       setInterval(le, 60000);
     })();
 
+    // caixa "guarde esta senha" (cadastro de câmera resetada / ⚙ Config)
+    function mostraSenha(depoisDe, usuario, senha, gerada, aoFechar) {
+      const box = document.createElement("div"); box.className = "caixa-senha";
+      const t = document.createElement("div"); t.style.fontWeight = "600";
+      t.textContent = "🔑 Conta fixa da câmera" + (gerada ? " (criada pelo sistema)" : "");
+      const u = document.createElement("div"); u.className = "dica"; u.textContent = "usuário: " + usuario;
+      const sx = document.createElement("div"); sx.className = "s"; sx.textContent = senha;
+      const d = document.createElement("div"); d.className = "dica";
+      d.textContent = "Guarde: é com ela que você põe esta câmera em outro PC (➕ Câmeras → \"Já sei a conta\"). Ela também fica salva no config.py deste PC.";
+      const l = document.createElement("div"); l.className = "linha"; l.style.marginTop = "8px";
+      const cp = document.createElement("button"); cp.textContent = "📋 Copiar senha";
+      cp.onclick = async () => {
+        try { await navigator.clipboard.writeText(senha); aviso("Senha copiada"); }
+        catch (e) { const r = document.createRange(); r.selectNodeContents(sx); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); aviso("Selecionei a senha: Ctrl+C para copiar"); }
+      };
+      l.append(cp);
+      if (aoFechar) {
+        const ok = document.createElement("button"); ok.className = "btn-verde"; ok.textContent = "Pronto, guardei";
+        ok.onclick = () => { box.remove(); aoFechar(); };
+        l.append(ok);
+      }
+      box.append(t, u, sx, d, l);
+      depoisDe.after(box);
+    }
+
     // =============================================================
     //  Menu ➕ Câmeras - buscar na rede, adicionar, remover
     // =============================================================
@@ -2916,6 +2947,7 @@
         $("ca-nome").value = "";
         ["ca-usuario", "ca-senha", "ca-senha-elsys", "ca-admin-usuario", "ca-admin-senha", "ca-senha-fixa"].forEach(i => { $(i).value = ""; });
         $("ca-previa").hidden = true; $("ca-teste-info").textContent = "";
+        $("ca-login").hidden = true; $("ca-login-link").hidden = false; $("ca-login-aviso").hidden = true;
         const temSom = c.som !== false;
         dlg.querySelectorAll('input[name="ca-som"]').forEach(r => { r.disabled = !temSom && r.value !== "nenhum"; r.checked = temSom ? r.value === "conta" : r.value === "nenhum"; });
         $("cams-add-titulo").textContent = "Adicionar câmera " + (c.ip || "");
@@ -2943,9 +2975,12 @@
         trava(false);
         if (d.ok) {
           if (d.porta_onvif) portaOnvif = d.porta_onvif;
-          $("ca-teste-info").textContent = "✅ vídeo OK" + (d.modelo ? " · " + d.modelo : "") + (d.aviso ? " · " + d.aviso : "");
+          $("ca-teste-info").textContent = "✅ vídeo OK" + (d.sem_login ? " (sem precisar de login)" : "") + (d.modelo ? " · " + d.modelo : "") + (d.aviso ? " · " + d.aviso : "");
           if (d.foto) { $("ca-previa").src = d.foto; $("ca-previa").hidden = false; }
-        } else $("ca-teste-info").textContent = "❌ " + (d.erro || "falhou");
+        } else {
+          $("ca-teste-info").textContent = "❌ " + (d.erro || "falhou");
+          if (d.precisa_login) { $("ca-login").hidden = false; $("ca-login-link").hidden = true; $("ca-login-aviso").hidden = false; $("ca-usuario").focus(); }
+        }
       }
 
       async function salvar() {
@@ -2958,7 +2993,11 @@
         const r = await postJSON("/api/cameras/adicionar", d);
         trava(false);
         mostraPassos(((r.passos || []).join("\n") + "\n\n" + (r.ok ? "✅ " + r.nome + " adicionada." : "❌ " + (r.erro || "falhou"))).trim(), r.ok ? "ok" : "erro");
-        if (r.ok && r.reiniciando) setTimeout(esperaReinicio, 1200);        // não montou ao vivo: reinicia
+        const recarrega = () => { if (r.reiniciando) esperaReinicio(); else location.reload(); };
+        if (r.ok && r.conta_senha) {           // senha fixa nova: mostra pra guardar antes de recarregar
+          passos.textContent += "\n\nPronto! A câmera já está no painel.";
+          mostraSenha(passos, r.conta_usuario, r.conta_senha, r.senha_gerada, recarrega);
+        } else if (r.ok && r.reiniciando) setTimeout(esperaReinicio, 1200);   // não montou ao vivo: reinicia
         else if (r.ok) {                                                      // montada ao vivo: só recarrega a página
           passos.textContent += "\n\nPronto! A câmera já está no painel.";
           setTimeout(() => location.reload(), 1300);
@@ -2987,6 +3026,7 @@
       $("ca-tipo").addEventListener("change", ajustaForm);
       dlg.querySelectorAll('input[name="ca-som"]').forEach(r => r.addEventListener("change", ajustaForm));
       $("ca-testar").addEventListener("click", testar);
+      $("ca-login-abrir").addEventListener("click", e => { e.preventDefault(); $("ca-login").hidden = false; $("ca-login-link").hidden = true; $("ca-usuario").focus(); });
       $("ca-salvar").addEventListener("click", salvar);
       $("ca-voltar").addEventListener("click", () => { mostraPassos(""); tela("lista"); });
 
@@ -3048,6 +3088,8 @@
         passos.textContent = (linhas ? linhas + "\n\n" : "") +
           (d.ok ? "✅ PRONTO: conta " + d.usuario + " gravada no config.py. A câmera reconecta em ~20 s."
                 : "❌ " + (d.erro || "falhou"));
+        passos.parentNode.querySelectorAll(".caixa-senha").forEach(x => x.remove());
+        if (d.ok && d.conta_senha) mostraSenha(passos, d.conta_usuario, d.conta_senha, false, null);
         aviso(d.ok ? "Conta da câmera atualizada" : "Não deu: " + (d.erro || "falhou"), !d.ok);
         $("cfg-senha-fixa").value = ""; $("cfg-senha").value = "";
         trava(false);

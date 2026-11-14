@@ -4,6 +4,12 @@
 *.cmd text eol=crlf
 *.ps1 text eol=crlf
 
+# O bootstrap.bat e baixado pelo link "raw" do GitHub, que entrega o arquivo
+# do jeito que esta guardado no repositorio. Com -text o git guarda os bytes
+# como estao (CRLF) e o link entrega CRLF. O ENVIAR_PARA_GITHUB.bat faz o
+# renormalize que aplica isso.
+bootstrap.bat -text
+
 # Fora do ZIP que os PCs baixam (bootstrap.bat e atualizacao automatica):
 # so o PC de desenvolvimento (com git) precisa destas pastas.
 /dev export-ignore

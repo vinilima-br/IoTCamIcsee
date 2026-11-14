@@ -93,6 +93,13 @@ def monta_sessoes(pular=()):
 #  Sempre: grava no config.py (com backup), libera a trava e reconecta.
 # ------------------------------------------------------------------
 _trava_prov = threading.Lock()
+
+
+def gera_senha_fixa(tamanho=12):
+    """Senha forte para fixar na câmera (sem letras que confundem: 0/O, 1/l/I)."""
+    import secrets
+    letras = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    return "".join(secrets.choice(letras) for _ in range(tamanho))
 SENHA_OK = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#_.-!*")
 
 
@@ -143,8 +150,8 @@ def reprovisionar(cid, modo, senha_fixa="", usuario="", senha=""):
 
     if modo == "recuperar":
         senha_fixa = (senha_fixa or "").strip() or cam["admin_senha"]
-        if not senha_fixa:
-            return {"ok": False, "erro": "digite a senha fixa que vai ficar na câmera", "passos": passos}
+        if not senha_fixa:              # nenhuma antes: o sistema cria uma forte
+            senha_fixa = gera_senha_fixa()
     elif modo == "conta":
         usuario, senha_fixa = (usuario or "").strip(), (senha or "").strip()
         if not usuario or not senha_fixa:

@@ -7,9 +7,12 @@ pessoas e reconhecimento facial.
 ## Instalar num PC
 
 1. Baixe o [`bootstrap.bat`](https://github.com/vinilima-br/IoTCamIcsee/raw/main/bootstrap.bat)
-   numa pasta vazia (ex.: `C:\Central`) e dê dois cliques.
-2. Ele baixa o projeto, instala o Python e as dependências e cria o atalho
-   **Central de Cameras** na Área de Trabalho.
+   (pode ficar em Downloads mesmo) e dê dois cliques.
+2. Ele instala tudo em `C:\CentralCameras`: baixa o projeto, um Python próprio
+   (pasta `python`, não precisa ter Python no PC) e as dependências, cria o
+   atalho **Central de Cameras** na Área de Trabalho e abre a Central.
+   Leva poucos minutos e mostra cada etapa; o registro fica em
+   `C:\CentralCameras\instalacao.log`.
 3. Adicione as câmeras pela janela do painel (botão **➕ Câmeras**).
 
 O PC precisa estar na mesma rede das câmeras. Os PCs instalados se atualizam

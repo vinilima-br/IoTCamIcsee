@@ -38,6 +38,13 @@ SENHA_OK = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#
 _trava = threading.Lock()
 
 
+def gera_senha_fixa(tamanho=12):
+    """Senha forte para fixar na câmera (sem letras que confundem: 0/O, 1/l/I)."""
+    import secrets
+    letras = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    return "".join(secrets.choice(letras) for _ in range(tamanho))
+
+
 def _prov():
     import provisionar           # noqa: E402  (recupera_e_fixa / confere_conta / config.py)
     importlib.reload(config)
@@ -272,14 +279,17 @@ def testar_video(d):
         return {"ok": True, "foto": foto, "modelo": "Elsys / RTSP"}
 
     usuario, senha = (d.get("usuario") or "").strip(), d.get("senha") or ""
-    if not usuario or not senha:
-        return {"ok": False, "erro": "preencha o e-mail e a senha do app"}
+    sem_login = not usuario
+    if sem_login:                 # muitas iCSee nem conferem o login do vídeo: tenta sem
+        usuario, senha = "admin", ""
     portas = [int(d["porta_onvif"])] if d.get("porta_onvif") else []
     portas += [p for p in onvif_rtsp.PORTAS_ONVIF_PADRAO if p not in portas]
     ultimo = "nenhuma porta ONVIF respondeu"
+    respondeu = False
     for p in portas:
         if not _porta_aberta(ip, p, 1.5):
             continue
+        respondeu = True
         try:
             urls = onvif_rtsp.descobre_urls(ip, usuario, senha, porta_onvif=p)
         except Exception as e:  # noqa: BLE001
@@ -294,8 +304,16 @@ def testar_video(d):
             pass
         lista = list(urls.values()) if isinstance(urls, dict) else list(urls)
         foto = _foto(lista[1] if len(lista) > 1 else lista[0])
-        return {"ok": True, "porta_onvif": p, "modelo": modelo or "", "foto": foto,
+        if not foto and sem_login:
+            ultimo = "a câmera não mandou o vídeo sem login"
+            break
+        return {"ok": True, "porta_onvif": p, "modelo": modelo or "", "foto": foto, "sem_login": sem_login,
                 "aviso": None if foto else "o login deu certo, mas a foto não veio (o painel tenta de novo)"}
+    if not respondeu:
+        return {"ok": False, "erro": "a câmera não respondeu no ONVIF (%s): está ligada e no mesmo Wi-Fi?" % ip}
+    if sem_login:
+        return {"ok": False, "precisa_login": True,
+                "erro": "esta câmera pede login para o vídeo: preencha o e-mail e a senha do app iCSee"}
     return {"ok": False, "erro": "não consegui o vídeo: %s (e-mail/senha do app certos?)" % ultimo}
 
 
@@ -419,16 +437,19 @@ def _adicionar(d):
                 "passos": ["Elsys gravada como %s (só vídeo)." % cid]}
 
     usuario, senha = (d.get("usuario") or "").strip(), d.get("senha") or ""
-    if not usuario or not senha:
-        return {"ok": False, "erro": "preencha o e-mail e a senha do app", "passos": []}
+    if not usuario:                     # vídeo sem login (a câmera não confere)
+        usuario, senha = "admin", ""
     som = d.get("som") or "nenhum"
     bloco = {"cid": cid, "tipo": "icsee", "nome": nome, "ip": ip, "usuario": usuario,
              "senha": senha, "porta_onvif": int(d.get("porta_onvif") or 8899),
              "xm": som != "nenhum", "ptz": bool(d.get("ptz", True))}
     passos = []
+    gerada = None
 
     if som == "resetada":
         fixa = (d.get("senha_fixa") or "").strip()
+        if not fixa:                    # você não precisa inventar: o sistema cria uma forte
+            fixa = gerada = gera_senha_fixa()
         if len(fixa) < 6 or not set(fixa) <= SENHA_OK:
             return {"ok": False, "erro": "senha fixa: mínimo 6 caracteres, só letras, números e @#_.-!*",
                     "passos": []}
@@ -453,7 +474,10 @@ def _adicionar(d):
 
     backup = _insere(_monta_bloco(bloco))
     passos.append("gravada no config.py como %s (backup: %s)" % (cid, backup))
-    return {"ok": True, "cid": cid, "nome": nome, "backup": backup, "passos": passos}
+    r = {"ok": True, "cid": cid, "nome": nome, "backup": backup, "passos": passos}
+    if som == "resetada":               # mostra para guardar (usar em "Já sei a conta" em outro PC)
+        r["conta_usuario"], r["conta_senha"], r["senha_gerada"] = bloco["admin_usuario"], bloco["admin_senha"], bool(gerada)
+    return r
 
 
 def remover(cid):

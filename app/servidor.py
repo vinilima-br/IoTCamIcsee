@@ -1543,7 +1543,10 @@ def api_config_conta(cid):
     if r.get("ok"):
         s.usuario, s.senha = r.get("usuario", s.usuario), r.get("senha", s.senha)   # download do SD usa
         print("[{}] conta da 34567 trocada para {} pelo menu Config".format(cid, s.usuario))
-    r.pop("senha", None)                                # a senha não volta pra página
+    if r.get("ok") and dados.get("modo") == "recuperar":
+        r["conta_senha"] = r.get("senha")              # a senha NOVA fixada: mostra pra você guardar
+        r["conta_usuario"] = r.get("usuario")
+    r.pop("senha", None)
     return jsonify(r)
 
 
