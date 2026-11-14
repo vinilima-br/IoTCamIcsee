@@ -17,6 +17,12 @@ if errorlevel 1 (
 )
 :abrir
 "%PY%" janela.py
+set "COD=%errorlevel%"
 REM codigo 3 = a Central pediu para subir de novo (camera adicionada/removida)
-if "%errorlevel%"=="3" goto abrir
-if errorlevel 1 pause
+if "%COD%"=="3" goto abrir
+REM codigo 0 = fechou normal (X da janela ou atualizacao): fecha esta janela tambem
+if "%COD%"=="0" exit
+echo.
+echo A Central fechou com erro (codigo %COD%). Veja as mensagens acima.
+pause
+exit

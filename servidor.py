@@ -1334,10 +1334,10 @@ def pedir_reinicio(motivo, codigo=CODIGO_REINICIO):
                 return
             except Exception as e:  # noqa: BLE001
                 print(" [reinicio] janela não fechou: {!r}".format(e))
-        try:
-            atexit._run_exitfuncs()
-        finally:
-            os._exit(CODIGO_SAIDA)
+        t = threading.Thread(target=atexit._run_exitfuncs, daemon=True)
+        t.start()
+        t.join(8)                            # logout nas câmeras: no máximo 8 s
+        os._exit(CODIGO_SAIDA)
     threading.Thread(target=_faz, daemon=True, name="reinicio").start()
 
 

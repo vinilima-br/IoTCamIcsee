@@ -144,10 +144,13 @@ def desligar_e_sair(codigo=0):
         print("\n Fechando para atualizar (abre de novo sozinha)...")
     else:
         print("\n Janela fechada: desligando o servidor (logout nas câmeras)...")
-    try:
-        atexit._run_exitfuncs()        # encerrar_xm / encerrar_gravadores do servidor.py
-    finally:
-        os._exit(codigo)               # não deixa nenhuma thread segurar o processo aberto
+    # logout nas câmeras / fecha gravações - mas no máximo 8 s: nunca fica pendurado
+    t = threading.Thread(target=atexit._run_exitfuncs, daemon=True)
+    t.start()
+    t.join(8)
+    if t.is_alive():
+        print(" (algum logout demorou: fechando assim mesmo)")
+    os._exit(codigo)                   # não deixa nenhuma thread segurar o processo aberto
 
 
 def _post_local(url, timeout=4):
