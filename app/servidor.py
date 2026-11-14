@@ -68,6 +68,10 @@ from detector_pessoas import DetectorPessoas, desenhar_pessoas, MODELO_PADRAO  #
 # ---- Configurações ----
 WEB_PORTA = getattr(config, "WEB_PORTA", 5050)
 JPEG_QUALIDADE = getattr(config, "JPEG_QUALIDADE", 80)
+# Vídeo LEVE da janela de cadastro facial: só a lente escolhida, reduzida e sem
+# desenhos. Gerar e mostrar isso custa uma fração do quadro inteiro (2304x2592).
+CAD_LARGURA = int(getattr(config, "CAD_LARGURA", 1152))
+CAD_QUALIDADE = int(getattr(config, "CAD_QUALIDADE", 75))
 FOTO_QUALIDADE = 95
 
 # Câmera sem espectador, sem IA e sem rosto: solta o vídeo depois deste tempo
@@ -193,6 +197,9 @@ class Camera:
         self.ultimo_quadro_em = 0.0
         self.trava_foto = threading.Lock()
         self.espectadores = 0          # navegadores assistindo (só gera JPEG se > 0)
+        self.espectadores_cad = 0      # janelas de cadastro facial abertas (vídeo leve)
+        self.jpeg_cad = None
+        self.lente_cad = None          # função () -> "cima" / "baixo" / "ambas"
         self.precisa_frames = None     # callback()->bool; None = captura sempre
         self.pausada = False           # True = soltou o vídeo por ociosidade
         self._ocioso_desde = 0.0
@@ -212,6 +219,20 @@ class Camera:
         if len(lista) == 1:
             return {0: lista[0], 1: lista[0]}
         return {0: lista[0], 1: lista[1]}
+
+    def _jpeg_cadastro(self, frame):
+        """Quadro leve para a janela de cadastro: só a lente em uso, reduzida."""
+        try:
+            lente = self.lente_cad() if self.lente_cad is not None else "ambas"
+            parte, _ = lentes.recorta(frame, lente)
+            altura, largura = parte.shape[:2]
+            if largura > CAD_LARGURA:
+                parte = cv2.resize(parte, (CAD_LARGURA, max(1, int(round(altura * CAD_LARGURA / largura)))),
+                                   interpolation=cv2.INTER_AREA)
+            ok, buffer = cv2.imencode(".jpg", parte, [int(cv2.IMWRITE_JPEG_QUALITY), CAD_QUALIDADE])
+            return buffer.tobytes() if ok else None
+        except Exception:  # noqa: BLE001 - nunca derruba a captura por causa da miniatura
+            return None
 
     def trocar_stream(self, stream):
         with self.cond:
@@ -312,6 +333,7 @@ class Camera:
                     ok, buffer = cv2.imencode(".jpg", para_video, parametros_jpeg)
                     if ok:
                         jpeg = buffer.tobytes()
+                jpeg_cad = self._jpeg_cadastro(frame) if self.espectadores_cad > 0 else None
 
                 contador += 1
                 agora = time.time()
@@ -323,6 +345,7 @@ class Camera:
                 with self.cond:
                     self.frame = frame
                     self.jpeg = jpeg
+                    self.jpeg_cad = jpeg_cad
                     self.id_quadro += 1
                     self.altura, self.largura = frame.shape[:2]
                     self.online = True
@@ -341,12 +364,13 @@ class Camera:
             self.fps = 0.0
             self.cond.notify_all()
 
-    def proximo_jpeg(self, ultimo_id, timeout=5.0):
+    def proximo_jpeg(self, ultimo_id, timeout=5.0, cadastro=False):
         with self.cond:
             self.cond.wait_for(lambda: self.id_quadro != ultimo_id, timeout=timeout)
-            if self.id_quadro == ultimo_id or self.jpeg is None:
+            jpeg = self.jpeg_cad if cadastro else self.jpeg
+            if self.id_quadro == ultimo_id or jpeg is None:
                 return ultimo_id, None
-            return self.id_quadro, self.jpeg
+            return self.id_quadro, jpeg
 
     def proximo_frame(self, ultimo_id, timeout=1.0):
         with self.cond:
@@ -373,7 +397,7 @@ class Camera:
                 "stream": self.stream,
                 "stream_nome": NOMES_STREAM.get(self.stream, "?"),
                 "erro": self.erro,
-                "espectadores": self.espectadores,
+                "espectadores": self.espectadores + self.espectadores_cad,
                 "pausada": self.pausada,
             }
 
@@ -476,6 +500,9 @@ class IA:
         while True:
             if not self.ativa or self.detector is None:
                 time.sleep(0.3)
+                continue
+            if cid_em_cadastro() is not None:     # cadastro facial em curso: IA em espera,
+                time.sleep(0.3)                   # a CPU fica toda para o vídeo do cadastro
                 continue
             if not self.liberada():               # esperando o alerta da câmera
                 with self.trava:
@@ -629,6 +656,17 @@ class IA:
     def lista_eventos(self, limite=10):
         with self.trava:
             return [dict(e) for e in list(self.eventos)[:limite]]
+
+
+def cid_em_cadastro():
+    """ID da câmera que está cadastrando um rosto agora (None = nenhuma).
+    Enquanto isso o que pesa e não faz falta fica em espera: IA de pessoas,
+    reconhecimento facial das outras câmeras e a ronda de status."""
+    for cid, rec in list(RECS.items()):
+        cad = rec.cadastro
+        if cad and cad.get("estado") == "capturando":
+            return cid
+    return None
 
 
 def tirar_foto(camera, pasta):
@@ -814,6 +852,8 @@ def _monta_rosto(cid):
         holofote = lambda estado, cid=cid: _holofote(cid, estado)  # noqa: E731
     rec = rosto_servidor.Reconhecedor(cam, MOTOR_ROSTO, falar, alerta, holofote)
     RECS[cid] = rec
+    cam.lente_cad = lambda rec=rec: rec.lente                  # vídeo leve do cadastro
+    rec.em_espera = lambda cid=cid: cid_em_cadastro() not in (None, cid)   # outra câmera cadastrando
     anterior = cam.sobreposicao          # junta com as caixas da IA de pessoas
     if anterior is None:
         cam.sobreposicao = rec.sobreposicao
@@ -947,6 +987,35 @@ def video(cid):
         finally:
             with camera.cond:
                 camera.espectadores = max(0, camera.espectadores - 1)
+
+    resposta = Response(gerar(), mimetype="multipart/x-mixed-replace; boundary=quadro")
+    resposta.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return resposta
+
+
+@app.route("/video_cad/<cid>")
+def video_cad(cid):
+    """Vídeo leve da janela de cadastro facial (só a lente em uso, reduzida)."""
+    camera = _camera(cid)
+    if camera is None:
+        return "câmera desconhecida", 404
+
+    def gerar():
+        ultimo_id = 0
+        with camera.cond:
+            camera.espectadores_cad += 1
+        try:
+            while True:
+                ultimo_id, jpeg = camera.proximo_jpeg(ultimo_id, cadastro=True)
+                if jpeg is None:
+                    continue
+                yield (b"--quadro\r\n"
+                       b"Content-Type: image/jpeg\r\n"
+                       b"Content-Length: " + str(len(jpeg)).encode() + b"\r\n\r\n"
+                       + jpeg + b"\r\n")
+        finally:
+            with camera.cond:
+                camera.espectadores_cad = max(0, camera.espectadores_cad - 1)
 
     resposta = Response(gerar(), mimetype="multipart/x-mixed-replace; boundary=quadro")
     resposta.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -2576,6 +2645,9 @@ def _ronda_status_xm(cid, sessao):
     """Atualiza o status do XM em segundo plano. Se uma câmera travar, só
     esta thread espera — o /status responde na hora com o último valor."""
     while True:
+        if cid_em_cadastro() is not None:     # cadastro facial: a página nem pede o status
+            time.sleep(1.5)
+            continue
         try:
             s = sessao.status()
         except Exception as erro:
@@ -2677,9 +2749,12 @@ def _liga_pausa_ociosa():
         ia = IAS.get(cid)
         rec = RECS.get(cid)
 
-        def precisa(cam=cam, ia=ia, rec=rec):
-            if cam.espectadores > 0:
+        def precisa(cam=cam, ia=ia, rec=rec, cid=cid):
+            if cam.espectadores > 0 or cam.espectadores_cad > 0:
                 return True
+            cad = cid_em_cadastro()
+            if cad is not None:               # cadastro facial: só a câmera do cadastro trabalha;
+                return cad == cid             # IA e rosto das outras ficam em espera
             if ia is not None and ia.ativa and ia.liberada():
                 return True
             if rec is not None and rec._precisa_video() and rec._portao_aberto():

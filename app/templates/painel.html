@@ -1244,8 +1244,12 @@
     let ocultas = new Set(salvo.ler("ocultas", []));
     let minimizadas = new Set(salvo.ler("minimizadas", []));
 
+    // Cadastro facial aberto: o vídeo dos cartões e as consultas de status param,
+    // para o PC ficar por conta do vídeo da janela de cadastro. Volta ao fechar.
+    let pausaCadastro = false;
+
     function videoLigado(c) {
-      return !c.hidden && !c.classList.contains("minimizada");
+      return !pausaCadastro && !c.hidden && !c.classList.contains("minimizada");
     }
 
     function atualizaVideo(c) {
@@ -2214,12 +2218,11 @@
 
       function ajustaPalco(d) {
         const p = $("cad-palco"), img = $("cad-video"), l = lenteAtual(d);
-        p.classList.toggle("lente-cima", l === "cima");
-        p.classList.toggle("lente-baixo", l === "baixo");
+        // o vídeo do cadastro (/video_cad) já chega só com a lente em uso: nada de recorte aqui
+        p.classList.remove("lente-cima", "lente-baixo");
         p.classList.toggle("girada", !!(card && card.classList.contains("girada")));
         if (img.naturalWidth && !aspecto) {
-          const h = img.naturalHeight / (l === "ambas" ? 1 : 2);
-          p.style.aspectRatio = img.naturalWidth + " / " + h;
+          p.style.aspectRatio = img.naturalWidth + " / " + img.naturalHeight;
           aspecto = true;
           setTimeout(() => { geo = geometria(); }, 30);
         }
@@ -2357,7 +2360,9 @@
         zera();
         $("cad-titulo").textContent = "📸 Cadastro facial · " + (c.querySelector(".cab h2") || {}).textContent;
         $("cad-pessoa").textContent = n + (negado ? " (como NEGADO)" : "");
-        $("cad-video").src = "/video/" + cid + "?cad=" + Date.now();
+        pausaCadastro = true;                       // solta o vídeo dos cartões e as consultas
+        CARDS.forEach(atualizaVideo);
+        $("cad-video").src = "/video_cad/" + cid + "?t=" + Date.now();   // vídeo leve, só a lente
         if (!dlg.open) dlg.showModal();
         clearInterval(timer); timer = setInterval(puxa, 300);
         setTimeout(() => { geo = geometria(); }, 60);
@@ -2369,6 +2374,9 @@
         $("cad-video").removeAttribute("src");
         if (dlg.open) dlg.close();
         cid = null;
+        pausaCadastro = false;                      // volta tudo ao normal
+        CARDS.forEach(atualizaVideo);
+        atualizarStatus();
       }
 
       $("cad-fechar").addEventListener("click", () => fecha(true));
@@ -2588,6 +2596,7 @@
     }
 
     async function atualizarStatus() {
+      if (pausaCadastro) return;
       let dados;
       try { dados = await (await fetch("/status", { cache: "no-store" })).json(); }
       catch (e) {
@@ -2664,6 +2673,7 @@
       } catch (e) { /* ignora */ }
     }
     async function atualizarAlertasCam() {
+      if (pausaCadastro) return;
       if (!document.querySelector(".lista.alertas")) return;
       let d;
       try { d = await (await fetch("/api/alertas_camera", { cache: "no-store" })).json(); }

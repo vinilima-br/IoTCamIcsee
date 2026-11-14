@@ -279,6 +279,7 @@ class Reconhecedor:
         self.ultima_acao = None     # texto do resultado da última ação (para a página)
 
         self.cadastro = None        # dict com o andamento do cadastro
+        self.em_espera = None       # função () -> bool: OUTRA câmera está cadastrando (pausa esta)
         self._stream_antes = None
         self._fila = queue.Queue()
         self.thread = threading.Thread(target=self._loop, daemon=True)
@@ -514,7 +515,8 @@ class Reconhecedor:
         intervalo = 1.0 / max(MAX_POR_SEGUNDO, 0.5)
         contagem, janela = 0, time.time()
         while True:
-            if not self._precisa_video() or not self._portao_aberto():
+            if (not self._precisa_video() or not self._portao_aberto()
+                    or (self.em_espera is not None and self.em_espera())):
                 if self.atuais:
                     with self.trava:
                         self.atuais = []
