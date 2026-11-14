@@ -16,8 +16,8 @@ Por que existe:
   Para rodar os ferramentas\\diag_*.py, feche esta janela antes.
 
 Uso:
-   python sessao_xm.py            (ou INICIAR_SESSAO.bat)
-   python sessao_xm.py --checar   (codigo 0 se ja esta rodando, 1 se nao)
+   python app\\sessao_xm.py            (ou app\\INICIAR_SESSAO.bat)
+   python app\\sessao_xm.py --checar   (codigo 0 se ja esta rodando, 1 se nao)
 Para fechar: Ctrl+C nesta janela (faz logout limpo e apaga a luz de alerta).
 """
 import base64
@@ -31,8 +31,11 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-PASTA = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, PASTA)
+PASTA = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if os.path.dirname(os.path.abspath(__file__)) not in sys.path:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # app/
+if PASTA not in sys.path:
+    sys.path.append(PASTA)                 # config.py fica na pasta do projeto
 
 import camera_xm  # noqa: E402
 import config  # noqa: E402

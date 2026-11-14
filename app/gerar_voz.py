@@ -40,7 +40,7 @@ import threading
 import urllib.error
 import urllib.request
 
-PASTA = os.path.dirname(os.path.abspath(__file__))
+PASTA = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 VOZ_EDGE_PADRAO = "pt-BR-FranciscaNeural"
 TEMPO_MAX_EDGE = 20  # segundos; passou disso, usa a voz do Windows

@@ -4,10 +4,10 @@ REM   - na Area de Trabalho
 REM   - no menu Iniciar (dai da pra fixar na barra de tarefas)
 REM Rode de novo se mudar a pasta de lugar.
 REM O INSTALAR.bat chama este arquivo sozinho (com /silencioso = sem pausa no fim).
-cd /d "%~dp0"
+cd /d "%~dp0.."
 REM atalho antigo que ficava dentro da pasta (apontava para outro PC): some
 if exist "Central de Cameras.lnk" del "Central de Cameras.lnk" >nul 2>nul
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0ferramentas\criar_atalho.ps1" -Pasta "%~dp0."
+powershell -NoProfile -ExecutionPolicy Bypass -File "%CD%\ferramentas\criar_atalho.ps1" -Pasta "%CD%\."
 if errorlevel 1 (
   echo [X] Nao consegui criar o atalho ^(veja a mensagem acima^).
   if /i not "%~1"=="/silencioso" pause

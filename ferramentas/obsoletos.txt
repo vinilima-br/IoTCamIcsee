@@ -16,3 +16,29 @@ GUIA_COMPLETO.md
 Claude outputs/bootstrap.bat
 ferramentas/rosto_etapa1.py
 ferramentas/rosto_reconhecer.py
+# 13/11/2026 - o codigo foi para app/ (as copias antigas da raiz saem)
+atualizador.py
+biblioteca_sons.py
+camera_xm.py
+cameras_cfg.py
+cliente_xm.py
+config_exemplo.py
+detector_pessoas.py
+elsys_xm.py
+gerar_voz.py
+gravador.py
+janela.py
+lentes.py
+onvif_rtsp.py
+ptz.py
+rosto_servidor.py
+rostos_ia.py
+sd_xm.py
+servidor.py
+sessao_xm.py
+templates/painel.html
+icone.ico
+INICIAR.bat
+INICIAR_SESSAO.bat
+CRIAR_ATALHO.bat
+_python.bat

@@ -28,7 +28,7 @@ if errorlevel 1 (
 )
 cd IoTCamIcsee-main
 
-if not exist "config.py" copy config_exemplo.py config.py >nul
+if not exist "config.py" copy "app\config_exemplo.py" "config.py" >nul
 
 echo [3/3] Instalando e subindo...
 echo.

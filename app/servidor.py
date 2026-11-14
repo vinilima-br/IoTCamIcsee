@@ -14,7 +14,7 @@
 #
 #  Como rodar:
 #   pip install -r requirements.txt
-#   python servidor.py
+#   python app\servidor.py   (ou app\INICIAR.bat)
 #   Abra: http://localhost:5050   (ou http://IP-DO-MINI-PC:5050 no celular)
 #
 #  NÃO rode junto outros scripts que loguem na câmera (pasta historico/).
@@ -36,6 +36,14 @@ from datetime import datetime, timedelta
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
 
 import cv2  # noqa: E402
+
+# o codigo fica em app/; o config.py e os dados, na pasta do projeto (um nivel acima)
+_APP = os.path.dirname(os.path.abspath(__file__))
+_RAIZ = os.path.dirname(_APP)
+if _APP not in sys.path:
+    sys.path.insert(0, _APP)
+if _RAIZ not in sys.path:
+    sys.path.append(_RAIZ)
 from flask import Flask, Response, jsonify, render_template, request, send_from_directory  # noqa: E402
 
 import config  # noqa: E402
@@ -84,7 +92,7 @@ ALERTA_CAM_FOTO_S = getattr(config, "ALERTA_CAM_FOTO_S", 10)      # (no máx. 1 
 ALERTA_CAM_POS_S = getattr(config, "ALERTA_CAM_POS_S", 10)
 ALERTA_CAM_MAX_S = getattr(config, "ALERTA_CAM_MAX_S", 120)
 
-PASTA_BASE = os.path.dirname(os.path.abspath(__file__))
+PASTA_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PASTA_FOTOS_BASE = os.path.join(PASTA_BASE, "fotos")
 PASTA_GRAV_BASE = os.path.join(PASTA_BASE, "gravacoes")
 
@@ -660,7 +668,7 @@ IPS = {}          # cid -> IP da câmera na rede (do config), mostrado no títul
 IAS = {}          # cid -> IA
 GRAVADORES = {}   # cid -> Gravador
 PTZS = {}         # cid -> ptz.Controle
-ARQ_PTZ_INV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ptz_inverter.json")
+ARQ_PTZ_INV = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ptz_inverter.json")
 _ptz_inv_trava = threading.Lock()
 
 
@@ -1343,7 +1351,7 @@ def pedir_reinicio(motivo, codigo=CODIGO_REINICIO):
 
 # ---------------- atualização automática (GitHub) ----------------
 def _lancador():
-    return "PAINEL.bat" if AO_REINICIAR is not None else "INICIAR.bat"
+    return "PAINEL.bat" if AO_REINICIAR is not None else os.path.join("app", "INICIAR.bat")
 
 
 _ultimo_clique = [time.time()]                # última ação de alguém na página (POST)

@@ -17,7 +17,8 @@ sozinhos pelo GitHub (⚙ Config → "Atualizar sozinho").
 
 ## Pastas
 
-- raiz — o app (o que vai para os PCs)
+- raiz — só o que se clica: `PAINEL.bat` (abre a Central), `INSTALAR.bat`, `bootstrap.bat`
+- `app/` — todo o código do sistema
 - `ferramentas/` — diagnóstico e configuração de câmeras
 - `dev/` — só para o PC de desenvolvimento (não vai no ZIP dos PCs)
 - `docs/GUIA_COMPLETO.md` — guia completo, protocolo e solução de problemas

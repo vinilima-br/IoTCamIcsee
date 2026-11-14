@@ -9,7 +9,7 @@ echo ===================================================
 echo.
 
 REM ---------- 1) Python (instala sozinho se faltar) ----------
-call "%~dp0_python.bat" >nul 2>nul
+call "%~dp0app\_python.bat" >nul 2>nul
 if not errorlevel 1 goto tem_python
 
 echo [*] Python nao encontrado. Vou instalar agora...
@@ -32,7 +32,7 @@ del python-setup.exe >nul 2>nul
 
 :confere_python
 REM acha o Python recem-instalado pela pasta (nao precisa reabrir a janela)
-call "%~dp0_python.bat" >nul 2>nul
+call "%~dp0app\_python.bat" >nul 2>nul
 if not errorlevel 1 goto tem_python
 echo.
 echo ===================================================
@@ -46,6 +46,9 @@ exit /b 0
 :tem_python
 echo [OK] Python encontrado: %PY%
 echo.
+
+REM config.py deste PC (IPs e senhas): nasce do modelo, so na primeira vez
+if not exist "config.py" copy "app\config_exemplo.py" "config.py" >nul
 
 REM ---------- 2) Dependencias ----------
 echo [1/3] Instalando dependencias (pode demorar na primeira vez)...
@@ -61,8 +64,8 @@ echo.
 
 REM ---------- Atalho com icone (Area de Trabalho + menu Iniciar) ----------
 echo [*] Criando o atalho "Central de Cameras" na Area de Trabalho...
-call "%~dp0CRIAR_ATALHO.bat" /silencioso
-if errorlevel 1 echo [!] Nao criei o atalho. Da para criar depois com o CRIAR_ATALHO.bat.
+call "%~dp0app\CRIAR_ATALHO.bat" /silencioso
+if errorlevel 1 echo [!] Nao criei o atalho. Da para criar depois com o app\CRIAR_ATALHO.bat.
 echo.
 
 if not exist "modelos\yolov8n.onnx" (

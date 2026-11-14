@@ -36,7 +36,7 @@ import zipfile
 
 import config
 
-PASTA = os.path.dirname(os.path.abspath(__file__))
+PASTA = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ARQ_VERSAO = os.path.join(PASTA, "versao.txt")
 ARQ_ESCOLHA = os.path.join(PASTA, "atualizacao.json")
 PASTA_TRAB = os.path.join(PASTA, "_atualizacao")
@@ -163,8 +163,8 @@ def _conferir_e_copiar(sha):
     for base, _dirs, fs in os.walk(raiz_nova):
         for f in fs:
             arquivos.append(os.path.relpath(os.path.join(base, f), raiz_nova))
-    if "servidor.py" not in arquivos:
-        raise RuntimeError("o zip não parece ser da Central (sem servidor.py)")
+    if os.path.join("app", "servidor.py") not in arquivos:
+        raise RuntimeError("o zip não parece ser da Central (sem app/servidor.py)")
 
     # 1) todo .py novo tem que compilar - senão não troca nada
     for rel in arquivos:
@@ -267,8 +267,8 @@ def aplicar(lancador, ao_fechar):
 
 ARQ_OBSOLETOS = os.path.join(PASTA, "ferramentas", "obsoletos.txt")
 # o que nunca sai da pasta, mesmo que alguém ponha na lista por engano
-_PROTEGIDOS = {"config.py", "versao.txt", "atualizacao.json", "servidor.py", "atualizador.py",
-               "PAINEL.bat", "INICIAR.bat", "INICIAR_SESSAO.bat", "_python.bat"}
+_PROTEGIDOS = {"config.py", "versao.txt", "atualizacao.json", "PAINEL.bat", "INSTALAR.bat",
+               "bootstrap.bat", "requirements.txt"}
 
 
 def limpa_obsoletos():
@@ -288,7 +288,7 @@ def limpa_obsoletos():
         if not rel or rel.startswith("#") or rel.startswith("/") or ":" in rel:
             continue
         partes = rel.split("/")
-        if ".." in partes or os.path.basename(rel) in _PROTEGIDOS:
+        if ".." in partes or rel in _PROTEGIDOS or partes[0] == "app":
             continue
         origem = os.path.join(PASTA, *partes)
         if not os.path.isfile(origem):

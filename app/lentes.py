@@ -14,7 +14,7 @@ import json
 import os
 import threading
 
-PASTA = os.path.dirname(os.path.abspath(__file__))
+PASTA = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ARQUIVO = os.path.join(PASTA, "lentes_deteccao.json")
 OPCOES = ("ambas", "cima", "baixo")
 _trava = threading.Lock()

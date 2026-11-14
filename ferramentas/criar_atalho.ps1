@@ -5,7 +5,7 @@ $ErrorActionPreference = 'Stop'
 if (-not $Pasta) { $Pasta = Split-Path -Parent $PSScriptRoot }
 $Pasta = (Resolve-Path $Pasta).Path
 $alvo  = Join-Path $Pasta 'PAINEL.bat'
-$icone = Join-Path $Pasta 'icone.ico'
+$icone = Join-Path $Pasta 'app\icone.ico'
 if (-not (Test-Path $alvo))  { throw "nao achei $alvo" }
 if (-not (Test-Path $icone)) { throw "nao achei $icone" }
 $ws = New-Object -ComObject WScript.Shell

@@ -11,7 +11,9 @@ import glob
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # pasta do projeto
+sys.path.insert(0, os.path.join(_RAIZ, "app"))                       # o codigo fica em app/
+sys.path.append(_RAIZ)                                               # config.py
 import sd_xm  # noqa: E402
 
 

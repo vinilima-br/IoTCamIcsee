@@ -31,7 +31,7 @@ os.environ.setdefault("OPENCV_LOG_LEVEL", "ERROR")     # esconde os avisos "WARN
 import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 
-PASTA_BASE = os.path.dirname(os.path.abspath(__file__))
+PASTA_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PASTA_MODELOS = os.path.join(PASTA_BASE, "modelos")
 PASTA_ROSTOS = os.path.join(PASTA_BASE, "rostos")
 PASTA_PESSOAS = os.path.join(PASTA_ROSTOS, "pessoas")
@@ -397,7 +397,7 @@ def texto_simples(texto):
 def url_da_camera(cid, leve=False):
     """cam1 = Elsys (RTSP direto); cam2..cam9 = iCSee via ONVIF (mesma regra do servidor)."""
     if PASTA_BASE not in sys.path:
-        sys.path.insert(0, PASTA_BASE)
+        sys.path.append(PASTA_BASE)
     import config
     stream = 1 if leve else 0
     if cid == "cam1":

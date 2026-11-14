@@ -48,8 +48,11 @@ import sys
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 RAIZ = os.path.dirname(AQUI)
-sys.path.insert(0, RAIZ)
-sys.path.insert(0, AQUI)
+for _p in (os.path.join(RAIZ, "app"), AQUI):      # o codigo fica em app/
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+if RAIZ not in sys.path:
+    sys.path.append(RAIZ)                         # config.py
 
 import config                      # noqa: E402  (lista CAMERAS + cameras())
 import onvif_rtsp                  # noqa: E402  (descobre_urls / info_dispositivo)

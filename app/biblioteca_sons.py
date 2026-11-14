@@ -14,7 +14,7 @@ import unicodedata
 
 import camera_xm
 
-PASTA_SONS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sons")
+PASTA_SONS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sons")
 PASTA_CACHE = os.path.join(PASTA_SONS, ".cache")
 EXTENSOES = {".mp3", ".wav", ".ogg", ".m4a", ".aac", ".opus", ".flac", ".wma"}
 TAMANHO_MAX = 20 * 1024 * 1024

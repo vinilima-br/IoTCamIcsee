@@ -25,7 +25,8 @@ import sys
 import time
 
 PASTA_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, PASTA_BASE)
+sys.path.insert(0, os.path.join(PASTA_BASE, "app"))   # o codigo fica em app/
+sys.path.append(PASTA_BASE)                           # config.py
 
 import rostos_ia as ia  # noqa: E402  (antes do cv2: configura RTSP/TCP e logs)
 import cv2  # noqa: E402

@@ -28,7 +28,8 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 
 PASTA = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, PASTA)
+sys.path.insert(0, os.path.join(PASTA, "app"))   # o codigo fica em app/
+sys.path.append(PASTA)                           # config.py
 
 import cliente_xm  # noqa: E402
 import config  # noqa: E402

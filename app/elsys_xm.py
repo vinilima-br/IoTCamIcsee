@@ -45,7 +45,7 @@ RETRY_HUNT_S = 300         # espera entre caçadas quando a chave nao aparece (e
 KEEPALIVE_S = 20
 ALERTA_MAX_S = 10 * 60
 
-PASTA = os.path.dirname(os.path.abspath(__file__))
+PASTA = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PASTA_MAT = os.path.join(PASTA, "ferramentas")
 
 # modos de luz branca a tentar para "acender" (o 1o que a camera aceitar vale)

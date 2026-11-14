@@ -26,7 +26,7 @@ from datetime import datetime, timedelta
 
 import camera_xm as xm
 
-PASTA_BASE = os.path.dirname(os.path.abspath(__file__))
+PASTA_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PASTA_SD = os.path.join(PASTA_BASE, "sd_baixados")
 ARQ_MODO_SD = os.path.join(PASTA_BASE, "xm_sd_modo.json")
 MODOS_SD = ("sub", "sub_tudo", "login")

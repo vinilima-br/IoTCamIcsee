@@ -16,7 +16,7 @@ import time
 import cv2
 import numpy as np
 
-PASTA_BASE = os.path.dirname(os.path.abspath(__file__))
+PASTA_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODELO_PADRAO = os.path.join(PASTA_BASE, "modelos", "yolov8n.onnx")
 
 TAMANHO_ENTRADA = 640     # o modelo foi exportado para 640x640

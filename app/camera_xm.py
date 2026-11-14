@@ -58,9 +58,9 @@ IP_LOCAL = ""
 # 0 = desligada.
 SENTINELA_S = 600
 
-ARQ_ESTADO = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+ARQ_ESTADO = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                           "sessao_estado.json")
-ARQ_MODO_FALA = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+ARQ_MODO_FALA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                              "xm_fala_modo.json")
 
 # Formas de abrir o canal de voz (o etapa31 descobre qual a camera aceita
@@ -69,7 +69,7 @@ ARQ_MODO_FALA = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 #   "sub_tudo" conexao auxiliar SEM login: Claim/Start/Stop tudo nela
 #   "mesma"    tudo na sessao principal (so funciona 1x em algumas cameras)
 #   "login"    conexao nova COM login a cada som (igual etapa30; usa logins)
-ARQ_LUZ_ALERTA = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+ARQ_LUZ_ALERTA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                               "xm_luz_alerta.json")
 # Luz de alerta (LED vermelho/azul) = saida de alarme da camera (AlarmOut).
 # Descoberto com ferramentas/diag_luz_alerta.py na cam2: MANUAL+OPEN acende,
@@ -89,7 +89,7 @@ OPTALK_REQ, OPTALK_DATA, OPTALK_CLAIM = 1430, 1432, 1434
 # movimento...). Depois do login, GUARD (1500) = "me avise dos alarmes"; a camera
 # responde 1501 e, a cada deteccao, EMPURRA um 1504 (AlarmInfo) nesta mesma sessao.
 GUARD_REQ, ALARM_INFO = 1500, 1504
-ARQ_LOG_ALARMES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", "alarmes_camera.log")
+ARQ_LOG_ALARMES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs", "alarmes_camera.log")
 
 CHUNK = 320           # 320 bytes A-law = 40 ms
 SILENCIO = 0xD5
@@ -183,7 +183,7 @@ def config_luz_alerta(ip):
     return LUZ_ALERTA_PADRAO
 
 
-ARQ_RECUSAS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "diag_bloqueio", "recusas_login.log")
+ARQ_RECUSAS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "diag_bloqueio", "recusas_login.log")
 
 
 def registra_recusa(ip, usuario, motivo, resposta=None, ip_local="?"):

@@ -3,20 +3,20 @@ REM Abre a Central de Cameras numa JANELA PROPRIA (sem navegador).
 REM Fechar a janela = desligar o servidor (logout limpo nas cameras).
 cd /d "%~dp0"
 title Central de Cameras - janela
-call "%~dp0_python.bat" || (pause & exit /b 1)
+call "%~dp0app\_python.bat" || (pause & exit /b 1)
 "%PY%" -c "import webview" 2>nul
 if errorlevel 1 (
   echo Instalando a janela propria ^(pywebview^), so na primeira vez...
   "%PY%" -m pip install pywebview --disable-pip-version-check
 )
-"%PY%" sessao_xm.py --checar
+"%PY%" app\sessao_xm.py --checar
 if errorlevel 1 (
   echo Abrindo a sessao das cameras em outra janela...
-  start "Sessao das cameras" /min "%~dp0INICIAR_SESSAO.bat"
+  start "Sessao das cameras" /min "%~dp0app\INICIAR_SESSAO.bat"
   timeout /t 4 /nobreak >nul
 )
 :abrir
-"%PY%" janela.py
+"%PY%" app\janela.py
 set "COD=%errorlevel%"
 REM codigo 3 = a Central pediu para subir de novo (camera adicionada/removida)
 if "%COD%"=="3" goto abrir

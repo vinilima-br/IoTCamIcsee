@@ -2,7 +2,7 @@
 """
 Central de Câmeras em JANELA PRÓPRIA (cara de programa instalado).
 
-  python janela.py        (ou dois cliques em PAINEL.bat)
+  python app\\janela.py    (ou dois cliques em PAINEL.bat)
 
 - Sobe o servidor (o mesmo do servidor.py) e abre o painel numa janela
   sem barra de navegador, com nome e ícone da Central.
@@ -24,12 +24,16 @@ import sys
 import threading
 import time
 
-PASTA = os.path.dirname(os.path.abspath(__file__))
+PASTA = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(PASTA)
-sys.path.insert(0, PASTA)
+APP = os.path.dirname(os.path.abspath(__file__))     # o codigo fica em app/
+if APP not in sys.path:
+    sys.path.insert(0, APP)
+if PASTA not in sys.path:
+    sys.path.append(PASTA)                            # config.py fica na pasta do projeto
 
 TITULO = "Central de Câmeras"
-ICONE = os.path.join(PASTA, "icone.ico")
+ICONE = os.path.join(APP, "icone.ico")
 DADOS_JANELA = os.path.join(PASTA, "janela_dados")   # guarda o que a página lembra (câmeras escondidas, colunas...)
 
 try:

@@ -25,7 +25,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 
-PASTA = os.path.dirname(os.path.abspath(__file__))
+PASTA = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FERRAMENTAS = os.path.join(PASTA, "ferramentas")
 if FERRAMENTAS not in sys.path:
     sys.path.insert(0, FERRAMENTAS)

@@ -20,50 +20,49 @@ ficam **só no GitHub e no PC de desenvolvimento** (`export-ignore` no
 
 ```
 IoTCamIcsee\
-  bootstrap.bat          <- PC novo: baixa do GitHub e instala (sem Git)
+  PAINEL.bat             <- ABRE A CENTRAL (o atalho da Área de Trabalho aponta aqui)
   INSTALAR.bat           <- instala Python + dependências + atalho e abre a Central
-  PAINEL.bat             <- abre a Central em JANELA PRÓPRIA (o atalho aponta aqui)
-  INICIAR.bat            <- sobe o servidor sem janela própria (painel no navegador)
-  INICIAR_SESSAO.bat     <- sessão permanente das câmeras (porta 34567)
-  CRIAR_ATALHO.bat       <- refaz o atalho "Central de Cameras"
-  _python.bat            <- acha o Python do PC (usado pelos outros .bat)
-  servidor.py            <- o sistema (Flask, porta 5050)
-  janela.py  icone.ico   <- a janela própria (pywebview) e o ícone dela
-  sessao_xm.py           <- dona da sessão 34567 (porta 5051)
-  camera_xm.py  cliente_xm.py  elsys_xm.py   <- protocolo XM / iCSee / Elsys RSA
-  cameras_cfg.py         <- menu ➕ Câmeras (procura e adiciona câmeras)
-  onvif_rtsp.py  ptz.py  lentes.py  gravador.py  sd_xm.py
-  detector_pessoas.py    <- IA de pessoas (modelos\yolov8n.onnx)
-  rosto_servidor.py  rostos_ia.py   <- reconhecimento facial (aba Facial)
-  biblioteca_sons.py  gerar_voz.py  <- sons e texto -> voz
-  atualizador.py         <- atualização automática pelo GitHub
-  config_exemplo.py      <- modelo do config.py (o config.py real NUNCA vai pro GitHub)
-  requirements.txt
-  templates\painel.html  <- a página
-  modelos\               <- yolov8n + YuNet + SFace (.onnx)
-  sons\                  <- só os sons padrão vêm do GitHub; o resto é de cada PC
-  ferramentas\
-     provisionar.py      <- wizard: põe uma iCSee nova no config (seção 12)
-     recupera_conta.py   <- conta REAL da iCSee (fim do 205) - seção 10
-     verifica_camera.py  <- checa uma câmera nova antes de pôr no sistema
-     diag_fala.py        <- descobre a forma de "falar" que a câmera aceita
-     diag_luz_alerta.py  <- descobre como acender o LED vermelho/azul
-     diag_sd.py          <- testa o cartão SD (lista, baixa e gera MP4)
-     converter_sd.py     <- refaz o MP4 de um .h264 já baixado
-     diag_bloqueio.py    <- investiga um 205 pela sessão aberta
+  bootstrap.bat          <- PC novo: baixa do GitHub e instala (sem Git)
+  requirements.txt  README.md
+  config.py              <- IPs e senhas DESTE PC (nasce do app\config_exemplo.py; nunca vai pro GitHub)
+  app\                   <- TODO o código
+     servidor.py         <- o sistema (Flask, porta 5050)
+     janela.py  icone.ico   <- a janela própria (pywebview) e o ícone
+     sessao_xm.py        <- dona da sessão 34567 (porta 5051)
+     camera_xm.py  cliente_xm.py  elsys_xm.py   <- protocolo XM / iCSee / Elsys RSA
+     cameras_cfg.py      <- menu ➕ Câmeras
+     onvif_rtsp.py  ptz.py  lentes.py  gravador.py  sd_xm.py
+     detector_pessoas.py <- IA de pessoas
+     rosto_servidor.py  rostos_ia.py   <- reconhecimento facial
+     biblioteca_sons.py  gerar_voz.py  <- sons e texto -> voz
+     atualizador.py      <- atualização automática pelo GitHub
+     config_exemplo.py   <- modelo do config.py
+     templates\painel.html   <- a página
+     INICIAR.bat         <- sobe o servidor sem janela própria (painel no navegador)
+     INICIAR_SESSAO.bat  <- sessão das câmeras (o PAINEL.bat abre sozinho)
+     CRIAR_ATALHO.bat    <- refaz o atalho "Central de Cameras"
+     _python.bat         <- acha o Python do PC (usado pelos outros .bat)
+  ferramentas\           <- diagnóstico e configuração de câmeras
+     provisionar.py  recupera_conta.py  verifica_camera.py
+     diag_fala.py  diag_luz_alerta.py  diag_sd.py  converter_sd.py  diag_bloqueio.py
      rosto_cadastro.py   <- cadastra rosto por linha de comando (aceita FOTOS)
      terminar_atualizacao.py  criar_atalho.ps1   <- usados pelo sistema
      obsoletos.txt       <- arquivos que saíram do projeto (o atualizador tira dos PCs)
+  modelos\               <- yolov8n + YuNet + SFace (.onnx)
+  sons\                  <- só os sons padrão vêm do GitHub; o resto é de cada PC
   dev\                   <- SÓ no PC de desenvolvimento
      ENVIAR_PARA_GITHUB.bat   <- manda as mudanças (os PCs se atualizam sozinhos)
-     laboratorio\comando_voz.py  <- experimento do comando por voz (sherpa-onnx)
+     laboratorio\comando_voz.py
   docs\GUIA_COMPLETO.md  <- este guia
 
-Gerados em cada PC (não vão pro GitHub): config.py, sessao_estado.json,
-xm_fala_modo.json, xm_luz_alerta.json, xm_sd_modo.json, alertas_modo.json,
-lentes_deteccao.json, ptz_inverter.json, rostos\ (pessoas, eventos,
-config_validacao.json), logs\, fotos\, gravacoes\, sd_baixados\, janela_dados\.
+Gerados em cada PC, na pasta do projeto (não vão pro GitHub): config.py,
+sessao_estado.json, xm_*.json, alertas_modo.json, lentes_deteccao.json,
+ptz_inverter.json, rostos\, logs\, fotos\, gravacoes\, sd_baixados\, janela_dados\.
 ```
+
+As ferramentas continuam rodando da pasta do projeto, igual antes:
+`python ferramentas\diag_fala.py 192.168.3.XX`. Para rodar um módulo do
+sistema na mão: `python app\servidor.py` (ou `app\INICIAR.bat`).
 
 Tirou um arquivo do projeto? Apague no PC de dev **e** ponha o caminho em
 `ferramentas\obsoletos.txt` — senão ele continua parado nos PCs instalados

@@ -8,3 +8,5 @@
 # so o PC de desenvolvimento (com git) precisa destas pastas.
 /dev export-ignore
 /docs export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore
