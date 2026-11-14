@@ -18,7 +18,7 @@ ELEVENLABS_VOZES = ["Adam", "Alice", "Bella", "Bill", "Carlos"]
 # =============================================================
 #  CAMERAS  -  uma lista, cada camera e um dicionario.
 #  Comece VAZIA: o provisionar.py (ferramentas\provisionar.py)
-#  insere as iCSee aqui sozinho. Veja a secao 12 do GUIA_COMPLETO.md.
+#  insere as iCSee aqui sozinho. Veja a secao 12 do docs/GUIA_COMPLETO.md.
 #
 #  Modelo de um bloco iCSee (descomente e ajuste, ou deixe o
 #  provisionar.py gerar):

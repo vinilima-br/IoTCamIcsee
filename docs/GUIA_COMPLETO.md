@@ -14,52 +14,77 @@ Situação em 09/11/2026: 3 câmeras funcionando no mini PC (Windows, Celeron N5
 
 ## 1. Mapa da pasta
 
+O que vai para os PCs (o ZIP do GitHub) é só o app. `dev\` e `docs\`
+ficam **só no GitHub e no PC de desenvolvimento** (`export-ignore` no
+`.gitattributes`).
+
 ```
-C:\Dev\Projeto_Esp+Cam\
-  servidor.py            <- o sistema (rode este)
-  INICIAR.bat            <- dois cliques = sobe o servidor (painel no navegador)
-  PAINEL.bat             <- dois cliques = servidor + painel em JANELA PRÓPRIA
+IoTCamIcsee\
+  bootstrap.bat          <- PC novo: baixa do GitHub e instala (sem Git)
+  INSTALAR.bat           <- instala Python + dependências + atalho e abre a Central
+  PAINEL.bat             <- abre a Central em JANELA PRÓPRIA (o atalho aponta aqui)
+  INICIAR.bat            <- sobe o servidor sem janela própria (painel no navegador)
+  INICIAR_SESSAO.bat     <- sessão permanente das câmeras (porta 34567)
+  CRIAR_ATALHO.bat       <- refaz o atalho "Central de Cameras"
+  _python.bat            <- acha o Python do PC (usado pelos outros .bat)
+  servidor.py            <- o sistema (Flask, porta 5050)
   janela.py  icone.ico   <- a janela própria (pywebview) e o ícone dela
-  config.py              <- IPs, usuários e senhas (só aqui)
-  camera_xm.py           <- sessão com a porta 34567 (fala, volume, luz, alarme)
-  sd_xm.py               <- cartão SD da câmera (listar, baixar, converter em MP4)
-  biblioteca_sons.py     <- pasta sons/ (upload e conversão)
-  gerar_voz.py           <- texto -> voz (voz do Windows)
-  gravador.py  ptz.py  onvif_rtsp.py  detector_pessoas.py
+  sessao_xm.py           <- dona da sessão 34567 (porta 5051)
+  camera_xm.py  cliente_xm.py  elsys_xm.py   <- protocolo XM / iCSee / Elsys RSA
+  cameras_cfg.py         <- menu ➕ Câmeras (procura e adiciona câmeras)
+  onvif_rtsp.py  ptz.py  lentes.py  gravador.py  sd_xm.py
+  detector_pessoas.py    <- IA de pessoas (modelos\yolov8n.onnx)
+  rosto_servidor.py  rostos_ia.py   <- reconhecimento facial (aba Facial)
+  biblioteca_sons.py  gerar_voz.py  <- sons e texto -> voz
+  atualizador.py         <- atualização automática pelo GitHub
+  config_exemplo.py      <- modelo do config.py (o config.py real NUNCA vai pro GitHub)
   requirements.txt
   templates\painel.html  <- a página
+  modelos\               <- yolov8n + YuNet + SFace (.onnx)
+  sons\                  <- só os sons padrão vêm do GitHub; o resto é de cada PC
   ferramentas\
-     provisionar.py      <- wizard: poe uma iCSee nova no config (secao 12)
-     recupera_conta.py   <- descobre a CONTA REAL da iCSee (fim do 205) - ver secao 10
+     provisionar.py      <- wizard: põe uma iCSee nova no config (seção 12)
+     recupera_conta.py   <- conta REAL da iCSee (fim do 205) - seção 10
      verifica_camera.py  <- checa uma câmera nova antes de pôr no sistema
      diag_fala.py        <- descobre a forma de "falar" que a câmera aceita
-     diag_luz_alerta.py  <- descobre como acender o LED vermelho/azul (luz de alerta)
-     diag_sd.py          <- testa o cartão SD: lista, baixa uma gravação e gera o MP4
+     diag_luz_alerta.py  <- descobre como acender o LED vermelho/azul
+     diag_sd.py          <- testa o cartão SD (lista, baixa e gera MP4)
      converter_sd.py     <- refaz o MP4 de um .h264 já baixado
-  sons\  fotos\  gravacoes\  modelos\
-  sd_baixados\           <- cópias das gravações do cartão SD (MP4)
-  sessao_estado.json     <- trava anti-bloqueio (não apague à toa)
-  xm_fala_modo.json      <- forma de fala de cada câmera (gerado pelo diag_fala)
-  xm_luz_alerta.json     <- como acender a luz de alerta (gerado pelo diag_luz_alerta)
-  xm_sd_modo.json        <- forma de baixar do cartão SD (gerado pelo diag_sd / pela página)
-  historico\             <- todos os testes das etapas 1 a 31 (consulta)
+     diag_bloqueio.py    <- investiga um 205 pela sessão aberta
+     rosto_cadastro.py   <- cadastra rosto por linha de comando (aceita FOTOS)
+     terminar_atualizacao.py  criar_atalho.ps1   <- usados pelo sistema
+     obsoletos.txt       <- arquivos que saíram do projeto (o atualizador tira dos PCs)
+  dev\                   <- SÓ no PC de desenvolvimento
+     ENVIAR_PARA_GITHUB.bat   <- manda as mudanças (os PCs se atualizam sozinhos)
+     laboratorio\comando_voz.py  <- experimento do comando por voz (sherpa-onnx)
+  docs\GUIA_COMPLETO.md  <- este guia
+
+Gerados em cada PC (não vão pro GitHub): config.py, sessao_estado.json,
+xm_fala_modo.json, xm_luz_alerta.json, xm_sd_modo.json, alertas_modo.json,
+lentes_deteccao.json, ptz_inverter.json, rostos\ (pessoas, eventos,
+config_validacao.json), logs\, fotos\, gravacoes\, sd_baixados\, janela_dados\.
 ```
 
-Para arrumar a pasta (move os antigos para `historico\`, **não apaga nada**):
-`python organizar_pasta.py` (mostra) → `python organizar_pasta.py --executar` (move).
+Tirou um arquivo do projeto? Apague no PC de dev **e** ponha o caminho em
+`ferramentas\obsoletos.txt` — senão ele continua parado nos PCs instalados
+(a atualização só copia, nunca apaga).
+
+Os scripts de teste antigos (etapas, Vosk/Whisper, organizar_pasta etc.)
+saíram em 13/11/2026; continuam no histórico do git se precisar consultar.
 
 ---
 
 ## 2. Instalar do zero (outro PC ou depois de formatar)
 
-1. Instale o **Python 3** (marque "Add Python to PATH").
-2. Copie a pasta inteira do projeto (inclusive `modelos\yolov8n.onnx`, `config.py`, `sons\`).
-3. No terminal, dentro da pasta: `pip install -r requirements.txt`
-4. O PC precisa estar na **mesma rede das câmeras** (aqui: 192.168.3.x).
-5. Dois cliques em `PAINEL.bat` (janela própria) ou `INICIAR.bat` (navegador; ou `python servidor.py`).
-6. Abra `http://localhost:5050`. No celular, na mesma rede: `http://IP-DO-MINI-PC:5050`.
+1. Baixe só o `bootstrap.bat` do GitHub numa pasta (ex.: `C:\Central`) e dê dois cliques.
+   Ele baixa o projeto, instala o Python (se faltar), as dependências e cria o atalho.
+2. O PC precisa estar na **mesma rede das câmeras** (aqui: 192.168.3.x).
+3. As câmeras entram pela janela do painel (botão **➕ Câmeras**).
+4. Das próximas vezes: atalho **Central de Cameras** na Área de Trabalho.
+5. No celular, na mesma rede: `http://IP-DO-PC:5050`.
 
-Para desligar: **Ctrl+C** na janela do servidor (faz logout limpo nas câmeras). Com o `PAINEL.bat`, basta **fechar a janela** do painel.
+Para desligar: **feche a janela** do painel (faz logout limpo nas câmeras).
+Com o `INICIAR.bat`, **Ctrl+C** na janela do servidor.
 
 ---
 
@@ -112,7 +137,7 @@ O caminho manual abaixo continua valendo (e é o que o assistente faz por dentro
 
 ### Passo 2 — IP fixo
 - No roteador, faça a **reserva de DHCP** (IP fixo) para a câmera. Sem isso o IP muda e o sistema perde a câmera.
-- **Não** mexa no IP da placa de rede do PC (num teste isso desligou o DHCP do Wi-Fi do PC; o `historico\scripts\recuperar_rede.py` desfaz).
+- **Não** mexa no IP da placa de rede do PC (num teste isso desligou o DHCP do Wi-Fi do PC; o `recuperar_rede.py` do histórico do git desfaz).
 
 ### Passo 3 — Checar a câmera (sem risco de bloqueio)
 ```
@@ -250,7 +275,7 @@ msgids usados: 1000 login · 1001 logout · 1006 keepalive · 1020 StorageInfo �
 
 ## 8. Backup
 
-Guarde uma cópia de: `config.py`, `sessao_estado.json`, `xm_fala_modo.json`, `xm_luz_alerta.json`, `xm_sd_modo.json`, `sons\`, `modelos\` e deste guia. O resto é código e já está aqui.
+Guarde uma cópia de: `config.py`, `sessao_estado.json`, `xm_fala_modo.json`, `xm_luz_alerta.json`, `xm_sd_modo.json`, `sons\`, `rostos\` e `modelos\`. O resto é código e está no GitHub.
 
 Para a Elsys (câmera RSA, seção 9), guarde também: `ferramentas\elsys_material.json`, `ferramentas\elsys_abre_1413.bin`, `ferramentas\elsys_login_plain.json`, `ferramentas\elsys_login_1000.b64`.
 

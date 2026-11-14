@@ -1,0 +1,18 @@
+# Arquivos que SAIRAM do projeto. Nos PCs instalados, o atualizador.py
+# move estes arquivos (se existirem) para _atualizacao/obsoletos/ - NAO apaga.
+# Um caminho por linha, relativo a pasta do projeto, com barra "/".
+# Nunca coloque aqui config.py, sons, rostos, gravacoes ou ajustes (*.json).
+ATUALIZAR.bat
+SUBIR_GITHUB.bat
+RESOLVER_E_ENVIAR.bat
+LIMPAR_PASTA.bat
+organizar_pasta.py
+comando_voz.py
+ouvir_texto.py
+ouvir_whisper.py
+ouvir_comando.py
+ouvir_sherpa.py
+GUIA_COMPLETO.md
+Claude outputs/bootstrap.bat
+ferramentas/rosto_etapa1.py
+ferramentas/rosto_reconhecer.py

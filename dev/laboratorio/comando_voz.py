@@ -1,42 +1,47 @@
 # =============================================================
-#  ouvir_sherpa.py  -  PASSO 1 (versao sherpa-onnx + Whisper)
+#  comando_voz.py  -  PASSO 3: reconhece o comando E ACIONA
 #
-#  Qualidade Whisper, mas usando o sherpa-onnx (instala pronto,
-#  sem compilar nada - roda no Python 3.15). Pega o audio da
-#  camera pelo RTSP, detecta quando voce fala e, na pausa,
-#  transcreve a frase.
+#  Escuta a camera, e quando voce diz o gatilho + comando, ele chama
+#  o SEU servidor (a mesma rota que a pagina usa) para ligar a luz.
 #
-#  CPU por padrao (modelo "small" int8, leve e rapido). Se um dia
-#  voce instalar a versao CUDA do sherpa-onnx, ele usa a GPU sozinho.
+#    "O senhor e meu pastor, alerta"  ->  liga a luz de alerta da cam2
 #
-#  Nao mexe na porta 34567 -> sem risco de 205. Pode rodar com o
-#  servidor ligado.
+#  IMPORTANTE: o servidor (servidor.py / INICIAR.bat) precisa estar
+#  RODANDO, porque e ele quem fala com a camera na porta 34567.
+#  Este script so pede pelo HTTP, igual a pagina - sem risco de 205.
 #
 #  Uso:
-#     python ouvir_sherpa.py            (usa a cam2)
-#     python ouvir_sherpa.py cam3       (escolhe pelo apelido)
-#     python ouvir_sherpa.py 192.168.3.67   (ou direto pelo IP)
-#
-#  Precisa (ja instalado):  pip install sherpa-onnx
-#  Na 1a vez baixa o modelo Whisper em ONNX (~250 MB) para modelos/.
+#  LABORATORIO: experimento do comando por voz (nao faz parte do app).
+#  Precisa:  pip install sherpa-onnx   (o modelo baixa sozinho)
+#     python dev\laboratorio\comando_voz.py        (escuta a cam2)
+#     python dev\laboratorio\comando_voz.py cam3   (escuta/aciona outra camera)
 # =============================================================
 
 import collections
+import json
 import math
 import os
+import re
 import subprocess
 import sys
 import tarfile
+import unicodedata
+import urllib.error
 import urllib.request
 
 import numpy as np
 
-import config
+# este arquivo fica em dev/laboratorio/: a pasta do projeto e 2 niveis acima
+PASTA_BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, PASTA_BASE)
 
-PASTA_BASE = os.path.dirname(os.path.abspath(__file__))
+import config  # noqa: E402
 
-# Modelo Whisper "small" (multilingue, pega portugues) ja convertido
-# para ONNX pelo time do sherpa-onnx. int8 = leve e rapido na CPU.
+# ---- Servidor e acao da luz (mexer aqui para ajustar) ----
+SERVIDOR = "http://127.0.0.1:5050"   # onde o servidor.py roda
+ALERTA_SEGUNDOS = 10                  # quanto tempo a luz fica acesa
+ALERTA_SOM = None                     # None = so luz | "" = sirene | "arquivo.wav"
+
 MODELO_NOME = "sherpa-onnx-whisper-small"
 MODELO_URL = ("https://github.com/k2-fsa/sherpa-onnx/releases/download/"
               "asr-models/sherpa-onnx-whisper-small.tar.bz2")
@@ -47,7 +52,6 @@ TOKENS = os.path.join(MODELO_DIR, "small-tokens.txt")
 
 TAXA = 16000
 
-# --- detector de fala (quadros de 30 ms) ---
 QUADRO_MS = 30
 QUADRO = int(TAXA * QUADRO_MS / 1000)
 QUADRO_BYTES = QUADRO * 2
@@ -55,6 +59,62 @@ SILENCIO_FIM = int(0.7 * 1000 / QUADRO_MS)
 MIN_FALA = int(0.3 * 1000 / QUADRO_MS)
 MAX_FALA = int(12 * 1000 / QUADRO_MS)
 PRE_ROLL = int(0.3 * 1000 / QUADRO_MS)
+
+# =============================================================
+#  GATILHO E COMANDOS  (so mexer AQUI para adicionar mais tarde)
+# =============================================================
+GATILHOS_WAKE = [
+    "o senhor e meu pastor",
+    "senhor e meu pastor",
+    "meu pastor",
+]
+
+COMANDOS = [
+    {"nome": "luz de alerta", "acao": "LUZ_ALERTA", "gatilhos": ["alerta", "alarme"]},
+]
+
+
+def normaliza(texto):
+    t = unicodedata.normalize("NFKD", texto)
+    t = "".join(c for c in t if not unicodedata.combining(c))
+    t = t.lower()
+    t = re.sub(r"[^a-z0-9 ]+", " ", t)
+    return re.sub(r"\s+", " ", t).strip()
+
+
+def tem_wake(norm):
+    return any(g in norm for g in GATILHOS_WAKE)
+
+
+def acha_comando(norm):
+    for c in COMANDOS:
+        if any(g in norm for g in c["gatilhos"]):
+            return c
+    return None
+
+
+def aciona(acao, cid):
+    """Chama o servidor para executar a acao de verdade."""
+    if acao == "LUZ_ALERTA":
+        url = "{}/api/xm/{}/alerta".format(SERVIDOR, cid)
+        corpo = {"ligar": True, "segundos": ALERTA_SEGUNDOS, "som": ALERTA_SOM}
+        try:
+            req = urllib.request.Request(
+                url, data=json.dumps(corpo).encode("utf-8"),
+                headers={"Content-Type": "application/json"}, method="POST")
+            with urllib.request.urlopen(req, timeout=5) as r:
+                resp = json.loads(r.read().decode("utf-8", "replace"))
+            if resp.get("ok"):
+                print("   >>> LUZ DE ALERTA LIGADA ({}s)".format(ALERTA_SEGUNDOS))
+                if resp.get("aviso"):
+                    print("       aviso:", resp["aviso"])
+            else:
+                print("   >>> o servidor recusou:", resp.get("erro"))
+        except urllib.error.URLError as e:
+            print("   >>> nao consegui falar com o servidor ({}).".format(e))
+            print("       O servidor.py esta rodando em {} ?".format(SERVIDOR))
+        except Exception as e:
+            print("   >>> erro ao acionar:", e)
 
 
 def acha_ffmpeg():
@@ -91,7 +151,7 @@ def url_rtsp(cam):
     import onvif_rtsp
     urls = onvif_rtsp.descobre_urls(cam["ip"], cam["usuario"], cam["senha"],
                                     cam.get("porta_onvif") or None)
-    return urls[0]
+    return urls[1] if len(urls) > 1 else urls[0]
 
 
 def garante_modelo():
@@ -116,12 +176,10 @@ def garante_modelo():
     except Exception as erro:
         print("\nNao consegui baixar/extrair o modelo:", erro)
         print("Baixe a mao em: {}".format(MODELO_URL))
-        print("e descompacte dentro da pasta 'modelos'.")
         sys.exit(1)
 
 
 def cria_reconhecedor():
-    """Monta o reconhecedor Whisper (CPU)."""
     import sherpa_onnx
     try:
         rec = sherpa_onnx.OfflineRecognizer.from_whisper(
@@ -160,6 +218,19 @@ def transcreve(rec, quadros):
     return s.result.text.strip()
 
 
+def interpreta(texto, cid):
+    print("   ouvi:", texto)
+    norm = normaliza(texto)
+    if not tem_wake(norm):
+        return
+    comando = acha_comando(norm)
+    if comando:
+        print("   >>> COMANDO: {}".format(comando["nome"]))
+        aciona(comando["acao"], cid)
+    else:
+        print("   >>> (ouvi o gatilho, mas nao reconheci nenhum comando)")
+
+
 def main():
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -173,7 +244,8 @@ def main():
         sys.exit(1)
 
     cam = escolhe_camera(sys.argv[1] if len(sys.argv) > 1 else "")
-    print("Camera: {} ({}) - {}".format(cam["cid"], cam["ip"], cam["nome"]))
+    cid_cam = cam["cid"]
+    print("Camera: {} ({}) - {}".format(cid_cam, cam["ip"], cam["nome"]))
     try:
         rtsp = url_rtsp(cam)
     except Exception as erro:
@@ -189,7 +261,7 @@ def main():
         ffmpeg, "-nostdin", "-loglevel", "error",
         "-rtsp_transport", "tcp", "-i", rtsp,
         "-vn", "-ac", "1", "-ar", str(TAXA),
-        "-af", "volume=5.0",          # microfone da camera e fraco; reforca o ganho
+        "-af", "volume=3.0",
         "-f", "s16le", "-",
     ]
     proc = subprocess.Popen(comando, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -199,32 +271,26 @@ def main():
     for _ in range(int(1.5 * 1000 / QUADRO_MS)):
         q = le_quadro(proc.stdout)
         if q is None:
-            print("A camera nao mandou audio. Tente outra (ex.: python ouvir_sherpa.py cam3).")
-            erro = proc.stderr.read().decode("utf-8", "replace").strip()
-            if erro:
-                print("ffmpeg disse:", erro.splitlines()[-1])
+            print("A camera nao mandou audio. Tente outra (ex.: python dev\\laboratorio\\comando_voz.py cam3).")
             return
         fundo_amostras.append(rms(q))
     fundo = sorted(fundo_amostras)[len(fundo_amostras) // 2]
     limiar = max(40.0, fundo * 3.0)
-    print("Barulho de fundo ~{:.0f}, limiar de fala ~{:.0f}.".format(fundo, limiar))
-    print("(Se a sua voz nao disparar, veja o 'nivel' no medidor e me passe o numero.)")
+    print("Pronto. (fundo ~{:.0f}, limiar ~{:.0f})".format(fundo, limiar))
 
-    print("\n== Fale perto da camera. (Ctrl+C para parar) ==\n")
+    print("\n== Diga:  \"O senhor e meu pastor, alerta\"   (Ctrl+C para parar) ==\n")
     pre = collections.deque(maxlen=PRE_ROLL)
     buffer_fala = []
     em_fala = False
     silencio = 0
     frames_falados = 0
-    contador_meter = 0
-    pico = 0.0
 
     def fecha_frase():
         nonlocal buffer_fala, em_fala, silencio, frames_falados
         if frames_falados >= MIN_FALA:
             texto = transcreve(rec, buffer_fala)
             if texto:
-                print(">>", texto)
+                interpreta(texto, cid_cam)
         buffer_fala = []
         em_fala = False
         silencio = 0
@@ -235,16 +301,9 @@ def main():
             q = le_quadro(proc.stdout)
             if q is None:
                 print("\nO audio parou de chegar.")
-                erro = proc.stderr.read().decode("utf-8", "replace").strip()
-                if erro:
-                    print("ffmpeg disse:", erro.splitlines()[-1])
                 break
 
-            nivel = rms(q)
-            if nivel > pico:
-                pico = nivel
-
-            if nivel >= limiar:
+            if rms(q) >= limiar:
                 if not em_fala:
                     em_fala = True
                     buffer_fala = list(pre)
@@ -262,14 +321,6 @@ def main():
 
             if em_fala and len(buffer_fala) >= MAX_FALA:
                 fecha_frase()
-
-            # medidor que rola na tela: mostra o pico a cada ~0,5 s
-            contador_meter += 1
-            if contador_meter >= 16:
-                marca = "  <== FALA!" if pico >= limiar else ""
-                print("   medidor: pico ~{:4.0f}   (limiar {:.0f}){}".format(pico, limiar, marca))
-                pico = 0.0
-                contador_meter = 0
     except KeyboardInterrupt:
         print("\n\nParando.")
     finally:

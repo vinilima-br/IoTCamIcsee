@@ -16,8 +16,10 @@ alertas_modo.json
 lentes_deteccao.json
 elevenlabs_vozes.json
 
-# --- pasta de descarte do LIMPAR_PASTA.bat ---
+# --- pastas de descarte / arrumacao (so no PC de dev) ---
 _lixo/
+_arrumacao/
+Claude outputs/
 
 # --- saida de execucao ---
 logs/
@@ -52,9 +54,18 @@ rostos/removidos/
 rostos/testes/
 rostos/historico.csv
 rostos/pessoas.json
+rostos/config_validacao.json
 
-# --- sons gerados / cache de audio ---
-sons/.cache/
+# --- sons: so os PADRAO vao pro GitHub (o resto e de cada PC) ---
+# Os que o usuario envia pelo painel e as vozes geradas (rosto_*.wav,
+# voz_*.wav) ficam so no PC. Para mandar um som novo para TODOS os PCs,
+# acrescente uma linha  !sons/NOME.wav  aqui embaixo.
+sons/*
+!sons/Atencao.wav
+!sons/alarme_subindo.wav
+!sons/alerta_bipes.wav
+!sons/campainha.wav
+!sons/sirene_policia.wav
 
 # --- modelos de voz GRANDES (GitHub rejeita >100MB; baixar a parte) ---
 modelos/sherpa-onnx-whisper-small/

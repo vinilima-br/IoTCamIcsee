@@ -1,6 +1,8 @@
 @echo off
-cd /d "%~dp0"
-title Atualizar o GitHub
+REM So para o PC de desenvolvimento (o que tem a pasta .git).
+REM Envia as mudancas para o GitHub; os PCs instalados se atualizam sozinhos.
+cd /d "%~dp0.."
+title Enviar para o GitHub
 
 where git >nul 2>nul
 if errorlevel 1 (

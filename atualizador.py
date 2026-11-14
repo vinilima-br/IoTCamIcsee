@@ -12,6 +12,8 @@ atualizador.py  -  A Central se atualiza sozinha pelo GitHub.
   rostos, ajustes (*.json) - nada disso vai pro repositório.
 - PC com a pasta .git (o PC de onde você manda as mudanças): não se
   atualiza sozinho (use o git). Lá só mostra a versão.
+- Arquivo que SAIU do projeto: liste em ferramentas/obsoletos.txt. Ao subir,
+  cada PC instalado move esses arquivos para _atualizacao/obsoletos/.
 
 Ligar/desligar: no painel, ⚙ Config -> "Atualizar sozinho" (padrão: LIGADO).
 A escolha fica em atualizacao.json (de cada PC; não vai pro GitHub).
@@ -263,11 +265,60 @@ def aplicar(lancador, ao_fechar):
     return True, "atualizando para {}".format(sha[:7])
 
 
+ARQ_OBSOLETOS = os.path.join(PASTA, "ferramentas", "obsoletos.txt")
+# o que nunca sai da pasta, mesmo que alguém ponha na lista por engano
+_PROTEGIDOS = {"config.py", "versao.txt", "atualizacao.json", "servidor.py", "atualizador.py",
+               "PAINEL.bat", "INICIAR.bat", "INICIAR_SESSAO.bat", "_python.bat"}
+
+
+def limpa_obsoletos():
+    """Arquivos que saíram do projeto (ferramentas/obsoletos.txt) e ainda estão
+    neste PC: MOVE para _atualizacao/obsoletos/ (não apaga). Só PC instalado."""
+    if estado["dev"]:
+        return []
+    try:
+        with open(ARQ_OBSOLETOS, "r", encoding="utf-8") as f:
+            linhas = f.read().splitlines()
+    except OSError:
+        return []
+    movidos = []
+    destino_base = os.path.join(PASTA_TRAB, "obsoletos")
+    for linha in linhas:
+        rel = linha.strip().replace("\\", "/")
+        if not rel or rel.startswith("#") or rel.startswith("/") or ":" in rel:
+            continue
+        partes = rel.split("/")
+        if ".." in partes or os.path.basename(rel) in _PROTEGIDOS:
+            continue
+        origem = os.path.join(PASTA, *partes)
+        if not os.path.isfile(origem):
+            continue
+        try:
+            destino = os.path.join(destino_base, *partes)
+            os.makedirs(os.path.dirname(destino), exist_ok=True)
+            if os.path.exists(destino):
+                os.remove(destino)
+            shutil.move(origem, destino)
+            movidos.append(rel)
+            pasta = os.path.dirname(origem)
+            if pasta != PASTA and os.path.isdir(pasta) and not os.listdir(pasta):
+                os.rmdir(pasta)      # ex.: "Claude outputs" ficou vazia
+        except OSError as e:
+            _log("não consegui tirar o obsoleto {}: {}".format(rel, e))
+    if movidos:
+        _log("arquivos que saíram do projeto movidos para _atualizacao/obsoletos: " + ", ".join(movidos))
+    return movidos
+
+
 def ronda(pode_atualizar, lancador, ao_fechar):
     """Thread: verifica de tempos em tempos e aplica sozinha se estiver ligado."""
     if estado["dev"]:
         estado["local"] = versao_local()
         return
+    try:
+        limpa_obsoletos()
+    except Exception as e:  # noqa: BLE001
+        _log("erro ao limpar obsoletos: {!r}".format(e))
     time.sleep(PRIMEIRA_S)
     while True:
         try:
