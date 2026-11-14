@@ -145,6 +145,82 @@ def set_cfg(novo):
 
 _carrega_cfg()
 
+# ---- Histórico em memória (lido do historico.csv na partida) ----
+# Assim "Últimos acessos", o resumo de hoje e o "visto por último" de cada
+# pessoa continuam valendo depois de fechar e abrir a Central.
+_hist_trava = threading.Lock()
+_HOJE = {}       # cid  -> {"dia": "AAAA-MM-DD", "liberados": n, "negados": n}
+_VISTO = {}      # nome -> "AAAA-MM-DD HH:MM:SS" do último acesso (em qualquer câmera)
+_ANTIGOS = {}    # cid  -> últimos eventos do arquivo (o mais novo primeiro)
+
+
+def _conta(cid, hora, status, nome):
+    """Soma um acesso no resumo do dia e marca quando a pessoa foi vista."""
+    dia = (hora or "")[:10]
+    with _hist_trava:
+        h = _HOJE.get(cid)
+        if h is None or dia > h["dia"]:
+            h = _HOJE[cid] = {"dia": dia, "liberados": 0, "negados": 0}
+        if dia == h["dia"]:
+            h["liberados" if status == "permitido" else "negados"] += 1
+        if nome and hora > _VISTO.get(nome, ""):
+            _VISTO[nome] = hora
+
+
+def resumo_hoje(cid):
+    hoje = time.strftime("%Y-%m-%d")
+    with _hist_trava:
+        h = _HOJE.get(cid)
+        if h is None or h["dia"] != hoje:
+            return {"liberados": 0, "negados": 0}
+        return {"liberados": h["liberados"], "negados": h["negados"]}
+
+
+def _le_historico(limite=40):
+    try:
+        with open(ARQ_HISTORICO, "r", newline="", encoding="utf-8-sig") as f:
+            linhas = list(csv.reader(f, delimiter=";"))[1:]
+    except (OSError, csv.Error, UnicodeError):
+        return
+    for l in linhas:
+        try:
+            if len(l) < 5 or len(l[0]) < 19:
+                continue
+            hora, cid, quem = l[0], l[1], l[3]
+            status = "permitido" if l[2].strip().lower() == "permitido" else "negado"
+            nome = None if quem in ("", "desconhecido") else quem
+            try:
+                sim = float(l[4].replace(",", "."))
+            except ValueError:
+                sim = 0.0
+            _conta(cid, hora, status, nome)
+            foto = l[5] if len(l) > 5 and l[5] else None
+            _ANTIGOS.setdefault(cid, deque(maxlen=limite)).appendleft(
+                {"hora": hora, "status": status, "nome": nome, "motivo": "", "sim": round(sim, 2),
+                 "foto": foto, "acao": None, "repeticao": False, "falar": False, "mini": None})
+        except Exception:  # noqa: BLE001 - linha estragada (ex.: editada à mão): pula
+            continue
+
+
+def _confere_fotos_antigas():
+    """Dos acessos lidos do arquivo: acha a miniatura e tira o link de foto que já foi apagada."""
+    prefixo = "/rostos/eventos/"
+    for eventos in _ANTIGOS.values():
+        for ev in eventos:
+            foto = ev.get("foto")
+            if not foto or not foto.startswith(prefixo):
+                ev["foto"] = None
+                continue
+            caminho = os.path.join(PASTA_EVENTOS, *foto[len(prefixo):].split("/"))
+            if not os.path.isfile(caminho):
+                ev["foto"] = None
+            elif os.path.isfile(caminho[:-4] + "_r.jpg"):
+                ev["mini"] = foto[:-4] + "_r.jpg"
+
+
+_le_historico()
+_confere_fotos_antigas()
+
 CORES = {"permitido": (0, 200, 0), "negado": (0, 0, 255), "desconhecido": (0, 0, 255),
          "incerto": (0, 200, 255)}
 
@@ -196,6 +272,7 @@ class Motor:
         lista = []
         for nome, p in sorted(self.banco.pessoas.items(), key=lambda t: t[0].lower()):
             lista.append({"nome": nome, "fotos": len(p["fotos"]), "permitido": p["permitido"],
+                          "visto": _VISTO.get(nome),
                           "miniatura": "/rostos/foto/{}/{}".format(nome, os.path.basename(p["fotos"][0]))
                           if p["fotos"] else None})
         return lista
@@ -273,7 +350,7 @@ class Reconhecedor:
         self.ms = 0.0
         self.por_s = 0.0
         self.largura = 0
-        self.eventos = deque(maxlen=40)
+        self.eventos = deque(_ANTIGOS.get(self.cid, ()), maxlen=40)   # começa com o que está no histórico
         self.ultimo_evento = None
         self.luz_ate = 0.0
         self.ultima_acao = None     # texto do resultado da última ação (para a página)
@@ -578,9 +655,10 @@ class Reconhecedor:
         marcado = self.sobreposicao(frame, forcar=True)
         rel = "{}/{}_{}_{}.jpg".format(agora.strftime("%Y-%m-%d"), agora.strftime("%H-%M-%S"),
                                         evento["status"], ia.nome_seguro(quem))
-        foto = None
+        foto = mini = None
         if salva_jpg(os.path.join(PASTA_EVENTOS, self.cid, rel), marcado):
             foto = "/rostos/eventos/{}/{}".format(self.cid, rel)
+            mini = self._salva_miniatura(frame, rel)
         # som: só no 1º resultado da pessoa e quando o resultado MUDA (ex.: negado -> permitido).
         # Repetiu o mesmo resultado com ela parada na frente: só o aviso visual (luz), sem falar.
         pres = evento.get("presenca", 0)
@@ -592,10 +670,11 @@ class Reconhecedor:
             self._falado = chave
         ev = {"hora": agora.strftime("%Y-%m-%d %H:%M:%S"), "status": evento["status"], "nome": evento["nome"],
               "motivo": evento["motivo"], "sim": round(evento["sim"], 2), "foto": foto, "acao": None,
-              "repeticao": bool(evento.get("repeticao")), "falar": falar}
+              "repeticao": bool(evento.get("repeticao")), "falar": falar, "mini": mini}
         with self.trava:
             self.eventos.appendleft(ev)
             self.ultimo_evento = ev
+        _conta(self.cid, ev["hora"], ev["status"], ev["nome"])
         try:
             novo = not os.path.isfile(ARQ_HISTORICO)
             os.makedirs(ia.PASTA_ROSTOS, exist_ok=True)
@@ -609,6 +688,28 @@ class Reconhecedor:
         print("[rosto:{}] {} {} ({:.2f})".format(self.cid, ev["status"].upper(), quem, ev["sim"]))
         if self.acoes and self.tem_acoes:
             self._fila.put(ev)
+
+    def _salva_miniatura(self, frame, rel):
+        """Recorte pequeno do rosto (para a lista de acessos da página abrir leve)."""
+        try:
+            with self.trava:
+                caixas = [c for c, _ in self.atuais]
+            if not caixas:
+                return None
+            x, y, w, h = max(caixas, key=lambda c: c[2])
+            m = int(max(w, h) * 0.35)
+            recorte = frame[max(0, y - m):y + h + m, max(0, x - m):x + w + m]
+            if recorte.size == 0:
+                return None
+            lado = 128
+            recorte = cv2.resize(recorte, (lado, max(1, int(lado * recorte.shape[0] / recorte.shape[1]))),
+                                 interpolation=cv2.INTER_AREA)
+            rel_mini = rel[:-4] + "_r.jpg"
+            if salva_jpg(os.path.join(PASTA_EVENTOS, self.cid, rel_mini), recorte, 82):
+                return "/rostos/eventos/{}/{}".format(self.cid, rel_mini)
+        except Exception as e:  # noqa: BLE001
+            print("[rosto:{}] miniatura não salva: {}".format(self.cid, e))
+        return None
 
     def _trabalha_acoes(self):
         while True:
@@ -737,6 +838,7 @@ class Reconhecedor:
                 "ultima_acao": self.ultima_acao,
                 "cadastro": cad,
                 "pessoas": len(self.motor.banco.pessoas) if self.motor.disponivel else 0,
+                "hoje": resumo_hoje(self.cid),
                 "lente": self.lente,
                 "tem_alerta": self._alerta is not None,
                 "tem_holofote": self._holofote is not None,
@@ -752,6 +854,6 @@ class Reconhecedor:
             cad["etapas"] = [{k: v for k, v in e.items() if k != "desde"} for e in cad.get("etapas", [])]
             return {"cadastro": cad, "lente": self.lente}
 
-    def lista_eventos(self, limite=20):
+    def lista_eventos(self, limite=30):
         with self.trava:
             return [dict(e) for e in list(self.eventos)[:limite]]

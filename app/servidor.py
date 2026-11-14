@@ -2296,7 +2296,24 @@ def rostos_foto(nome, arquivo):
 def rostos_evento(cid, arquivo):
     if cid not in RECS:
         return "não encontrado", 404
-    return send_from_directory(os.path.join(rosto_servidor.PASTA_EVENTOS, cid), arquivo)
+    pasta = os.path.join(rosto_servidor.PASTA_EVENTOS, cid)
+    if request.args.get("mini"):
+        # foto antiga, sem o recorte do rosto: manda uma versão bem reduzida
+        # (a original tem o quadro inteiro; 30 delas na lista pesariam a página)
+        try:
+            from werkzeug.utils import safe_join
+            import numpy as np
+            caminho = safe_join(pasta, arquivo)
+            img = cv2.imdecode(np.fromfile(caminho, dtype=np.uint8), cv2.IMREAD_REDUCED_COLOR_8)
+            ok, dados = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
+            if ok:
+                resposta = Response(dados.tobytes(), mimetype="image/jpeg")
+                resposta.headers["Cache-Control"] = "private, max-age=86400"
+                return resposta
+        except Exception:  # noqa: BLE001
+            pass
+        return "não encontrado", 404
+    return send_from_directory(pasta, arquivo)
 
 
 # =============================================================

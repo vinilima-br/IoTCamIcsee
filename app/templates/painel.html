@@ -7,9 +7,10 @@
   <style>
     :root {
       color-scheme: dark;            /* Windows: barras de rolagem e controles nativos escuros */
-      --fundo: #0e1115; --cartao: #161a20; --cartao2: #1b2027; --borda: #262c35; --borda2: #343c48;
+      --fundo: #0b0e13; --cartao: #12161d; --cartao2: #151a22; --borda: #222a36; --borda2: #323c4b;
       --texto: #e6e8eb; --suave: #9ca3af; --apagado: #6b7280;
       --azul: #2563eb; --verde: #16a34a; --vermelho: #dc2626; --amarelo: #f59e0b;
+      --azul2: #60a5fa; --campo: #0d1117; --foco: 0 0 0 3px rgba(59,130,246,.38);
     }
     * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: #3a4250 transparent; }
     ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -476,13 +477,267 @@
              opacity: 0; transition: all .25s; pointer-events: none; z-index: 50; max-width: 90vw; }
     .aviso.visivel { opacity: 1; transform: translateX(-50%) translateY(0); }
     .aviso.erro { background: #7f1d1d; border-color: #ef4444; }
+
+    /* =====================================================================
+       TEMA v2 - acabamento: tipografia, foco, ícones, topo, abas, Facial,
+       responsividade. Fica por último para valer sobre as regras antigas.
+       ===================================================================== */
+    body { font-family: "Segoe UI Variable Text", "Segoe UI", Inter, system-ui, -apple-system, Roboto, sans-serif;
+           -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+           background: radial-gradient(1200px 500px at 15% -10%, #131a26 0%, transparent 60%), var(--fundo); background-attachment: fixed; }
+    button, input, select, textarea { font-family: inherit; }
+    button { transition: background .15s, border-color .15s, color .15s, box-shadow .15s, transform .05s; }
+    button:active:not(:disabled) { transform: translateY(1px); }
+    button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible, a:focus-visible {
+      outline: none; box-shadow: var(--foco); border-color: var(--azul2); }
+    .chave input:focus-visible + .trilho { box-shadow: var(--foco); }
+    input[type=number], input[type=date], input[type=search] { background: var(--campo); color: var(--texto);
+      border: 1px solid #3a4250; border-radius: 7px; padding: 7px 9px; font-size: 13px; color-scheme: dark; }
+    input[type=text], input[type=password], select { background: var(--campo); }
+    input::placeholder { color: #5b6677; }
+    input[type=text]:hover, input[type=number]:hover, input[type=search]:hover, select:hover { border-color: #4a5568; }
+    .ic { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.9;
+          stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; }
+    button > .ic + span, a > .ic + span { margin-left: 7px; }
+    .btn-primario { background: var(--azul); border-color: var(--azul); color: #fff; font-weight: 600; }
+    .btn-primario:hover { background: #1d4ed8; }
+    .btn-verde { font-weight: 600; }
+
+    /* ---------- topo ---------- */
+    .topo { padding: 10px 20px; gap: 12px; background: rgba(11,14,19,.86); backdrop-filter: blur(10px) saturate(1.2); }
+    .topo h1 { display: flex; align-items: center; gap: 10px; font-size: 16px; letter-spacing: -.01em; }
+    .marca { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; color: #fff;
+             background: linear-gradient(135deg, #3b82f6, #1d4ed8); box-shadow: 0 4px 14px rgba(37,99,235,.4), inset 0 1px 0 rgba(255,255,255,.25); }
+    .marca .ic { width: 17px; height: 17px; }
+    .resumo { padding: 3px 10px; border-radius: 999px; background: #141a23; border: 1px solid var(--borda); }
+    .chip { background: #141a23; border-color: var(--borda); color: var(--texto); padding: 5px 11px; }
+    .chip:hover { border-color: var(--borda2); background: #1a212c; }
+    .chip .olho { display: none; }
+    .topo .direita button { display: inline-flex; align-items: center; background: #141a23; border-color: var(--borda); white-space: nowrap; }
+    .topo .direita button:hover { background: #1c2430; border-color: var(--borda2); }
+    #btn-alerta-geral { background: #7f1d1d; border-color: #b91c1c; }
+    #btn-versao { font-variant-numeric: tabular-nums; }
+    #colunas { background: #141a23; border-color: var(--borda); }
+
+    /* ---------- cartão da câmera ---------- */
+    .camera { border-radius: 14px; box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 10px 30px rgba(0,0,0,.25); }
+    .cab { padding: 10px 14px; gap: 10px; }
+    .cab h2 { font-size: 14.5px; letter-spacing: -.005em; min-width: 48px; }
+    .cab .badges { min-width: 0; overflow: hidden; }
+    .barra { padding: 10px 14px; }
+    .barra button { display: inline-flex; align-items: center; }
+    .grupo { border-color: var(--borda2); background: #10141a; }
+    .grupo button { background: transparent; color: var(--suave); }
+    .grupo button:hover { background: #1b222c; color: var(--texto); }
+    .grupo button.ativo { background: var(--azul); color: #fff; }
+    .sobre-info { backdrop-filter: blur(4px); border-radius: 999px; padding: 3px 9px; }
+
+    /* ---------- abas ---------- */
+    .abas { gap: 2px; padding: 8px 10px; }
+    .abas button { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; font-size: 12.5px; }
+    .abas button .ic { width: 15px; height: 15px; opacity: .85; }
+    .abas button.ativa { background: rgba(59,130,246,.14); border-color: rgba(59,130,246,.45); color: #dbeafe; box-shadow: none; }
+    .abas button.ativa .ic { opacity: 1; color: var(--azul2); }
+    .aba { padding: 14px; }
+
+    /* ---------- listas, avisos, janelas ---------- */
+    .lista li { border-bottom-color: #1f2632; }
+    .lista li:last-child { border-bottom: 0; }
+    .aviso { bottom: 24px; padding: 11px 16px 11px 14px; border-radius: 12px; background: rgba(23,29,39,.96); border-color: var(--borda2);
+             box-shadow: 0 14px 40px rgba(0,0,0,.5); border-left: 3px solid #22c55e; backdrop-filter: blur(8px); }
+    .aviso.erro { background: rgba(60,16,16,.96); border-color: #7f1d1d; border-left-color: #ef4444; }
+    dialog.dlg { border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,.6); max-height: 94vh; }
+    dialog.dlg[open] { animation: dlg-entra .18s ease-out; }
+    @keyframes dlg-entra { from { opacity: 0; transform: translateY(8px) scale(.985); } }
+    dialog.dlg::backdrop { background: rgba(4,6,10,.72); }
+    dialog.dlg .cfg-cab { padding: 14px 18px; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+    /* =====================  ABA FACIAL  ===================== */
+    .fx { display: flex; flex-direction: column; gap: 12px; }
+    .fx-hero { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; border: 1px solid var(--borda);
+               background: linear-gradient(180deg, #151b25, #11161e); transition: border-color .25s, box-shadow .25s, background .25s; }
+    .fx-hero .fx-ic { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; flex: none;
+                      background: #1b2230; color: var(--suave); transition: background .25s, color .25s; }
+    .fx-hero .fx-ic .ic { width: 22px; height: 22px; }
+    .fx-hero .fx-txt { flex: 1; min-width: 0; }
+    .fx-hero .fx-tit { font-weight: 650; font-size: 15px; }
+    .fx-hero .contador.rosto-agora { display: inline-block; margin-top: 5px; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+                                     white-space: nowrap; font-size: 12px; padding: 2px 10px; vertical-align: top; }
+    .fx-hero .chave .trilho { width: 46px; height: 26px; }
+    .fx-hero .chave .trilho::after { width: 22px; height: 22px; }
+    .fx-hero .chave input:checked + .trilho::after { left: 22px; }
+    .fx-hero[data-estado="on"] { border-color: rgba(59,130,246,.5); }
+    .fx-hero[data-estado="on"] .fx-ic { background: rgba(59,130,246,.18); color: var(--azul2); }
+    .fx-hero[data-estado="lib"] { border-color: rgba(34,197,94,.6); box-shadow: 0 0 0 3px rgba(34,197,94,.12); background: linear-gradient(180deg, #11231a, #0f1a16); }
+    .fx-hero[data-estado="lib"] .fx-ic { background: rgba(34,197,94,.2); color: #4ade80; }
+    .fx-hero[data-estado="neg"] { border-color: rgba(239,68,68,.65); box-shadow: 0 0 0 3px rgba(239,68,68,.12); background: linear-gradient(180deg, #281416, #1a1113); }
+    .fx-hero[data-estado="neg"] .fx-ic { background: rgba(239,68,68,.2); color: #f87171; }
+    .fx-hero[data-estado="espera"] .fx-ic { background: rgba(245,158,11,.16); color: #fbbf24; }
+    .fx .rosto-detalhe:empty, .fx .rosto-acoes-dica:empty { display: none; }
+    .fx-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .fx-stat { padding: 10px 12px; border-radius: 12px; background: #11161e; border: 1px solid var(--borda); min-width: 0; }
+    .fx-stat b { display: block; font-size: 22px; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .fx-stat span { font-size: 11px; color: var(--suave); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fx-stat.lib b { color: #4ade80; } .fx-stat.neg b { color: #f87171; }
+    .fx-aviso { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; font-size: 12.5px; line-height: 1.45;
+                background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.4); color: #fcd34d; }
+    .fx-aviso[hidden] { display: none; }
+    .fx-aviso .ic { margin-top: 1px; }
+    .fx-opcoes { border: 1px solid var(--borda); border-radius: 12px; background: #11161e; overflow: hidden; }
+    .fx-op { display: flex; align-items: center; gap: 12px; padding: 11px 14px; cursor: pointer; flex-wrap: wrap; }
+    .fx-op[hidden] { display: none; }
+    .fx-op.linha-lente-det { margin-top: 0; }
+    .fx-op + .fx-op { border-top: 1px solid var(--borda); }
+    div.fx-op { cursor: default; }
+    .fx-op-txt { flex: 1 1 180px; min-width: 0; }
+    .fx-op-txt b { display: block; font-weight: 600; font-size: 13px; }
+    .fx-op-txt span { display: block; font-size: 11.5px; color: var(--suave); margin-top: 1px; line-height: 1.35; }
+    .fx-op .chave { flex: none; }
+    .fx-duas { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); align-items: start; }
+    .fx-card { border: 1px solid var(--borda); border-radius: 12px; background: #11161e; min-width: 0; }
+    .fx-card-cab { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--borda); flex-wrap: wrap; }
+    .fx-card-cab h3 { margin: 0; font-size: 13px; font-weight: 650; display: flex; align-items: center; gap: 8px; flex: 1; white-space: nowrap; }
+    .fx-card-cab h3 .ic { color: var(--suave); }
+    .fx-conta { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: #1b2230; color: var(--suave); }
+    .fx-card-corpo { padding: 12px 14px; }
+    .fx-novo { display: flex; gap: 8px; }
+    .fx-novo input[type=text] { min-width: 0; }
+    .fx-novo button { white-space: nowrap; display: inline-flex; align-items: center; }
+    .fx-novo-op { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; color: var(--suave); }
+    .fx-novo-op .chave .rot { font-size: 12px; color: var(--suave); }
+    .fx .lista { max-height: 320px; }
+    .fx .lista.pessoas li { padding: 9px 14px; gap: 10px; }
+    .fx-avatar { width: 38px; height: 38px; border-radius: 50%; flex: none; display: grid; place-items: center; overflow: hidden;
+                 font-weight: 700; font-size: 13px; color: #fff; background: #334155; box-shadow: 0 0 0 2px #11161e, 0 0 0 3px var(--borda2); }
+    .fx-avatar img { width: 100%; height: 100%; border-radius: 0; object-fit: cover; display: block; }
+    .fx-avatar.neg { box-shadow: 0 0 0 2px #11161e, 0 0 0 3px #b91c1c; }
+    .fx-avatar.lib { box-shadow: 0 0 0 2px #11161e, 0 0 0 3px #15803d; }
+    .fx-pp { flex: 1; min-width: 0; }
+    .fx-pp .nome { display: block; font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fx-pp .sec { display: block; font-size: 11px; color: var(--suave); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fx .lista .direita { gap: 4px; flex: none; }
+    .fx-perm { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; padding: 4px 9px 4px 7px; border-radius: 999px;
+               border: 1px solid #166534; background: rgba(22,163,74,.12); color: #86efac; cursor: pointer; }
+    .fx-perm::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .fx-perm.neg { border-color: #991b1b; background: rgba(220,38,38,.12); color: #fca5a5; }
+    .fx-perm:hover { filter: brightness(1.2); background: rgba(22,163,74,.2); }
+    .fx-perm.neg:hover { background: rgba(220,38,38,.2); }
+    .fx-btn-ic { width: 30px; height: 30px; padding: 0 !important; display: inline-grid; place-items: center; background: transparent;
+                 border-color: transparent; color: var(--suave); border-radius: 8px; }
+    .fx-btn-ic:hover { background: #1f2733; color: var(--texto); }
+    .fx-btn-ic.perigo:hover { background: #7f1d1d; color: #fff; }
+    .fx-filtro { display: flex; border: 1px solid var(--borda2); border-radius: 8px; overflow: hidden; }
+    .fx-filtro button { border: 0; border-radius: 0; background: transparent; color: var(--suave); padding: 4px 9px; font-size: 11.5px; }
+    .fx-filtro button.ativo { background: #232c3a; color: #fff; }
+    .fx .lista.rosto-eventos li { padding: 9px 14px; gap: 10px; align-items: center; border-left: 3px solid transparent; }
+    .fx .lista.rosto-eventos li.lib { border-left-color: #16a34a; }
+    .fx .lista.rosto-eventos li.neg { border-left-color: #dc2626; }
+    .fx-foto { width: 46px; height: 46px; border-radius: 9px; flex: none; overflow: hidden; background: #0b0e13; border: 1px solid var(--borda2);
+               padding: 0; display: grid; place-items: center; color: var(--apagado); cursor: zoom-in; }
+    .fx-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .fx-foto.sem { cursor: default; }
+    .fx-ev { flex: 1; min-width: 0; }
+    .fx-ev .l1 { display: flex; align-items: center; gap: 7px; min-width: 0; }
+    .fx-ev .l1 b { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fx-ev .l2 { font-size: 11px; color: var(--suave); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+    .fx-hora { text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; flex: none; }
+    .fx-hora small { display: block; font-size: 10.5px; color: var(--apagado); }
+    .fx .vazio { padding: 18px 14px; text-align: center; }
+    details.fx-card > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 12px 14px; font-size: 13px; font-weight: 650; border-radius: 12px; }
+    details.fx-card > summary::-webkit-details-marker { display: none; }
+    details.fx-card > summary .ic { color: var(--suave); }
+    details.fx-card > summary small { font-weight: 400; color: var(--suave); font-size: 11.5px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    details.fx-card > summary::after { content: ""; width: 8px; height: 8px; border-right: 2px solid var(--suave); border-bottom: 2px solid var(--suave);
+                                       transform: rotate(45deg); transition: transform .2s; margin: 0 4px 3px 0; flex: none; }
+    details.fx-card[open] > summary::after { transform: rotate(225deg); margin-bottom: -3px; }
+    details.fx-card[open] > summary { border-bottom: 1px solid var(--borda); border-radius: 12px 12px 0 0; }
+    .fx-regra { padding: 12px 14px; }
+    .fx-regra + .fx-regra { border-top: 1px solid var(--borda); }
+    .fx-regra > h4 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--suave); display: flex; align-items: center; gap: 7px; }
+    .fx-regra > h4::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--apagado); }
+    .fx-regra.lib > h4::before { background: #22c55e; } .fx-regra.neg > h4::before { background: #ef4444; }
+    .fx-regra .linha .chave { min-width: 92px; }
+    .fx-regra input[type=number] { width: 68px; }
+    .fx-rodape { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--borda); flex-wrap: wrap; }
+    .fx-rodape .dica { flex: 1 1 160px; }
+    #dlg-foto { width: min(920px, 96vw); background: #0b0e13; }
+    #dlg-foto img { display: block; width: 100%; max-height: 76vh; object-fit: contain; background: #000; }
+    #dlg-foto .leg { padding: 12px 16px; display: flex; gap: 10px; align-items: center; font-size: 13px; }
+    #dlg-foto .leg span { flex: 1; min-width: 0; }
+
+    /* ---------- janela do cadastro ---------- */
+    dialog.dlg .cfg-cab h2, .caixa h2 { display: flex; align-items: center; gap: 9px; }
+    dialog.dlg .cfg-cab h2 .ic, .caixa h2 .ic { width: 18px; height: 18px; color: var(--azul2); }
+    @media (max-width: 860px) {
+      #dlg-cad { width: 100vw; max-width: 100vw; max-height: 100dvh; height: 100dvh; margin: 0; border-radius: 0; border: 0; }
+      #dlg-cad .cad-corpo { padding: 12px; gap: 12px; }
+      .cad-dica { font-size: 14px; padding: 8px 14px; bottom: 10px; white-space: normal; border-radius: 14px; }
+      .cad-anel svg { width: 72px; height: 72px; } .cad-anel .num { font-size: 24px; }
+    }
+
+    /* ---------- responsivo: telas pequenas ---------- */
+    @media (max-width: 700px) {
+      .topo { padding: 8px 12px; row-gap: 8px; }
+      .topo h1 { font-size: 15px; flex: 1; }
+      .topo .direita { order: 2; flex: 1 0 100%; overflow-x: auto; scrollbar-width: none; margin: 0 -12px; padding: 0 12px; }
+      .topo .direita::-webkit-scrollbar, .chips::-webkit-scrollbar, .abas::-webkit-scrollbar { display: none; }
+      .topo .direita button { flex: none; padding: 7px 11px; }
+      #colunas { display: none; }
+      .chips { order: 3; scrollbar-width: none; }
+      button, select { min-height: 34px; }
+      .cab .acoes-cab button, .fx-filtro button, .lista button { min-height: 0; }
+      .grade { padding: 10px 8px 30px; gap: 10px; }
+      dialog.dlg { width: 96vw; }
+    }
+    @container cartao (max-width: 620px) {
+      .cab .texto-ip { display: none; }
+      .cab h2 { flex: 1 1 60px; }
+      .cab .badges { flex: 0 1 auto; }
+      .abas { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+              -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }
+      .abas button { flex: none; }
+      .aba { padding: 10px; }
+      .barra { gap: 6px; padding: 8px 10px; }
+      .fx-stat b { font-size: 19px; }
+      .fx-hora small { display: none; }
+    }
+    @container cartao (max-width: 420px) {
+      .cab .acoes-cab .btn-girar-cam, .cab .acoes-cab .btn-tela { display: none; }
+      .fx-novo { flex-wrap: wrap; } .fx-novo button { flex: 1; justify-content: center; }
+    }
   </style>
 </head>
 <body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h9A1.5 1.5 0 0 1 15 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 3 16.5z"/><path d="M15 10.5l6-3.5v10l-6-3.5"/></symbol>
+    <symbol id="i-alerta" viewBox="0 0 24 24"><path d="M12 3.5l9 16h-18z"/><path d="M12 10v4.5"/><path d="M12 17.2v.2"/></symbol>
+    <symbol id="i-som" viewBox="0 0 24 24"><path d="M4 9.5h3l5-4v13l-5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+    <symbol id="i-mudo" viewBox="0 0 24 24"><path d="M4 9.5h3l5-4v13l-5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></symbol>
+    <symbol id="i-mais" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-config" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
+    <symbol id="i-sino" viewBox="0 0 24 24"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
+    <symbol id="i-rosto" viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 10v1M15 10v1M9.5 15a3.5 3.5 0 0 0 5 0"/></symbol>
+    <symbol id="i-sd" viewBox="0 0 24 24"><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M10 3v4M13 4v3"/></symbol>
+    <symbol id="i-ia" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="10" y="10" width="4" height="4"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/></symbol>
+    <symbol id="i-filme" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9.5v5l4.5-2.5z"/></symbol>
+    <symbol id="i-imagem" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M4 17l5-4.5 3.5 3 3-2.5L20 17"/></symbol>
+    <symbol id="i-fone" viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></symbol>
+    <symbol id="i-gravar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.2" fill="currentColor"/></symbol>
+    <symbol id="i-parar" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></symbol>
+    <symbol id="i-foto" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+    <symbol id="i-pessoas" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.2"/><path d="M3 19.5a6 6 0 0 1 12 0"/><path d="M16 5.6a3.2 3.2 0 0 1 0 5.8M17.5 14.2a6 6 0 0 1 3.5 5.3"/></symbol>
+    <symbol id="i-pessoa-mais" viewBox="0 0 24 24"><circle cx="10" cy="8.5" r="3.2"/><path d="M4 19.5a6 6 0 0 1 12 0M19 7v6M16 10h6"/></symbol>
+    <symbol id="i-relogio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-lixo" viewBox="0 0 24 24"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 12.5h9l1-12.5M10 11v5M14 11v5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-raio" viewBox="0 0 24 24"><path d="M13 3L5 13.5h6L10 21l8-10.5h-6z"/></symbol>
+  </defs></svg>
+  {% macro ic(n) %}<svg class="ic" aria-hidden="true"><use href="#i-{{ n }}"/></svg>{% endmacro %}
 
   <!-- ================= TOPO ================= -->
   <header class="topo">
-    <h1>📹 Central de Câmeras</h1>
+    <h1><span class="marca">{{ ic("camera") }}</span>Central de Câmeras</h1>
     <span class="resumo" id="resumo">-</span>
     <div class="chips" id="chips">
       {% for cam in cameras %}
@@ -492,11 +747,11 @@
       {% endfor %}
     </div>
     <div class="direita">
-      {% if tem_xm %}<button id="btn-alerta-geral" title="Luz de alerta + sirene em todas as câmeras">🚨 Alerta geral</button>{% endif %}
-      {% if tem_xm %}<button id="btn-sons">🔊 Sons</button>{% endif %}
-      <button id="btn-cams" title="Buscar, adicionar e remover câmeras">➕ Câmeras</button>
+      {% if tem_xm %}<button id="btn-alerta-geral" title="Luz de alerta + sirene em todas as câmeras">{{ ic("alerta") }}<span>Alerta geral</span></button>{% endif %}
+      {% if tem_xm %}<button id="btn-sons">{{ ic("som") }}<span>Sons</span></button>{% endif %}
+      <button id="btn-cams" title="Buscar, adicionar e remover câmeras">{{ ic("mais") }}<span>Câmeras</span></button>
       <button id="btn-versao" title="Versão e atualização automática">versão</button>
-      <button id="btn-config" title="Configurações (atualização automática e conta das câmeras)">⚙ Config</button>
+      <button id="btn-config" title="Configurações (atualização automática e conta das câmeras)">{{ ic("config") }}<span>Config</span></button>
       <select id="colunas" title="Colunas">
         <option value="auto">Grade automática</option>
         <option value="1">1 coluna</option>
@@ -510,7 +765,7 @@
   <!-- ================= BIBLIOTECA DE SONS ================= -->
   <section class="biblioteca" id="biblioteca" hidden>
     <div class="caixa">
-      <h2>🔊 Biblioteca de sons</h2>
+      <h2>{{ ic("som") }}Biblioteca de sons</h2>
       <div class="bib-grade">
         <div class="bloco">
           <span class="titulo">Sons salvos</span>
@@ -565,7 +820,7 @@
           <span class="badge rec" hidden>REC</span>
           <span class="badge alerta" hidden>🚨 alerta</span>
           <span class="badge camalerta" hidden title="Alerta da própria câmera">🔔 pessoa</span>
-          <span class="badge rosto" hidden>🙂 rostos</span>
+          <span class="badge rosto" hidden>rostos</span>
         </div>
         <div class="acoes-cab">
           <button class="btn-girar" title="Girar só NESTA TELA (não afeta gravações nem o app)">⟲</button>
@@ -616,20 +871,20 @@
             <button class="btn-lente" data-lente="cima">Lente 1</button>
             <button class="btn-lente" data-lente="baixo">Lente 2</button>
           </div>
-          <button class="btn-audio" title="Ouvir o som ambiente da câmera">🎧 Ouvir</button>
+          <button class="btn-audio" title="Ouvir o som ambiente da câmera">{{ ic("fone") }}<span>Ouvir</span></button>
           <span class="espaco"></span>
-          {% if cam.tem_ia %}<button class="btn-gravar" title="Gravar agora (até 5 min)">⏺ Gravar</button>{% endif %}
-          <button class="btn-foto">📷 Foto</button>
+          {% if cam.tem_ia %}<button class="btn-gravar" title="Gravar agora (até 5 min)">{{ ic("gravar") }}<span>Gravar</span></button>{% endif %}
+          <button class="btn-foto" title="Tirar uma foto agora">{{ ic("foto") }}<span>Foto</span></button>
         </div>
 
         <nav class="abas">
-          {% if cam.tem_xm %}<button data-aba="som">🔊 Alto-falante e luz</button>{% endif %}
-          {% if cam.tem_alertas %}<button data-aba="alertas">🔔 Alertas</button>{% endif %}
-          {% if cam.tem_rosto %}<button data-aba="rosto">🙂 Facial</button>{% endif %}
-          {% if cam.tem_xm %}<button data-aba="sd">💾 Cartão SD</button>{% endif %}
-          {% if cam.tem_ia %}<button data-aba="ia">🧠 IA e gravação</button>{% endif %}
-          {% if cam.tem_ia %}<button data-aba="gravacoes">🎞 Gravações</button>{% endif %}
-          <button data-aba="fotos">🖼 Fotos</button>
+          {% if cam.tem_xm %}<button data-aba="som">{{ ic("som") }}Alto-falante e luz</button>{% endif %}
+          {% if cam.tem_alertas %}<button data-aba="alertas">{{ ic("sino") }}Alertas</button>{% endif %}
+          {% if cam.tem_rosto %}<button data-aba="rosto">{{ ic("rosto") }}Facial</button>{% endif %}
+          {% if cam.tem_xm %}<button data-aba="sd">{{ ic("sd") }}Cartão SD</button>{% endif %}
+          {% if cam.tem_ia %}<button data-aba="ia">{{ ic("ia") }}IA e gravação</button>{% endif %}
+          {% if cam.tem_ia %}<button data-aba="gravacoes">{{ ic("filme") }}Gravações</button>{% endif %}
+          <button data-aba="fotos">{{ ic("imagem") }}Fotos</button>
         </nav>
 
         {% if cam.tem_xm %}
@@ -644,7 +899,7 @@
           <div class="xm-corpo desligado">
             <div class="xm-grade">
               <div class="xm-bloco largo">
-                <div class="sub">🔈 Tocar na câmera</div>
+                <div class="sub">Tocar na câmera</div>
                 <div class="linha">
                   <select class="xm-som" style="flex:1; min-width:110px"></select>
                   <button class="btn-xm-tocar btn-verde">▶ Tocar</button>
@@ -663,7 +918,7 @@
               </div>
 
               <div class="xm-bloco xm-alerta-bloco" hidden>
-                <div class="sub">🚨 Luz de alerta (vermelho/azul)</div>
+                <div class="sub">Luz de alerta (vermelho/azul)</div>
                 <div class="btns-alerta">
                   <button class="btn-alerta" data-s="5">5 s</button>
                   <button class="btn-alerta" data-s="10">10 s</button>
@@ -678,12 +933,12 @@
               </div>
 
               <div class="xm-bloco">
-                <div class="sub">🔊 Volume do alto-falante</div>
+                <div class="sub">Volume do alto-falante</div>
                 <div class="linha">
                   <input type="range" class="xm-volume" min="0" max="100" step="5">
                   <b class="val xm-volume-v">-</b>
                 </div>
-                <div class="sub">🔔 Alarme da câmera</div>
+                <div class="sub">Alarme da câmera</div>
                 <div class="linha">
                   <label class="chave"><input type="checkbox" class="sw-alarme"><span class="trilho"></span><span class="rot">Tocar ao detectar movimento</span></label>
                 </div>
@@ -694,7 +949,7 @@
               </div>
 
               <div class="xm-bloco xm-luz-bloco">
-                <div class="sub">💡 Luz branca (holofote)</div>
+                <div class="sub">Luz branca (holofote)</div>
                 <div class="linha">
                   <select class="xm-luz-modo" style="flex:1">
                     {% for valor, rotulo in modos_luz %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}
@@ -709,7 +964,7 @@
               </div>
 
               <div class="xm-bloco xm-led-linha" hidden>
-                <div class="sub">● LED de status</div>
+                <div class="sub">LED de status</div>
                 <label class="chave"><input type="checkbox" class="sw-led"><span class="trilho"></span><span class="rot">LED aceso</span></label>
               </div>
             </div>
@@ -783,101 +1038,138 @@
 
         {% if cam.tem_rosto %}
         <section class="aba" data-aba="rosto">
-          <div class="linha">
-            <label class="chave"><input type="checkbox" class="sw-rosto"><span class="trilho"></span><span class="rot">Reconhecimento facial</span></label>
-            <span style="flex:1"></span>
-            <span class="contador rosto-agora">-</span>
+         <div class="fx">
+          <div class="fx-hero" data-estado="off">
+            <span class="fx-ic">{{ ic("rosto") }}</span>
+            <div class="fx-txt">
+              <div class="fx-tit">Reconhecimento facial</div>
+              <span class="contador rosto-agora">-</span>
+            </div>
+            <label class="chave" title="Ligar / desligar o reconhecimento nesta câmera"><input type="checkbox" class="sw-rosto"><span class="trilho"></span></label>
+          </div>
+
+          <div class="fx-stats">
+            <div class="fx-stat lib"><b class="rosto-hoje-lib">0</b><span>liberados hoje</span></div>
+            <div class="fx-stat neg"><b class="rosto-hoje-neg">0</b><span>negados hoje</span></div>
+            <div class="fx-stat"><b class="rosto-n-pessoas">0</b><span>pessoas cadastradas</span></div>
           </div>
           <div class="dica rosto-detalhe"></div>
-          <div class="dica aviso-lente-facial" hidden style="color:#f59e0b">⚠ Câmera de 2 lentes: escolha <b>Lente 1</b> ou <b>Lente 2</b> em "Detectar em" — é a lente usada no cadastro e na imagem desta aba.</div>
-          <div class="linha linha-lente-det" hidden>
-            <label>Detectar em:</label>
-            <div class="grupo" title="Câmera de 2 lentes: a IA e o reconhecimento olham só esta parte">
-              <button class="btn-lente-det" data-lente="ambas">2 lentes</button>
-              <button class="btn-lente-det" data-lente="cima">Lente 1</button>
-              <button class="btn-lente-det" data-lente="baixo">Lente 2</button>
+
+          <div class="fx-aviso aviso-lente-facial" hidden>{{ ic("alerta") }}<div>Esta câmera tem 2 lentes. Escolha <b>Lente 1</b> ou <b>Lente 2</b> em "Detectar em": é a lente usada no cadastro, no reconhecimento e na imagem desta aba.</div></div>
+
+          <div class="fx-opcoes">
+            <div class="fx-op linha-lente-det" hidden>
+              <div class="fx-op-txt"><b>Detectar em</b><span>Lente onde a IA e o reconhecimento procuram</span></div>
+              <div class="grupo">
+                <button class="btn-lente-det" data-lente="ambas">2 lentes</button>
+                <button class="btn-lente-det" data-lente="cima">Lente 1</button>
+                <button class="btn-lente-det" data-lente="baixo">Lente 2</button>
+              </div>
             </div>
-          </div>
-          <div class="linha" style="margin-top:8px">
-            <label class="chave"><input type="checkbox" class="sw-rosto-acoes"><span class="trilho"></span><span class="rot">Responder na câmera (usa as ações de "O que fazer nas validações")</span></label>
+            <label class="fx-op">
+              <div class="fx-op-txt"><b>Responder na câmera</b><span>Fala e acende a luz conforme as "Ações nas validações" abaixo</span></div>
+              <span class="chave"><input type="checkbox" class="sw-rosto-acoes"><span class="trilho"></span></span>
+            </label>
+            {% if cam.tem_alertas %}
+            <label class="fx-op">
+              <div class="fx-op-txt"><b>Só quando a câmera detectar</b><span>Analisa apenas durante um alerta da câmera (aba Alertas): poupa o PC</span></div>
+              <span class="chave"><input type="checkbox" class="sw-rosto-alerta"><span class="trilho"></span></span>
+            </label>
+            {% endif %}
           </div>
           <div class="dica rosto-acoes-dica"></div>
-          {% if cam.tem_alertas %}
-          <div class="linha" style="margin-top:8px">
-            <label class="chave"><input type="checkbox" class="sw-rosto-alerta"><span class="trilho"></span><span class="rot">Só quando a câmera detectar (aba 🔔 Alertas)</span></label>
-          </div>
-          {% endif %}
 
-          <div class="xm-grade" style="margin-top:10px">
-            <div class="xm-bloco">
-              <div class="sub">📸 Cadastrar pessoa</div>
-              <div class="linha">
-                <input type="text" class="rosto-nome" maxlength="40" placeholder="Nome da pessoa">
-                <button class="btn-rosto-cadastrar btn-verde">Cadastrar</button>
+          <div class="fx-duas">
+            <div class="fx-card">
+              <div class="fx-card-cab">
+                <h3>{{ ic("pessoas") }}Pessoas <span class="fx-conta pessoas-conta">0</span></h3>
+                <input type="search" class="pessoas-busca" placeholder="Buscar..." style="width:130px" hidden>
               </div>
-              <div class="linha">
-                <label class="chave"><input type="checkbox" class="sw-rosto-negado"><span class="trilho"></span><span class="rot">Cadastrar como NEGADO</span></label>
+              <div class="fx-card-corpo">
+                <div class="fx-novo">
+                  <input type="text" class="rosto-nome" maxlength="40" placeholder="Nome da pessoa nova" autocomplete="off">
+                  <button class="btn-rosto-cadastrar btn-verde">{{ ic("pessoa-mais") }}<span>Cadastrar</span></button>
+                </div>
+                <div class="fx-novo-op">
+                  <label class="chave"><input type="checkbox" class="sw-rosto-negado"><span class="trilho"></span><span class="rot">Cadastrar como NEGADO (pessoa que não pode entrar)</span></label>
+                </div>
+                <div class="rosto-cad" hidden>
+                  <div class="barra-prog"><div class="enche"></div></div>
+                  <div class="linha">
+                    <span class="dica rosto-cad-msg"></span>
+                    <span style="flex:1"></span>
+                    <button class="btn-rosto-cancelar">Cancelar</button>
+                  </div>
+                </div>
+                <div class="dica rosto-cad-res"></div>
               </div>
-              <div class="rosto-cad" hidden>
-                <div class="barra-prog"><div class="enche"></div></div>
-                <div class="linha">
-                  <span class="dica rosto-cad-msg"></span>
-                  <span style="flex:1"></span>
-                  <button class="btn-rosto-cancelar">Cancelar</button>
+              <ul class="lista pessoas"></ul>
+              <div class="vazio pessoas-vazio" hidden>Ninguém cadastrado ainda.<br>Quem não está na lista é NEGADO.</div>
+              <div class="vazio pessoas-nada" hidden>Nenhum nome com essa busca.</div>
+            </div>
+
+            <div class="fx-card">
+              <div class="fx-card-cab">
+                <h3>{{ ic("relogio") }}Últimos acessos</h3>
+                <div class="fx-filtro">
+                  <button class="btn-ev-filtro ativo" data-f="">Todos</button>
+                  <button class="btn-ev-filtro" data-f="lib">Liberados</button>
+                  <button class="btn-ev-filtro" data-f="neg">Negados</button>
                 </div>
               </div>
-              <div class="dica rosto-cad-res"></div>
-            </div>
-
-            <div class="xm-bloco">
-              <div class="sub">👥 Pessoas cadastradas</div>
-              <ul class="lista pessoas"></ul>
-              <div class="vazio pessoas-vazio" hidden>Ninguém cadastrado. Quem não está aqui é NEGADO.</div>
-            </div>
-
-            <div class="xm-bloco largo">
-              <div class="sub">🕘 Últimos acessos</div>
               <ul class="lista rosto-eventos"></ul>
-              <div class="vazio rosto-eventos-vazio" hidden>Nenhum acesso desde que o servidor subiu. O histórico completo fica em rostos\historico.csv</div>
+              <div class="vazio rosto-eventos-vazio" hidden>Nenhum acesso por aqui.<br>O histórico completo fica em rostos\historico.csv</div>
             </div>
           </div>
-          <div class="xm-bloco" style="margin-top:12px">
-            <div class="sub">⚙️ O que fazer nas validações <span class="dica" style="font-weight:400">(vale para todas as câmeras)</span></div>
-            <div class="sub" style="margin-top:6px">✅ No LIBERADO</div>
-            <div class="linha">
-              <label class="chave"><input type="checkbox" class="rcfg-ok-falar"><span class="trilho"></span><span class="rot">Falar</span></label>
-              <input type="text" class="rcfg-ok" maxlength="200" placeholder="Acesso liberado, {nome}" style="flex:1"></div>
-            <div class="linha">
-              <label class="chave"><input type="checkbox" class="rcfg-ok-piscar"><span class="trilho"></span><span class="rot">Piscar o holofote</span></label>
-              <input type="number" class="rcfg-ok-vezes" min="1" max="20" step="1" style="width:64px" title="quantas vezes">
-              <span class="dica">vezes, acesa</span>
-              <input type="number" class="rcfg-ok-tempo" min="0.25" max="10" step="0.05" style="width:70px" title="segundos acesa (e o mesmo apagada)">
-              <span class="dica">s cada</span></div>
-            <div class="sub" style="margin-top:6px">⛔ No NEGADO</div>
-            <div class="linha">
-              <label class="chave"><input type="checkbox" class="rcfg-neg-falar"><span class="trilho"></span><span class="rot">Falar</span></label>
-              <input type="text" class="rcfg-neg" maxlength="200" placeholder="Acesso negado" style="flex:1"></div>
-            <div class="linha">
-              <label class="chave"><input type="checkbox" class="rcfg-neg-luz"><span class="trilho"></span><span class="rot">Acender</span></label>
-              <select class="rcfg-acao" style="flex:1">
-                <option value="alerta">Luz de alerta (vermelho/azul)</option>
-                <option value="holofote">Holofote (luz branca)</option>
-              </select>
-              <span class="dica">por</span>
-              <input type="number" class="rcfg-seg" min="1" max="600" step="1" style="width:70px" title="segundos acesa">
-              <span class="dica">s</span></div>
-            <div class="sub" style="margin-top:6px">🔁 Pessoa parada na frente</div>
-            <div class="linha">
-              <span class="rot">Validar de novo a cada</span>
-              <input type="number" class="rcfg-revalidar" min="0" max="300" step="1" style="width:70px" title="0 = só uma vez por pessoa">
-              <span class="dica">s (0 = só uma vez). O som só toca no 1º resultado e quando ele MUDA (ex.: negado → liberado); repetiu: só o aviso visual.</span></div>
-            <div class="linha"><label style="min-width:96px">Voz</label>
-              <select class="rcfg-voz" style="flex:1"><option value="">Padrão</option></select></div>
-            <div class="linha"><span class="dica">Use <code>{nome}</code> para dizer o nome de quem foi liberado.</span>
-              <span style="flex:1"></span>
-              <button class="btn-rcfg-salvar btn-verde">Salvar</button></div>
-          </div>
 
+          <details class="fx-card">
+            <summary>{{ ic("raio") }}Ações nas validações <small>o que a câmera faz ao liberar ou negar · vale para todas as câmeras</small></summary>
+            <div class="fx-regra lib">
+              <h4>No liberado</h4>
+              <div class="linha">
+                <label class="chave"><input type="checkbox" class="rcfg-ok-falar"><span class="trilho"></span><span class="rot">Falar</span></label>
+                <input type="text" class="rcfg-ok" maxlength="200" placeholder="Acesso liberado, {nome}" style="flex:1"></div>
+              <div class="linha">
+                <label class="chave"><input type="checkbox" class="rcfg-ok-piscar"><span class="trilho"></span><span class="rot">Piscar o holofote</span></label>
+                <input type="number" class="rcfg-ok-vezes" min="1" max="20" step="1" title="quantas vezes">
+                <span class="dica">vezes, acesa</span>
+                <input type="number" class="rcfg-ok-tempo" min="0.25" max="10" step="0.05" title="segundos acesa (e o mesmo apagada)">
+                <span class="dica">s cada</span></div>
+            </div>
+            <div class="fx-regra neg">
+              <h4>No negado</h4>
+              <div class="linha">
+                <label class="chave"><input type="checkbox" class="rcfg-neg-falar"><span class="trilho"></span><span class="rot">Falar</span></label>
+                <input type="text" class="rcfg-neg" maxlength="200" placeholder="Acesso negado" style="flex:1"></div>
+              <div class="linha">
+                <label class="chave"><input type="checkbox" class="rcfg-neg-luz"><span class="trilho"></span><span class="rot">Acender</span></label>
+                <select class="rcfg-acao" style="flex:1;min-width:150px">
+                  <option value="alerta">Luz de alerta (vermelho/azul)</option>
+                  <option value="holofote">Holofote (luz branca)</option>
+                </select>
+                <span class="dica">por</span>
+                <input type="number" class="rcfg-seg" min="1" max="600" step="1" title="segundos acesa">
+                <span class="dica">s</span></div>
+            </div>
+            <div class="fx-regra">
+              <h4>Pessoa parada na frente</h4>
+              <div class="linha">
+                <span class="rot">Validar de novo a cada</span>
+                <input type="number" class="rcfg-revalidar" min="0" max="300" step="1" title="0 = só uma vez por pessoa">
+                <span class="rot">s</span></div>
+              <div class="dica">0 = só uma vez. O som toca no 1º resultado e quando ele muda (ex.: negado → liberado); se repetir, só o aviso visual.</div>
+            </div>
+            <div class="fx-regra">
+              <h4>Voz</h4>
+              <div class="linha">
+                <select class="rcfg-voz" style="flex:1"><option value="">Padrão</option></select></div>
+            </div>
+            <div class="fx-rodape">
+              <span class="dica">Use <code>{nome}</code> na frase para dizer o nome de quem foi liberado.</span>
+              <button class="btn-rcfg-salvar btn-verde">Salvar ações</button>
+            </div>
+          </details>
+         </div>
         </section>
         {% endif %}
 
@@ -897,7 +1189,7 @@
           <div class="dica modo-alerta-info"></div>
           <div class="dica">A detecção é a da PRÓPRIA câmera: sensibilidade, área de aviso e horário continuam no app iCSee (Alarme inteligente). Não usa a IA do PC.</div>
           <div class="xm-bloco rastreio-bloco" style="margin-top:8px">
-            <div class="sub">🎯 Seguir pessoa (lente móvel) <span class="dica" style="font-weight:400">o mesmo "Rastreamento de movimento" do app</span></div>
+            <div class="sub">Seguir pessoa (lente móvel) <span class="dica" style="font-weight:400">o mesmo "Rastreamento de movimento" do app</span></div>
             <div class="linha">
               <label class="chave"><input type="checkbox" class="sw-rastreio"><span class="trilho"></span><span class="rot">Rastreamento</span></label>
             </div>
@@ -930,12 +1222,18 @@
     </div>
   </main>
 
-  <div id="aviso" class="aviso"></div>
+  <div id="aviso" class="aviso" role="status" aria-live="polite"></div>
+
+  <!-- ================= FOTO DE UM ACESSO (ampliada) ================= -->
+  <dialog id="dlg-foto" class="dlg">
+    <img id="foto-img" alt="Foto do acesso">
+    <div class="leg"><span id="foto-leg"></span><button id="foto-fechar">Fechar</button></div>
+  </dialog>
 
   <!-- ================= MENU ➕ CÂMERAS ================= -->
   <dialog id="dlg-cams" class="dlg" data-vazio="{{ 1 if sem_cameras else 0 }}">
     <div class="cfg-cab">
-      <h2>📷 Câmeras</h2>
+      <h2>{{ ic("camera") }}Câmeras</h2>
       <button id="cams-fechar" class="btn-icone" title="Fechar">✕</button>
     </div>
     <div class="cfg-corpo">
@@ -986,7 +1284,7 @@
         </div>
 
         <div class="cfg-bloco" id="ca-bloco-som" style="margin-top:12px">
-          <h3>🔊 Som e luz (porta 34567)</h3>
+          <h3>Som e luz (porta 34567)</h3>
           <label class="opcao"><input type="radio" name="ca-som" value="conta" checked>
             <span><b>Já sei a conta</b> — a câmera já funciona em outro PC (ou você já fixou a senha). Não muda nada na câmera.</span></label>
           <div class="sub linha" id="ca-sub-conta">
@@ -1017,8 +1315,8 @@
   <!-- ================= CADASTRO FACIAL (janela guiada) ================= -->
   <dialog id="dlg-cad" class="dlg">
     <div class="cfg-cab">
-      <h2 id="cad-titulo">📸 Cadastro facial</h2>
-      <button id="cad-fechar" class="btn-icone" title="Cancelar e fechar">✕</button>
+      <h2>{{ ic("rosto") }}<span id="cad-titulo">Cadastro facial</span></h2>
+      <button id="cad-fechar" class="fx-btn-ic" title="Cancelar e fechar">{{ ic("x") }}</button>
     </div>
     <div class="cad-corpo">
       <div class="cad-palco" id="cad-palco">
@@ -1079,12 +1377,12 @@
   <!-- ================= MENU ⚙ CONFIG ================= -->
   <dialog id="dlg-config" class="dlg">
     <div class="cfg-cab">
-      <h2>⚙ Configurações</h2>
+      <h2>{{ ic("config") }}Configurações</h2>
       <button id="cfg-fechar" class="btn-icone" title="Fechar">✕</button>
     </div>
     <div class="cfg-corpo">
       <div class="cfg-bloco">
-        <h3>⬆ Atualização pelo GitHub</h3>
+        <h3>Atualização pelo GitHub</h3>
         <label class="sw-linha" style="display:flex;align-items:center;gap:10px;cursor:pointer">
           <span class="chave"><input type="checkbox" id="ver-auto-sw" checked><span class="trilho"></span></span>
           <span><b>Atualizar sozinho</b> — quando tiver versão nova (e nada gravando), baixa, confere e reabre a Central</span>
@@ -1108,7 +1406,7 @@
       <div class="cfg-info" id="cfg-info">-</div>
 
       <div class="cfg-bloco">
-        <h3>🔑 Resetei a câmera — descobrir a conta e fixar a senha</h3>
+        <h3>Resetei a câmera — descobrir a conta e fixar a senha</h3>
         <div class="dica">Use logo depois do reset (e de adicionar a câmera de novo no app iCSee).
           O sistema entra com o admin de fábrica, descobre a conta real da câmera, fixa a senha abaixo nela,
           grava no config.py (com backup) e reconecta sozinho. Não precisa fechar nada.</div>
@@ -1120,7 +1418,7 @@
       </div>
 
       <div class="cfg-bloco">
-        <h3>✏ Já sei a conta — só trocar</h3>
+        <h3>Já sei a conta — só trocar</h3>
         <div class="dica">Confere se a conta loga (não muda nada na câmera) e, se logar, grava e reconecta.</div>
         <div class="linha">
           <input type="text" id="cfg-usuario" maxlength="30" placeholder="usuário (ex.: swua)" style="flex:0 1 160px">
@@ -1150,6 +1448,16 @@
       el.className = "aviso visivel" + (erro ? " erro" : "");
       clearTimeout(timerAviso);
       timerAviso = setTimeout(() => { el.className = "aviso"; }, 3200);
+    }
+
+    // ícones (mesmos do HTML) e rótulo de botão com ícone + texto
+    const IC = n => '<svg class="ic" aria-hidden="true"><use href="#i-' + n + '"/></svg>';
+    function rotulo(botao, icone, texto) {
+      const chave = icone + "|" + texto;
+      if (botao.dataset.rotulo === chave) return;          // já está assim: não redesenha
+      botao.dataset.rotulo = chave;
+      botao.innerHTML = IC(icone);
+      const s = document.createElement("span"); s.textContent = texto; botao.append(s);
     }
 
     async function postJSON(url, corpo) {
@@ -1306,7 +1614,7 @@
     function pararAudio() {
       if (!audioAtual) return;
       try { audioAtual.parar(); } catch (e) { /* ignora */ }
-      audioAtual.botao.textContent = "🎧 Ouvir";
+      rotulo(audioAtual.botao, "fone", "Ouvir");
       audioAtual.botao.classList.remove("ativo");
       audioAtual = null;
     }
@@ -1473,7 +1781,7 @@
         pararAudio();
         if (jaEra) return;
         audioAtual = ouvirPCM(cid, btnAudio);
-        btnAudio.textContent = "🔇 Parar";
+        rotulo(btnAudio, "mudo", "Parar");
         btnAudio.classList.add("ativo");
       });
 
@@ -2166,7 +2474,7 @@
       const bg = q(".btn-gravar");
       if (bg) {
         bg.classList.toggle("ativo", c._manual);
-        bg.textContent = c._manual ? "⏹ Parar gravação" : "⏺ Gravar";
+        rotulo(bg, c._manual ? "parar" : "gravar", c._manual ? "Parar gravação" : "Gravar");
         bg.hidden = !(ia && ia.gravacao_disponivel);
       }
       q(".badge.rec").hidden = !(ia && ia.gravando);
@@ -2301,6 +2609,10 @@
           if (x.alerta_parecido) $("cad-fim-aviso").textContent = "⚠ parecido demais com " + x.mais_parecido + " (" + x.semelhanca_outro + ")";
           $("cad-de-novo").hidden = true;
           $("cad-dica").textContent = "Pronto!"; $("cad-dica").className = "cad-dica ok";
+          // (o status da página fica parado durante o cadastro: atualiza a lista por aqui)
+          carregarPessoas();
+          if (card) { const cn = card.querySelector(".rosto-nome"); if (cn) cn.value = ""; }
+          aviso(x.nome + (x.somou ? ": fotos somadas ao cadastro" : " cadastrado(a)"));
           $("cad-oval-prog").style.strokeDashoffset = 0; $("cad-guia").setAttribute("class", "guia st-ok");
         } else {
           ic.textContent = "✕"; ic.className = "grande"; ic.style.color = "#ef4444";
@@ -2358,7 +2670,7 @@
       function abrir(c, n, neg) {
         card = c; cid = c.dataset.cid; nome = n; negado = !!neg;
         zera();
-        $("cad-titulo").textContent = "📸 Cadastro facial · " + (c.querySelector(".cab h2") || {}).textContent;
+        $("cad-titulo").textContent = "Cadastro facial · " + (c.querySelector(".cab h2") || {}).textContent;
         $("cad-pessoa").textContent = n + (negado ? " (como NEGADO)" : "");
         pausaCadastro = true;                       // solta o vídeo dos cartões e as consultas
         CARDS.forEach(atualizaVideo);
@@ -2426,6 +2738,12 @@
       }
       btn.addEventListener("click", cadastrar);
       nome.addEventListener("keydown", e => { if (e.key === "Enter") cadastrar(); });
+      q(".pessoas-busca").addEventListener("input", () => desenhaPessoas(c));
+      c.querySelectorAll(".btn-ev-filtro").forEach(b => b.addEventListener("click", () => {
+        c._filtroEv = b.dataset.f;
+        c.querySelectorAll(".btn-ev-filtro").forEach(o => o.classList.toggle("ativo", o === b));
+        desenhaRostoEventos(c);
+      }));
       q(".btn-rosto-cancelar").addEventListener("click", () => postJSON("/api/rosto/" + cid + "/cancelar"));
     }
 
@@ -2441,9 +2759,11 @@
       const q = s => c.querySelector(s);
       const sw = q(".sw-rosto"), swA = q(".sw-rosto-acoes");
       const cont = q(".rosto-agora"), det = q(".rosto-detalhe"), badge = q(".badge.rosto");
+      const hero = q(".fx-hero");
       if (!r || !r.disponivel) {
         sw.disabled = true; sw.checked = false; swA.disabled = true;
-        cont.textContent = "indisponível"; cont.className = "contador rosto-agora";
+        hero.dataset.estado = "off";
+        cont.textContent = "Indisponível"; cont.className = "contador rosto-agora";
         det.textContent = r ? (r.erro || "") : "";
         badge.hidden = true;
         return;
@@ -2456,24 +2776,29 @@
         ? "Esta câmera não tem alto-falante/luz: só registra os acessos."
         : (r.ultima_acao ? "Última ação: " + r.ultima_acao : "");
 
-      let classe = "", texto = "desligado";
+      let classe = "", texto = "Desligado";
       if (r.ativo) {
         const lib = r.rostos.find(x => x.status === "permitido");
         const neg = r.rostos.find(x => x.status === "negado" || x.status === "desconhecido");
-        texto = r.rostos.length ? r.rostos.map(textoRosto).join(" · ") : "ninguém";
+        texto = r.aguardando_alerta ? "Aguardando a câmera detectar"
+              : r.rostos.length ? r.rostos.map(textoRosto).join(" · ") : "Ligado · ninguém na imagem";
         classe = lib ? "lib" : (neg ? "neg" : "");
         det.textContent = r.aguardando_alerta
-          ? "Ligado, aguardando a câmera detectar (não analisa nada até lá)."
-          : r.por_s + " análises/s · " + r.ms + " ms · imagem de " + r.largura + " px · "
-            + r.pessoas + (r.pessoas === 1 ? " pessoa cadastrada" : " pessoas cadastradas");
+          ? "Não analisa nada até a câmera dar um alerta."
+          : r.por_s + " análises/s · " + r.ms + " ms por análise · imagem de " + r.largura + " px";
       } else {
-        det.textContent = r.pessoas ? "" : "Cadastre as pessoas permitidas abaixo. Quem não estiver cadastrado é NEGADO.";
+        det.textContent = r.pessoas ? "" : "Cadastre abaixo as pessoas permitidas. Quem não estiver cadastrado é NEGADO.";
       }
+      hero.dataset.estado = !r.ativo ? "off" : r.aguardando_alerta ? "espera" : (classe || "on");
+      const hoje = r.hoje || {};
+      q(".rosto-hoje-lib").textContent = hoje.liberados || 0;
+      q(".rosto-hoje-neg").textContent = hoje.negados || 0;
+      q(".rosto-n-pessoas").textContent = r.pessoas || 0;
       cont.textContent = texto;
       cont.className = "contador rosto-agora" + (classe ? " " + classe : "");
       badge.hidden = !r.ativo;
       badge.className = "badge rosto" + (classe ? " " + classe : "");
-      badge.textContent = r.ativo ? "🙂 " + (r.rostos.length ? textoRosto(r.rostos[0]) : "rostos") : "";
+      badge.textContent = r.ativo ? (r.rostos.length ? textoRosto(r.rostos[0]) : "facial ligado") : "";
 
       // cadastro em andamento / resultado
       const cad = r.cadastro, box = q(".rosto-cad"), res = q(".rosto-cad-res");
@@ -2523,75 +2848,141 @@
       c._ultAcao = ev ? ev.acao : null;
     }
 
+    // ---- datas amigáveis ("hoje", "ontem", "12/11") ----
+    function diaLocal(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+    function diaAmigavel(hora) {
+      if (!hora) return "";
+      const dia = hora.slice(0, 10), agora = new Date(), ontem = new Date(agora.getTime() - 864e5);
+      if (dia === diaLocal(agora)) return "hoje";
+      if (dia === diaLocal(ontem)) return "ontem";
+      return dia.slice(8, 10) + "/" + dia.slice(5, 7);
+    }
+    function iniciais(nome) {
+      const p = (nome || "?").trim().split(/\s+/);
+      return ((p[0] || "?")[0] + (p.length > 1 ? p[p.length - 1][0] : "")).toUpperCase();
+    }
+    const CORES_AVATAR = ["#2563eb", "#7c3aed", "#0891b2", "#c2410c", "#be185d", "#15803d", "#a16207", "#4f46e5"];
+    function corDoNome(nome) { let h = 0; for (const ch of (nome || "")) h = (h * 31 + ch.codePointAt(0)) >>> 0; return CORES_AVATAR[h % CORES_AVATAR.length]; }
+
+    // ---- foto de um acesso, ampliada dentro da própria janela ----
+    const dlgFoto = document.getElementById("dlg-foto");
+    function abreFoto(url, legenda) {
+      document.getElementById("foto-img").src = url;
+      document.getElementById("foto-leg").textContent = legenda || "";
+      if (!dlgFoto.open) dlgFoto.showModal();
+    }
+    document.getElementById("foto-fechar").addEventListener("click", () => dlgFoto.close());
+    dlgFoto.addEventListener("click", e => { if (e.target === dlgFoto) dlgFoto.close(); });
+    dlgFoto.addEventListener("close", () => document.getElementById("foto-img").removeAttribute("src"));
+
     async function carregarRostoEventos(c) {
-      const lista = c.querySelector(".rosto-eventos");
-      if (!lista) return;
-      try {
-        const eventos = await (await fetch("/api/rosto/" + c.dataset.cid + "/eventos", { cache: "no-store" })).json();
-        lista.innerHTML = "";
-        c.querySelector(".rosto-eventos-vazio").hidden = eventos.length > 0;
-        eventos.forEach(ev => {
-          const li = document.createElement("li");
-          const h = document.createElement("span"); h.className = "hora"; h.textContent = ev.hora.slice(11);
-          const t = document.createElement("span");
-          const lib = ev.status === "permitido";
-          t.className = "tag " + (lib ? "lib" : "neg"); t.textContent = lib ? "LIBERADO" : "NEGADO";
-          const n = document.createElement("span");
-          n.textContent = (ev.nome || "desconhecido") + " · " + Math.round(ev.sim * 100) + "%";
-          li.append(h, t, n);
-          if (ev.acao) { const a = document.createElement("span"); a.className = "acao"; a.textContent = ev.acao; li.append(a); }
-          const dir = document.createElement("span"); dir.className = "direita";
-          if (ev.foto) { const a = document.createElement("a"); a.href = ev.foto; a.target = "_blank"; a.textContent = "ver foto"; dir.append(a); }
-          li.append(dir);
-          lista.appendChild(li);
-        });
-      } catch (e) { /* ignora */ }
+      if (!c.querySelector(".rosto-eventos")) return;
+      try { c._eventosRosto = await (await fetch("/api/rosto/" + c.dataset.cid + "/eventos", { cache: "no-store" })).json(); }
+      catch (e) { return; }
+      desenhaRostoEventos(c);
     }
 
+    function desenhaRostoEventos(c) {
+      const lista = c.querySelector(".rosto-eventos"), f = c._filtroEv || "";
+      const eventos = (c._eventosRosto || []).filter(ev => !f || (ev.status === "permitido") === (f === "lib"));
+      lista.innerHTML = "";
+      c.querySelector(".rosto-eventos-vazio").hidden = eventos.length > 0;
+      eventos.forEach(ev => {
+        const lib = ev.status === "permitido", quem = ev.nome || "Desconhecido";
+        const li = document.createElement("li"); li.className = lib ? "lib" : "neg";
+        const mini = ev.mini || (ev.foto ? ev.foto + "?mini=1" : null);
+        const ft = document.createElement(ev.foto ? "button" : "span");
+        ft.className = "fx-foto" + (mini ? "" : " sem");
+        if (mini) {
+          const im = new Image(); im.alt = ""; im.loading = "lazy";
+          im.onerror = () => { ft.classList.add("sem"); ft.innerHTML = IC("rosto"); };
+          im.src = mini; ft.append(im);
+        } else ft.innerHTML = IC("rosto");
+        if (ev.foto) {
+          ft.title = "Ver a foto";
+          ft.addEventListener("click", () => abreFoto(ev.foto, (lib ? "Liberado" : "Negado") + " · " + quem + " · " + diaAmigavel(ev.hora) + " às " + ev.hora.slice(11)));
+        }
+        const meio = document.createElement("div"); meio.className = "fx-ev";
+        const l1 = document.createElement("div"); l1.className = "l1";
+        const b = document.createElement("b"); b.textContent = quem;
+        const t = document.createElement("span"); t.className = "tag " + (lib ? "lib" : "neg"); t.textContent = lib ? "LIBERADO" : "NEGADO";
+        l1.append(b, t);
+        const l2 = document.createElement("div"); l2.className = "l2";
+        l2.textContent = [ev.sim ? "semelhança " + Math.round(ev.sim * 100) + "%" : "", ev.repeticao ? "de novo" : "", ev.acao || ""].filter(Boolean).join(" · ");
+        l2.title = l2.textContent;
+        meio.append(l1, l2);
+        const h = document.createElement("div"); h.className = "fx-hora";
+        h.textContent = ev.hora.slice(11);
+        const dia = document.createElement("small"); dia.textContent = diaAmigavel(ev.hora); h.append(dia);
+        li.append(ft, meio, h);
+        lista.appendChild(li);
+      });
+    }
+
+    let PESSOAS = [];
     async function carregarPessoas() {
-      let pessoas;
-      try { pessoas = await (await fetch("/api/rostos/pessoas", { cache: "no-store" })).json(); }
+      try { PESSOAS = await (await fetch("/api/rostos/pessoas", { cache: "no-store" })).json(); }
       catch (e) { return; }
-      CARDS.filter(c => c.dataset.rosto === "1").forEach(c => {
-        const lista = c.querySelector(".pessoas");
-        lista.innerHTML = "";
-        c.querySelector(".pessoas-vazio").hidden = pessoas.length > 0;
-        pessoas.forEach(p => {
-          const li = document.createElement("li");
-          const img = document.createElement("img");
-          if (p.miniatura) img.src = p.miniatura + "?v=" + p.fotos;
-          img.alt = "";
-          const nm = document.createElement("span"); nm.className = "nome"; nm.textContent = p.nome;
-          const qt = document.createElement("span"); qt.className = "sec"; qt.textContent = p.fotos + " fotos";
-          const dir = document.createElement("span"); dir.className = "direita";
-          const ch = document.createElement("label"); ch.className = "chave";
-          ch.title = "Permitido (desligado = negado)";
-          const inp = document.createElement("input"); inp.type = "checkbox"; inp.checked = p.permitido;
-          const tr = document.createElement("span"); tr.className = "trilho";
-          const rt = document.createElement("span"); rt.className = "rot"; rt.textContent = p.permitido ? "permitido" : "negado";
-          ch.append(inp, tr, rt);
-          inp.addEventListener("change", async () => {
-            inp.disabled = true;
-            const r = await fetch("/api/rostos/pessoas/" + encodeURIComponent(p.nome), {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ permitido: inp.checked }) });
-            const d = await r.json().catch(() => ({ ok: false, erro: "HTTP " + r.status }));
-            if (!d.ok) aviso("Erro: " + d.erro, true);
-            else aviso(p.nome + (inp.checked ? " agora é PERMITIDO" : " agora é NEGADO"));
-            carregarPessoas();
-          });
-          const del = document.createElement("button"); del.textContent = "🗑"; del.title = "Remover do cadastro";
-          del.addEventListener("click", async () => {
-            if (!confirm("Remover " + p.nome + " do cadastro? (as fotos vão para rostos\\removidos)")) return;
-            const r = await fetch("/api/rostos/pessoas/" + encodeURIComponent(p.nome), { method: "DELETE" });
-            const d = await r.json().catch(() => ({ ok: false, erro: "HTTP " + r.status }));
-            if (!d.ok) aviso("Erro: " + d.erro, true); else aviso(p.nome + " removido");
-            carregarPessoas();
-          });
-          dir.append(ch, del);
-          li.append(img, nm, qt, dir);
-          lista.appendChild(li);
+      CARDS.filter(c => c.dataset.rosto === "1").forEach(desenhaPessoas);
+    }
+
+    async function pedePessoa(nome, metodo, corpo) {
+      const r = await fetch("/api/rostos/pessoas/" + encodeURIComponent(nome), {
+        method: metodo, headers: { "Content-Type": "application/json" }, body: corpo ? JSON.stringify(corpo) : undefined });
+      return r.json().catch(() => ({ ok: false, erro: "HTTP " + r.status }));
+    }
+
+    function desenhaPessoas(c) {
+      const lista = c.querySelector(".pessoas"), busca = c.querySelector(".pessoas-busca");
+      const termo = (busca.value || "").trim().toLowerCase();
+      const pessoas = PESSOAS.filter(p => !termo || p.nome.toLowerCase().includes(termo));
+      lista.innerHTML = "";
+      c.querySelector(".pessoas-conta").textContent = PESSOAS.length;
+      busca.hidden = PESSOAS.length < 6 && !termo;
+      c.querySelector(".pessoas-vazio").hidden = PESSOAS.length > 0;
+      c.querySelector(".pessoas-nada").hidden = !(PESSOAS.length > 0 && pessoas.length === 0);
+      pessoas.forEach(p => {
+        const li = document.createElement("li");
+        const av = document.createElement("span"); av.className = "fx-avatar " + (p.permitido ? "lib" : "neg");
+        av.style.background = corDoNome(p.nome); av.textContent = iniciais(p.nome);
+        if (p.miniatura) {
+          const img = new Image(); img.alt = "";
+          img.onload = () => { av.textContent = ""; av.append(img); };
+          img.src = p.miniatura + "?v=" + p.fotos;
+        }
+        const meio = document.createElement("div"); meio.className = "fx-pp";
+        const nm = document.createElement("span"); nm.className = "nome"; nm.textContent = p.nome; nm.title = p.nome;
+        const qt = document.createElement("span"); qt.className = "sec";
+        qt.textContent = p.fotos + " fotos" + (p.visto ? " · visto " + diaAmigavel(p.visto) + " " + p.visto.slice(11, 16) : " · ainda não visto");
+        meio.append(nm, qt);
+        const dir = document.createElement("span"); dir.className = "direita";
+        const perm = document.createElement("button"); perm.className = "fx-perm" + (p.permitido ? "" : " neg");
+        perm.textContent = p.permitido ? "Permitido" : "Negado";
+        perm.title = p.permitido ? "Clique para NEGAR o acesso desta pessoa" : "Clique para PERMITIR o acesso desta pessoa";
+        perm.addEventListener("click", async () => {
+          perm.disabled = true;
+          const d = await pedePessoa(p.nome, "POST", { permitido: !p.permitido });
+          if (!d.ok) aviso("Erro: " + d.erro, true);
+          else aviso(p.nome + (!p.permitido ? " agora é PERMITIDO" : " agora é NEGADO"));
+          carregarPessoas();
         });
+        const mais = document.createElement("button"); mais.className = "fx-btn-ic"; mais.innerHTML = IC("pessoa-mais");
+        mais.title = "Tirar mais fotos de " + p.nome + " (melhora o reconhecimento: outra luz, óculos, boné...)";
+        mais.addEventListener("click", () => {
+          c.querySelector(".rosto-nome").value = p.nome;
+          c.querySelector(".sw-rosto-negado").checked = !p.permitido;
+          c.querySelector(".btn-rosto-cadastrar").click();
+        });
+        const del = document.createElement("button"); del.className = "fx-btn-ic perigo"; del.innerHTML = IC("lixo"); del.title = "Remover do cadastro";
+        del.addEventListener("click", async () => {
+          if (!confirm("Remover " + p.nome + " do cadastro? (as fotos vão para rostos\\removidos)")) return;
+          const d = await pedePessoa(p.nome, "DELETE");
+          if (!d.ok) aviso("Erro: " + d.erro, true); else aviso(p.nome + " removido");
+          carregarPessoas();
+        });
+        dir.append(perm, mais, del);
+        li.append(av, meio, dir);
+        lista.appendChild(li);
       });
     }
 
@@ -2644,7 +3035,7 @@
       if (btnGeral) {
         alertaGeralLigado = CARDS.some(c => c._alertaLigada);
         btnGeral.classList.toggle("ativo", alertaGeralLigado);
-        btnGeral.textContent = alertaGeralLigado ? "⏹ Parar alerta" : "🚨 Alerta geral";
+        rotulo(btnGeral, alertaGeralLigado ? "parar" : "alerta", alertaGeralLigado ? "Parar alerta" : "Alerta geral");
       }
     }
 
