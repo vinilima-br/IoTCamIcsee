@@ -764,9 +764,16 @@ def _monta_icsee(cid, nome, ip, usuario, senha, porta_onvif, perfil_ptz="000",
     porta = porta_onvif or None
 
     def descobre():
-        if not senha:
-            raise onvif_rtsp.ErroOnvif("preencha a senha da {} no config.py".format(nome))
-        return onvif_rtsp.descobre_urls(ip, usuario, senha, porta_onvif=porta)
+        # Senha vazia é normal: a maioria das iCSee não confere o login do vídeo,
+        # e o cadastro pelo painel salva assim quando o vídeo veio sem login.
+        try:
+            return onvif_rtsp.descobre_urls(ip, usuario or "admin", senha, porta_onvif=porta)
+        except onvif_rtsp.ErroOnvif as e:
+            if not senha:
+                raise onvif_rtsp.ErroOnvif("{} - esta câmera pode pedir login para o vídeo: "
+                                           "remova e adicione de novo em Câmeras, com o e-mail e a "
+                                           "senha do app iCSee".format(e))
+            raise
 
     cam = Camera(cid, nome, stream_inicial=1, descobridor=descobre)
     CAMERAS[cid] = cam
