@@ -84,3 +84,17 @@ versao.txt
 _atualizacao/
 atualizacao.json
 ptz_inverter.json
+
+# --- sistema local de portaria ---
+portaria_ui/node_modules/
+data/portaria.db
+data/portaria.db-shm
+data/portaria.db-wal
+data/face_sync.json
+data/fotos_cadastro/
+data/snapshots/
+dist/
+build/
+desktop_app.spec
+!portaria_ui/dist/
+!portaria_ui/dist/**
