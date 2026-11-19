@@ -34,7 +34,8 @@ if PASTA not in sys.path:
 
 TITULO = "Central de Câmeras"
 ICONE = os.path.join(APP, "icone.ico")
-DADOS_JANELA = os.path.join(PASTA, "janela_dados")   # guarda o que a página lembra (câmeras escondidas, colunas...)
+import caminhos  # noqa: E402
+DADOS_JANELA = caminhos.pasta("janela", antiga="janela_dados")   # dados\janela\ (antes: janela_dados\)   # guarda o que a página lembra (câmeras escondidas, colunas...)
 
 try:
     import config

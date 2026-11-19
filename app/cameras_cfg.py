@@ -370,9 +370,8 @@ def _insere(bloco):
 def _grava(prov, antigo, novo):
     compile(novo, prov.CONFIG_PY, "exec")                    # nunca grava config.py quebrado
     carimbo = time.strftime("%Y%m%d_%H%M%S")
-    backup, n = prov.CONFIG_PY + ".bak_" + carimbo, 2
-    while os.path.exists(backup):
-        backup, n = prov.CONFIG_PY + ".bak_%s_%d" % (carimbo, n), n + 1
+    import caminhos
+    backup = caminhos.backup_config(prov.CONFIG_PY, carimbo)       # dados\backups\ (guarda as 15 últimas)
     with open(backup, "w", encoding="utf-8") as f:
         f.write(antigo)
     with open(prov.CONFIG_PY, "w", encoding="utf-8") as f:

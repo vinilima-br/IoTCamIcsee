@@ -39,7 +39,7 @@ reconhecimento)? Abra uma **Issue** explicando, e o Vini faz a parte dele.
 
 ```
 gestao/
-  api/            FastAPI + SQLite (banco em data/portaria.db, fora do Git)
+  api/            FastAPI + SQLite (banco em dados/gestao/portaria.db, fora do Git)
     main.py         rotas /api/... e a tela
     models.py       tabelas (unidades, pessoas, veículos, visitantes, encomendas, logs)
     schemas.py      validação dos dados
@@ -66,4 +66,4 @@ ou `VISITANTE-<id>-<nome>`.
 
 ## Não vai pro Git
 
-`config.py` (senhas), `data/` (banco, fotos, snapshots), `gestao/ui/node_modules/`.
+`config.py` (senhas), `dados/` (banco da gestão em `dados/gestao/`, fotos, snapshots), `gestao/ui/node_modules/`.

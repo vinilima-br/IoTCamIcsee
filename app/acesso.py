@@ -22,7 +22,8 @@ import threading
 import time
 
 PASTA = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ARQUIVO = os.path.join(PASTA, "acesso.json")
+import caminhos  # noqa: E402
+ARQUIVO = caminhos.estado("acesso.json")          # dados\estado\ (antes: na raiz)
 VOLTAS = 200_000
 TAMANHO_MIN = 6
 TENTATIVAS = 5            # erros seguidos antes de travar o aparelho

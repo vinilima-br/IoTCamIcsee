@@ -102,3 +102,6 @@ desktop_app.spec
 # backups locais (podem ter config.py com senhas)
 _arquivo/
 /python
+
+# tudo que o sistema gera (estado, backups do config, cache, banco da gestao...)
+dados/

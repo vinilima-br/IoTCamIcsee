@@ -15,7 +15,8 @@ import os
 import threading
 
 PASTA = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ARQUIVO = os.path.join(PASTA, "lentes_deteccao.json")
+import caminhos  # noqa: E402
+ARQUIVO = caminhos.estado("lentes_deteccao.json")        # dados\estado\ (antes: na raiz)
 OPCOES = ("ambas", "cima", "baixo")
 _trava = threading.Lock()
 

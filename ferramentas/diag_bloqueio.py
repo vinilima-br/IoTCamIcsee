@@ -37,7 +37,8 @@ import config  # noqa: E402
 LOG_QUERY = 1442
 TIME_QUERY = 1452
 FORMATO = "%Y-%m-%d %H:%M:%S"
-PASTA_SAIDA = os.path.join(PASTA, "diag_bloqueio")
+import caminhos  # noqa: E402
+PASTA_SAIDA = caminhos.pasta("diagnosticos", antiga="diag_bloqueio")   # dados\diagnosticos\
 SUSPEITOS = re.compile(r"log|fail|err|lock|senha|pass|user|reboot|restart|boot|ip|net", re.I)
 
 

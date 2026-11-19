@@ -63,6 +63,7 @@ from flask import (Flask, Response, jsonify, redirect, render_template, request,
                    send_from_directory, session)
 
 import config  # noqa: E402
+import caminhos  # noqa: E402  (onde fica o que o sistema gera: dados\)
 import acesso  # noqa: E402
 import onvif_rtsp  # noqa: E402
 import biblioteca_sons  # noqa: E402
@@ -796,7 +797,7 @@ IPS = {}          # cid -> IP da câmera na rede (do config), mostrado no títul
 IAS = {}          # cid -> IA
 GRAVADORES = {}   # cid -> Gravador
 PTZS = {}         # cid -> ptz.Controle
-ARQ_PTZ_INV = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ptz_inverter.json")
+ARQ_PTZ_INV = caminhos.estado("ptz_inverter.json")              # dados\estado\ (antes: na raiz)
 _ptz_inv_trava = threading.Lock()
 
 
@@ -2592,7 +2593,7 @@ _alertas_trava = threading.Lock()
 _alertas_seq = [0]
 _alerta_ultima_foto = {}      # cid -> ts
 _alerta_estado = {}           # cid -> {"ativo": bool, "inicio": ts, "ate": ts}
-ARQ_ALERTAS_MODO = os.path.join(PASTA_BASE, "alertas_modo.json")
+ARQ_ALERTAS_MODO = caminhos.estado("alertas_modo.json")         # dados\estado\ (antes: na raiz)
 NOMES_EVENTO = {
     "appEventHumanDetectAlarm": "Pessoa detectada",
     "HumanDetect": "Pessoa detectada", "HumanDetection": "Pessoa detectada",

@@ -58,10 +58,9 @@ IP_LOCAL = ""
 # 0 = desligada.
 SENTINELA_S = 600
 
-ARQ_ESTADO = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                          "sessao_estado.json")
-ARQ_MODO_FALA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                             "xm_fala_modo.json")
+import caminhos  # noqa: E402  (dados\estado\ - antes ficavam soltos na raiz)
+ARQ_ESTADO = caminhos.estado("sessao_estado.json")
+ARQ_MODO_FALA = caminhos.estado("xm_fala_modo.json")
 
 # Formas de abrir o canal de voz (o etapa31 descobre qual a camera aceita
 # repetidas vezes e grava em xm_fala_modo.json):
@@ -69,8 +68,7 @@ ARQ_MODO_FALA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__f
 #   "sub_tudo" conexao auxiliar SEM login: Claim/Start/Stop tudo nela
 #   "mesma"    tudo na sessao principal (so funciona 1x em algumas cameras)
 #   "login"    conexao nova COM login a cada som (igual etapa30; usa logins)
-ARQ_LUZ_ALERTA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                              "xm_luz_alerta.json")
+ARQ_LUZ_ALERTA = caminhos.estado("xm_luz_alerta.json")
 # Luz de alerta (LED vermelho/azul) = saida de alarme da camera (AlarmOut).
 # Descoberto com ferramentas/diag_luz_alerta.py na cam2: MANUAL+OPEN acende,
 # voltar para AUTO+OPEN apaga (e volta a piscar sozinha no movimento).
@@ -183,7 +181,7 @@ def config_luz_alerta(ip):
     return LUZ_ALERTA_PADRAO
 
 
-ARQ_RECUSAS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "diag_bloqueio", "recusas_login.log")
+ARQ_RECUSAS = os.path.join(caminhos.pasta("diagnosticos", antiga="diag_bloqueio"), "recusas_login.log")
 
 
 def registra_recusa(ip, usuario, motivo, resposta=None, ip_local="?"):

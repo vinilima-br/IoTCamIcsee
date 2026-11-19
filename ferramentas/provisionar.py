@@ -225,7 +225,8 @@ def insere_no_config(bloco):
     linha = texto.rfind("\n", 0, fecha) + 1
     novo = texto[:linha] + bloco + texto[linha:]
     carimbo = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup = CONFIG_PY + ".bak_" + carimbo
+    import caminhos
+    backup = caminhos.backup_config(CONFIG_PY, carimbo)           # dados\backups\ (guarda as 15 últimas)
     with open(backup, "w", encoding="utf-8") as f:
         f.write(texto)
     with open(CONFIG_PY, "w", encoding="utf-8") as f:
@@ -294,9 +295,8 @@ def atualiza_conta_no_config(cid, ip, usuario, senha):
     novo = texto[:a] + bloco + texto[b:]
     compile(novo, CONFIG_PY, "exec")                   # nunca grava um config.py quebrado
     carimbo = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup, n = CONFIG_PY + ".bak_" + carimbo, 2
-    while os.path.exists(backup):
-        backup, n = CONFIG_PY + ".bak_%s_%d" % (carimbo, n), n + 1
+    import caminhos
+    backup = caminhos.backup_config(CONFIG_PY, carimbo)           # dados\backups\ (guarda as 15 últimas)
     with open(backup, "w", encoding="utf-8") as f:
         f.write(texto)
     with open(CONFIG_PY, "w", encoding="utf-8") as f:

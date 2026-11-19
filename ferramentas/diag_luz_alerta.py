@@ -31,8 +31,7 @@ sys.path.append(_RAIZ)                                               # config.py
 import config  # noqa: E402
 import camera_xm as xm  # noqa: E402
 
-ARQ_RESULTADO = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                             "xm_luz_alerta.json")
+ARQ_RESULTADO = xm.ARQ_LUZ_ALERTA              # dados\estado\xm_luz_alerta.json
 SEGUNDOS_LIGADO = 6
 
 # (nome da configuracao, AlarmOutType, AlarmOutStatus, descricao)

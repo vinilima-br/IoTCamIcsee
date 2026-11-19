@@ -28,7 +28,8 @@ import camera_xm as xm
 
 PASTA_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PASTA_SD = os.path.join(PASTA_BASE, "sd_baixados")
-ARQ_MODO_SD = os.path.join(PASTA_BASE, "xm_sd_modo.json")
+import caminhos  # noqa: E402
+ARQ_MODO_SD = caminhos.estado("xm_sd_modo.json")         # dados\estado\ (antes: na raiz)
 MODOS_SD = ("sub", "sub_tudo", "login")
 FORMATO = "%Y-%m-%d %H:%M:%S"
 

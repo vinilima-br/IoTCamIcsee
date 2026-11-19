@@ -36,7 +36,8 @@ def acha_foto():
 def lente_da(caminho):
     cid = os.path.basename(os.path.dirname(os.path.dirname(caminho)))
     try:
-        with open(os.path.join(_RAIZ, "lentes_deteccao.json"), encoding="utf-8") as f:
+        import caminhos
+        with open(caminhos.estado("lentes_deteccao.json"), encoding="utf-8") as f:
             return cid, json.load(f).get(cid, "ambas")
     except Exception:  # noqa: BLE001
         return cid, "ambas"

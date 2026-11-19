@@ -8,6 +8,9 @@ REM      (ex.: C:\CentralCameras\python\tools\python.exe)
 REM   2) python do PATH, py -3 e as pastas de instalacao (PC de desenvolvimento
 REM      e PCs instalados antes do Python em zip)
 REM ------------------------------------------------------------------
+REM Arquivos temporarios do Python (__pycache__) vao todos para dados\cache\pycache,
+REM em vez de ficarem espalhados pelas pastas do projeto.
+set "PYTHONPYCACHEPREFIX=%~dp0..\dados\cache\pycache"
 set "PY="
 for %%F in ("%~dp0..\..\python\tools\python.exe") do if exist "%%~fF" set "PY=%%~fF"
 if defined PY goto _py_ok

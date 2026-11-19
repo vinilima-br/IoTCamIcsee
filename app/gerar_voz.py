@@ -48,8 +48,9 @@ TEMPO_MAX_EDGE = 20  # segundos; passou disso, usa a voz do Windows
 ELEVEN_API = "https://api.elevenlabs.io/v1"
 ELEVEN_VOZES_PADRAO = ["Adam", "Alice", "Bella", "Bill"]
 ELEVEN_MODELO_PADRAO = "eleven_v3"
-PASTA_CACHE_ELEVEN = os.path.join(PASTA, "cache", "tts_eleven")
-ARQ_IDS_ELEVEN = os.path.join(PASTA, "elevenlabs_vozes.json")
+import caminhos  # noqa: E402  (dados\cache\ - antes: cache\ e o .json soltos na raiz)
+PASTA_CACHE_ELEVEN = os.path.join(caminhos.pasta("cache", antiga="cache"), "tts_eleven")
+ARQ_IDS_ELEVEN = caminhos.arquivo(os.path.join("cache", "elevenlabs_vozes.json"), antigo="elevenlabs_vozes.json")
 
 # Vozes fixas (id do painel -> (tipo, voz, nome bonito))
 VOZES_FIXAS = [

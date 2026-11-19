@@ -12,6 +12,12 @@ Situação em 09/11/2026: 3 câmeras funcionando no mini PC (Windows, Celeron N5
 
 ---
 
+> **Onde fica o que o sistema gera (desde 19/11/2026):** tudo mora em `dados\` —
+> `dados\estado\` (escolhas e estado: lentes, PTZ, modos, sessão, senha do painel),
+> `dados\backups\` (cópias do `config.py`, as 15 últimas), `dados\cache\`, `dados\janela\`,
+> `dados\diagnosticos\` e `dados\gestao\` (banco da gestão). Os arquivos antigos da raiz
+> são levados para lá sozinhos na primeira vez que o painel abre.
+
 ## 1. Mapa da pasta
 
 O que vai para os PCs (o ZIP do GitHub) é só o app. `dev\` e `docs\`
@@ -56,8 +62,8 @@ IoTCamIcsee\
   docs\GUIA_COMPLETO.md  <- este guia
 
 Gerados em cada PC, na pasta do projeto (não vão pro GitHub): config.py,
-sessao_estado.json, xm_*.json, alertas_modo.json, lentes_deteccao.json,
-ptz_inverter.json, rostos\, logs\, fotos\, gravacoes\, sd_baixados\, janela_dados\.
+dados\estado\sessao_estado.json, xm_*.json, dados\estado\alertas_modo.json, dados\estado\lentes_deteccao.json,
+dados\estado\ptz_inverter.json, rostos\, logs\, fotos\, gravacoes\, sd_baixados\, dados\janela\.
 ```
 
 As ferramentas continuam rodando da pasta do projeto, igual antes:
@@ -91,7 +97,7 @@ Com o `INICIAR.bat`, **Ctrl+C** na janela do servidor.
 
 **Janela própria (`PAINEL.bat`)**: o mesmo painel numa janela sem barra de navegador, com nome e ícone da Central (biblioteca `pywebview`, instalada sozinha na 1ª vez).
 - Fechar a janela = desligar o servidor (com logout nas câmeras). Se o `INICIAR.bat` já estiver aberto, o `PAINEL.bat` só abre a janela e não sobe um 2º servidor (evita sessão dupla e 205).
-- A janela guarda as preferências da página (câmeras escondidas, colunas, aba) em `janela_dados\`, separado do navegador.
+- A janela guarda as preferências da página (câmeras escondidas, colunas, aba) em `dados\janela\`, separado do navegador.
 - Sem pywebview ou sem o WebView2 do Windows, ela abre o Edge em modo aplicativo (também sem barra).
 - O celular continua em `http://IP-DO-MINI-PC:5050`.
 
@@ -177,14 +183,14 @@ Feche o servidor e rode:
 ```
 python ferramentas\diag_fala.py 192.168.3.XX
 ```
-Fique perto da câmera e responda **s/n** aos bips. A forma que tocar 2 vezes seguidas fica salva em `xm_fala_modo.json`. Suba o servidor de novo.
+Fique perto da câmera e responda **s/n** aos bips. A forma que tocar 2 vezes seguidas fica salva em `dados\estado\xm_fala_modo.json`. Suba o servidor de novo.
 
 ### Passo 7 — Luz de alerta (LED vermelho/azul), se a câmera tiver
 Com o servidor fechado e a câmera olhando uma cena parada:
 ```
 python ferramentas\diag_luz_alerta.py 192.168.3.XX
 ```
-Responda s/n se o LED acendeu e se apagou. O resultado vai para `xm_luz_alerta.json`. Sem esse arquivo, o servidor usa a forma que funcionou na cam2.
+Responda s/n se o LED acendeu e se apagou. O resultado vai para `dados\estado\xm_luz_alerta.json`. Sem esse arquivo, o servidor usa a forma que funcionou na cam2.
 
 ### Passo 8 — Testar pela página
 Tocar som → Parar → volume → falar frase → luz de alerta → luz branca → alarme. Um de cada vez.
@@ -214,7 +220,7 @@ Hoje o servidor tem uma vaga para esse tipo (cam1: `CAM_IP`, `CAM_PORTA`, `CAM_U
    deixou de acontecer. (Confirmado por engenharia reversa independente do app
    iCSee: github.com/voidnullvalue/Icsee-android.)
 3. **Uma sessão só por câmera, mantida viva.** O servidor loga uma vez e manda KeepAlive. Scripts paralelos logando na mesma câmera reabrem o problema do 205. Com o servidor rodando, não rode outros testes na mesma câmera.
-4. **A trava do sistema** (`sessao_estado.json`) garante pelo menos 20 s entre logins, 60 s depois de uma falha, 15 min depois de um 205 e nenhuma nova tentativa depois de um 203 (até você clicar em "Tentar conectar de novo"). Vale mesmo se reiniciar o servidor.
+4. **A trava do sistema** (`dados\estado\sessao_estado.json`) garante pelo menos 20 s entre logins, 60 s depois de uma falha, 15 min depois de um 205 e nenhuma nova tentativa depois de um 203 (até você clicar em "Tentar conectar de novo"). Vale mesmo se reiniciar o servidor.
 5. **Falar na câmera** (protocolo XM/DVRIP, porta 34567):
    - `OPTalk Claim` (msgid **1434**) numa **conexão auxiliar sem login**, usando o SessionID da sessão;
    - `OPTalk Start` (msgid **1430**) na sessão principal. **Sem o Start não sai som.** Esse foi o "pulo do gato", copiado do projeto open source go2rtc;
@@ -242,7 +248,7 @@ Hoje o servidor tem uma vaga para esse tipo (cam1: `CAM_IP`, `CAM_PORTA`, `CAM_U
 |---|---|
 | Cartão "offline" com erro de ONVIF | E-mail/senha do app no `config.py`? IP mudou? (Passo 2) |
 | Painel do alto-falante "aguardando … próxima tentativa HH:MM" | Normal: está respeitando a trava. Espere. |
-| "205 (bloqueado)" nas iCSee | Era o `admin`/branco expirando (seção 10). Use a conta real no `config.py`. Se ainda ver 205 de uma trava velha: feche a sessão, apague `sessao_estado.json`, reabra. |
+| "205 (bloqueado)" nas iCSee | Era o `admin`/branco expirando (seção 10). Use a conta real no `config.py`. Se ainda ver 205 de uma trava velha: feche a sessão, apague `dados\estado\sessao_estado.json`, reabra. |
 | "203 (senha errada)" | Reset de fábrica → adicionar no app → "Tentar conectar de novo". |
 | Só o 1º som sai, os outros ficam mudos | `python ferramentas\diag_fala.py IP` (servidor fechado). |
 | Tocou mas não saiu som | Volume no 0? App iCSee falando na mesma câmera ao mesmo tempo? |
@@ -274,7 +280,7 @@ msgids usados: 1000 login · 1001 logout · 1006 keepalive · 1020 StorageInfo �
 
 ## 8. Backup
 
-Guarde uma cópia de: `config.py`, `sessao_estado.json`, `xm_fala_modo.json`, `xm_luz_alerta.json`, `xm_sd_modo.json`, `sons\`, `rostos\` e `modelos\`. O resto é código e está no GitHub.
+Guarde uma cópia de: `config.py`, `dados\estado\sessao_estado.json`, `dados\estado\xm_fala_modo.json`, `dados\estado\xm_luz_alerta.json`, `dados\estado\xm_sd_modo.json`, `sons\`, `rostos\` e `modelos\`. O resto é código e está no GitHub.
 
 Para a Elsys (câmera RSA, seção 9), guarde também: `ferramentas\elsys_material.json`, `ferramentas\elsys_abre_1413.bin`, `ferramentas\elsys_login_plain.json`, `ferramentas\elsys_login_1000.b64`.
 
@@ -480,7 +486,7 @@ campos `admin_usuario`/`admin_senha` (não mais o `admin`/branco):
 },
 ```
 
-Depois: feche a sessão, **limpe o bloco do IP no `sessao_estado.json`** (tira a
+Depois: feche a sessão, **limpe o bloco do IP no `dados\estado\sessao_estado.json`** (tira a
 trava velha do 203/205) e reabra o `INICIAR_SESSAO.bat`. As câmeras logam na hora.
 
 ### 10.4 Avisos (atualizado 12/11)
@@ -542,7 +548,7 @@ Comprovado no log (12/11): a câmera é **um OU outro**, nunca os dois juntos:
   para **qualquer** coisa que mexer (inclusive pessoa).
 Por isso o painel tem só **Só humano** e **Só movimento**. O resto do bloco
 (regras de área/linha, sensibilidade, avisos) é regravado igual — só muda o
-`Enable`. A escolha fica em `alertas_modo.json`.
+`Enable`. A escolha fica em `dados\estado\alertas_modo.json`.
 Se o "humano" disparar com coisas que não são pessoa: baixe a Sensibilidade no
 app e/ou ligue a IA com "Só quando a câmera detectar" para confirmar no PC.
 
@@ -622,12 +628,12 @@ Vale para todas as câmeras (`rostos\config_validacao.json`):
 - Refaça a reserva de IP fixo no roteador novo.
 - Se a faixa de IP mudou, corrija os `ip` no `config.py`.
 - A conta real das iCSee **não muda** (é do nº de série). Se der 205 de trava
-  velha, limpe o `sessao_estado.json`.
+  velha, limpe o `dados\estado\sessao_estado.json`.
 
 ### 12.3 Resetar uma câmera — mexe na câmera, mas a conta real volta
 - O reset zera: senha de admin local, bloqueio 205 e o cadastro no app (readicione).
 - A conta real continua **recuperável** pelo serial — rode a recuperação de novo
-  (12.6) e **fixe** a senha. Limpe o `sessao_estado.json` antes de reabrir.
+  (12.6) e **fixe** a senha. Limpe o `dados\estado\sessao_estado.json` antes de reabrir.
 
 ### 12.4 Levar para outro PC — copia a camada de baixo
 - Siga a **seção 2** (copiar a pasta inteira, Python, `pip install -r`, mesma rede,
@@ -684,4 +690,4 @@ Hoje as câmeras ficam numa **lista única** `CAMERAS = [ {...}, ... ]` (acabou 
 },
 ```
 O `provisionar.py --gravar` insere esse bloco sozinho (e guarda um backup
-`config.py.bak_AAAAMMDD_HHMMSS` antes de mexer).
+`dados\backups\config.py.bak_AAAAMMDD_HHMMSS` antes de mexer).
