@@ -29,42 +29,11 @@ sozinhos pelo GitHub (⚙ Config → "Atualizar sozinho").
 `config.py` (senhas e IPs) nunca vai para o GitHub: cada PC tem o seu,
 criado a partir do `config_exemplo.py`.
 
-## Sistema administrativo de portaria
+## Gestão de pessoas e acessos
 
-O painel local fica em `portaria_ui/` e a API FastAPI/SQLite em `portaria_api/`.
-O banco e as imagens ficam em `data/`; esses dados locais não são versionados.
-O frontend usa apenas dependências instaladas pelo npm e é servido pelo backend
-em `127.0.0.1:8000`, sem CDN ou acesso externo durante a operação.
+Cadastro e gerenciamento das pessoas do reconhecimento facial (moradores,
+visitantes, veículos, encomendas e histórico de acessos). Fica na pasta
+`gestao/` (desenvolvida pelo André) e abre **dentro do painel**, na aba
+**Facial → Gestão de pessoas e acessos**, com o mesmo login do painel.
 
-Para desenvolver:
-
-1. Prepare o Python portátil, instale os pacotes de `requirements.txt` e
-   `portaria_api/requirements.txt`.
-2. Em `portaria_ui/`, execute `npm install` e `npm run build`.
-3. Execute `python desktop_app.py` ou clique em `PORTARIA.bat`.
-
-`PORTARIA.bat` procura `python/python.exe` e também aceita o layout legado
-`python/tools/python.exe`. Para criar o pacote Windows com PyInstaller, execute
-`BUILD_PORTARIA.bat` na máquina de preparo e distribua toda a pasta
-`dist/Portaria/`. A instalação do computador da guarita não instala pacotes nem
-acessa a internet.
-
-### Ponte com o IoTCamIcsee
-
-O stream MJPEG reutiliza `app/servidor.py` (`Camera.proximo_jpeg` e os
-contadores de espectadores); o PTZ chama `PTZS[cid].mover()`/`parar()`; a
-escuta usa o RTSP convertido pelo FFmpeg e a fala encaminha áudio G.711 A-law
-para `XMS[cid].falar()`. A ponte reutiliza uma sessão `sessao_xm.py` já ativa ou
-inicia o serviço de sessão local no processo da Portaria. Os reconhecedores
-`rosto_servidor.Reconhecedor`
-persistem os eventos faciais em `data/portaria.db`, salvam snapshots e
-publicam no WebSocket; fotos de pessoas e visitantes atualizam o banco de
-embeddings `rostos/pessoas/`.
-
-A ponte só inicia quando `config.py` existe na raiz e contém câmeras
-configuradas. Ele não deve ser distribuído com senhas. Copie a configuração de
-exemplo para a raiz, revise IPs/credenciais na máquina de preparo e configure
-as câmeras na instalação local. Sem o arquivo ou sem câmeras, os módulos
-administrativos continuam disponíveis e o painel exibe o motivo da
-indisponibilidade da integração. Modelos ONNX já estão em `modelos/`; áudio ao
-vivo das câmeras também exige o FFmpeg usado pelo sistema existente.
+Detalhes, regras para colaborar e como rodar isolada: [`gestao/README.md`](gestao/README.md).

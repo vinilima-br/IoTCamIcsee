@@ -8,7 +8,13 @@ export type Page<T> = {
 export type CameraInfo = {
   id: string;
   nome: string;
+  ip?: string | null;
   online: boolean;
+  pausada?: boolean;
+  largura?: number;
+  altura?: number;
+  lente_det?: string;
+  tem_som?: boolean;
   fps: number;
   erro: string | null;
   ptz?: boolean | null;

@@ -250,10 +250,40 @@ function CameraCard({ camera }: { camera: CameraInfo }) {
   const [snapshot, setSnapshot] = useState<string>();
   const [talking, setTalking] = useState(false);
   const [audioError, setAudioError] = useState("");
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const listenRef = useRef<{ stop: () => void } | null>(null);
+  const [phrase, setPhrase] = useState("");
+  const [speaking, setSpeaking] = useState(false);
+  const cameraPath = `/api/cameras/${encodeURIComponent(camera.id)}`;
+  // Câmera de 2 lentes (X6S): o quadro vem com as duas empilhadas (mais alto que largo).
+  // Igual ao painel: mostra Lente 1, Lente 2 ou as 2, e lembra a escolha por câmera.
+  const dualLens = Boolean(camera.largura && camera.altura && camera.altura / camera.largura > 0.9);
+  const lensKey = `portaria.lente.${camera.id}`;
+  const [lens, setLensState] = useState<string>(() => {
+    try {
+      const saved = window.localStorage.getItem(lensKey);
+      if (saved === "cima" || saved === "baixo" || saved === "ambas") return saved;
+    } catch {
+      /* sem armazenamento: usa o padrão */
+    }
+    return camera.lente_det === "cima" || camera.lente_det === "baixo" ? camera.lente_det : "cima";
+  });
+  const setLens = (value: string) => {
+    setLensState(value);
+    try {
+      window.localStorage.setItem(lensKey, value);
+    } catch {
+      /* sem armazenamento: só nesta sessão */
+    }
+  };
+  const lensClass = dualLens ? `lens-${lens}` : "lens-single";
   const recorderRef = useRef<{ context: AudioContext; processor: ScriptProcessorNode; source: MediaStreamAudioSourceNode; gain: GainNode; stream: MediaStream; samples: number[] } | null>(null);
   const speakTimeout = useRef<number | null>(null);
-  const streamUrl = `/api/cameras/${encodeURIComponent(camera.id)}/stream`;
+  // O vídeo é aberto SEMPRE: o servidor de câmeras deixa a câmera em pausa quando
+  // ninguém assiste e só religa quando alguém abre o stream (antes ficava esperando
+  // "online" pra abrir, e "online" esperando alguém abrir).
+  const [streamTry, setStreamTry] = useState(0);
+  const streamUrl = `/api/cameras/${encodeURIComponent(camera.id)}/stream?t=${streamTry}`;
+  const retryStream = () => window.setTimeout(() => setStreamTry((value) => value + 1), 3000);
 
   const sendPTZ = async (pan: number, tilt: number) => api(`/api/cameras/${encodeURIComponent(camera.id)}/ptz`, { method: "POST", body: JSON.stringify({ pan, tilt }) });
   const stopPTZ = () => void api(`/api/cameras/${encodeURIComponent(camera.id)}/ptz`, { method: "POST", body: JSON.stringify({ action: "stop" }) }).catch(() => undefined);
@@ -319,18 +349,95 @@ function CameraCard({ camera }: { camera: CameraInfo }) {
     }
     if (speakTimeout.current) window.clearTimeout(speakTimeout.current);
   }, []);
+  const stopListening = () => {
+    const current = listenRef.current;
+    listenRef.current = null;
+    setListening(false);
+    if (current) current.stop();
+  };
   const toggleListening = () => {
-    const next = !listening;
-    setListening(next);
-    if (audioRef.current) {
-      if (next) {
-        audioRef.current.src = `/api/cameras/${encodeURIComponent(camera.id)}/audio`;
-        void audioRef.current.play().catch((error: unknown) => setAudioError(errorMessage(error)));
-      } else {
-        audioRef.current.pause();
-        audioRef.current.removeAttribute("src");
-        audioRef.current.load();
+    if (listenRef.current) {
+      stopListening();
+      return;
+    }
+    setAudioError("");
+    const context = new AudioContext();
+    void context.resume().catch(() => undefined);
+    const sampleRate = 8000;
+    let playing = true;
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+    let next = context.currentTime + 0.2;
+    const handle = {
+      stop: () => {
+        playing = false;
+        if (reader) void reader.cancel().catch(() => undefined);
+        void context.close().catch(() => undefined);
+      },
+    };
+    listenRef.current = handle;
+    setListening(true);
+    void (async () => {
+      try {
+        const response = await fetch(`${cameraPath}/audio_pcm`);
+        if (!response.ok || !response.body) {
+          let message = "Áudio indisponível";
+          try {
+            message = (await response.json()).detail ?? message;
+          } catch {
+            /* resposta sem JSON */
+          }
+          throw new Error(message);
+        }
+        reader = response.body.getReader();
+        let rest = new Uint8Array(0);
+        while (playing) {
+          const { done, value } = await reader.read();
+          if (done || !value) break;
+          const joined = new Uint8Array(rest.length + value.length);
+          joined.set(rest, 0);
+          joined.set(value, rest.length);
+          const count = joined.length >> 1;
+          rest = joined.slice(count << 1);
+          if (!count) continue;
+          const view = new DataView(joined.buffer, 0, count * 2);
+          const buffer = context.createBuffer(1, count, sampleRate);
+          const channel = buffer.getChannelData(0);
+          for (let index = 0; index < count; index += 1) channel[index] = view.getInt16(index * 2, true) / 32768;
+          const source = context.createBufferSource();
+          source.buffer = buffer;
+          source.connect(context.destination);
+          const now = context.currentTime;
+          if (next < now) next = now + 0.1;
+          source.start(next);
+          next += buffer.duration;
+        }
+        if (playing) throw new Error("O áudio da câmera parou");
+      } catch (error) {
+        if (playing) setAudioError(errorMessage(error));
+      } finally {
+        if (listenRef.current === handle) {
+          listenRef.current = null;
+          setListening(false);
+        }
+        handle.stop();
       }
+    })();
+  };
+  useEffect(() => () => {
+    if (listenRef.current) listenRef.current.stop();
+  }, []);
+  const speakText = async () => {
+    const texto = phrase.trim();
+    if (!texto || speaking) return;
+    setSpeaking(true);
+    setAudioError("");
+    try {
+      await api(`${cameraPath}/falar`, { method: "POST", body: JSON.stringify({ texto }) });
+      setPhrase("");
+    } catch (error) {
+      setAudioError(errorMessage(error));
+    } finally {
+      setSpeaking(false);
     }
   };
   const takeSnapshot = async () => {
@@ -344,11 +451,19 @@ function CameraCard({ camera }: { camera: CameraInfo }) {
 
   return (
     <article className="camera-card">
-      <div className="camera-card-head"><div><span className={`camera-status ${camera.online ? "online" : ""}`} /><strong>{camera.nome || camera.id}</strong></div><span className="camera-fps">{camera.online ? `${camera.fps} FPS` : "OFFLINE"}</span></div>
+      <div className="camera-card-head"><div><span className={`camera-status ${camera.online ? "online" : ""}`} /><strong>{camera.nome || camera.id}</strong>{camera.ip && <span className="camera-ip">{camera.ip}</span>}</div><span className="camera-fps">{camera.online ? `${camera.fps} FPS` : "OFFLINE"}</span></div>
       <div className="camera-image-wrap">
-        {camera.online ? <img src={streamUrl} alt={`Stream da câmera ${camera.nome}`} /> : <div className="camera-offline"><Camera size={28} /><span>{camera.erro || "Aguardando imagem"}</span></div>}
+        <img key={streamTry} className={lensClass} src={streamUrl} alt={`Stream da câmera ${camera.nome}`} onError={retryStream} />
+        {!camera.online && <div className="camera-offline camera-offline-overlay"><Camera size={28} /><span>{camera.erro || (camera.pausada ? "Acordando a câmera..." : "Aguardando imagem")}{camera.ip ? ` (${camera.ip})` : ""}</span></div>}
         {snapshot && <button className="snapshot-preview" onClick={() => setSnapshot(undefined)} title="Fechar captura"><img src={snapshot} alt="Último snapshot" /><X size={14} /></button>}
       </div>
+      {dualLens && (
+        <div className="lens-switch" role="group" aria-label="Lente da câmera">
+          {[["cima", "Lente 1"], ["baixo", "Lente 2"], ["ambas", "2 lentes"]].map(([value, label]) => (
+            <button key={value} type="button" className={lens === value ? "active" : ""} onClick={() => setLens(value)}>{label}</button>
+          ))}
+        </div>
+      )}
       <div className="camera-controls">
         <div className="ptz-pad" aria-label="Controle PTZ">
           <button aria-label="Mover para cima" disabled={!camera.online} onPointerDown={() => void sendPTZ(0, 0.6).catch((error) => setAudioError(errorMessage(error)))} onPointerUp={stopPTZ} onPointerLeave={stopPTZ}><ArrowUp size={16} /></button>
@@ -361,7 +476,12 @@ function CameraCard({ camera }: { camera: CameraInfo }) {
         <button className={`control-button ${talking ? "danger" : ""}`} onPointerDown={() => void beginTalk()} onPointerUp={() => void endTalk()} onPointerLeave={() => void endTalk()} disabled={!camera.online}>{talking ? <MicOff size={16} /> : <Mic size={16} />}<span>{talking ? "Enviando..." : "Segure p/ falar"}</span></button>
         <button className="control-button snapshot-button" onClick={() => void takeSnapshot()} disabled={!camera.online}><Camera size={16} /><span>Capturar</span></button>
       </div>
-      <audio ref={audioRef} hidden />
+      {camera.tem_som !== false && (
+        <form className="camera-speak" onSubmit={(event) => { event.preventDefault(); void speakText(); }}>
+          <input value={phrase} maxLength={500} placeholder="Digite uma frase para a câmera falar" onChange={(event) => setPhrase(event.target.value)} disabled={!camera.online || speaking} />
+          <button type="submit" className="control-button" disabled={!camera.online || speaking || !phrase.trim()}><Volume2 size={16} /><span>{speaking ? "Falando..." : "Falar"}</span></button>
+        </form>
+      )}
       {audioError && <button className="camera-error" onClick={() => setAudioError("")}><AlertTriangle size={13} />{audioError}<X size={13} /></button>}
     </article>
   );

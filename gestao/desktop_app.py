@@ -3,10 +3,18 @@ import time
 import urllib.error
 import urllib.request
 
-import uvicorn
-import webview
+import sys
+from pathlib import Path
 
-from portaria_api.main import app
+# Roda como "python gestao\desktop_app.py": a raiz do projeto precisa estar no caminho.
+RAIZ = Path(__file__).resolve().parents[1]
+if str(RAIZ) not in sys.path:
+    sys.path.insert(0, str(RAIZ))
+
+import uvicorn  # noqa: E402
+import webview  # noqa: E402
+
+from gestao.api.main import app  # noqa: E402
 
 HOST = "127.0.0.1"
 PORT = 8000

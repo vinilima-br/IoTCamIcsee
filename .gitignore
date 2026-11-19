@@ -85,8 +85,8 @@ _atualizacao/
 atualizacao.json
 ptz_inverter.json
 
-# --- sistema local de portaria ---
-portaria_ui/node_modules/
+# --- gestao de pessoas e acessos (pasta gestao/, do Andre) ---
+gestao/ui/node_modules/
 data/portaria.db
 data/portaria.db-shm
 data/portaria.db-wal
@@ -96,5 +96,9 @@ data/snapshots/
 dist/
 build/
 desktop_app.spec
-!portaria_ui/dist/
-!portaria_ui/dist/**
+!gestao/ui/dist/
+!gestao/ui/dist/**
+
+# backups locais (podem ter config.py com senhas)
+_arquivo/
+/python

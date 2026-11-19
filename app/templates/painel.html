@@ -341,6 +341,16 @@
     dialog.dlg { background: var(--cartao); color: var(--texto); border: 1px solid var(--borda2);
                   border-radius: 12px; padding: 0; width: min(640px, 94vw); }
     dialog.dlg::backdrop { background: rgba(0,0,0,.6); }
+    /* Gestão de pessoas e acessos (pasta gestao/, do André) */
+    .fx-gestao { display: flex; align-items: center; gap: 12px; margin: 12px 0; padding: 12px 14px;
+                 border: 1px solid #1f4d3a; border-radius: 10px;
+                 background: linear-gradient(90deg, rgba(22,163,74,.14), rgba(22,163,74,.03)); }
+    .fx-gestao-txt { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .fx-gestao-txt b { display: flex; align-items: center; gap: 7px; font-size: 14px; }
+    .fx-gestao-txt span { color: var(--suave); font-size: 12px; }
+    dialog.dlg.dlg-gestao { width: min(1600px, 97vw); height: 94vh; max-width: none; max-height: none; padding: 0; overflow: hidden; }
+    dialog.dlg.dlg-gestao[open] { display: flex; flex-direction: column; }
+    #gestao-frame { flex: 1; width: 100%; border: 0; background: #101821; }
     dialog.dlg .cfg-cab { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--borda); }
     dialog.dlg .cfg-cab h2 { margin: 0; font-size: 16px; flex: 1; }
     dialog.dlg .cfg-corpo { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
@@ -1081,6 +1091,12 @@
           </div>
           <div class="dica rosto-acoes-dica"></div>
 
+          <div class="fx-gestao">
+            <div class="fx-gestao-txt"><b>{{ ic("pessoas") }}Gestão de pessoas e acessos</b>
+              <span>Unidades, moradores, visitantes, veículos, encomendas e histórico de acessos</span></div>
+            <button class="btn-gestao btn-verde">Abrir gestão</button>
+          </div>
+
           <div class="fx-duas">
             <div class="fx-card">
               <div class="fx-card-cab">
@@ -1314,6 +1330,15 @@
     </div>
   </dialog>
 
+  <!-- ================= GESTÃO DE PESSOAS E ACESSOS (pasta gestao/) ================= -->
+  <dialog id="dlg-gestao" class="dlg dlg-gestao">
+    <div class="cfg-cab">
+      <h2>{{ ic("pessoas") }}Gestão de pessoas e acessos</h2>
+      <button id="gestao-fechar" class="fx-btn-ic" title="Fechar">{{ ic("x") }}</button>
+    </div>
+    <iframe id="gestao-frame" title="Gestão de pessoas e acessos"></iframe>
+  </dialog>
+
   <!-- ================= CADASTRO FACIAL (janela guiada) ================= -->
   <dialog id="dlg-cad" class="dlg">
     <div class="cfg-cab">
@@ -1464,6 +1489,24 @@
       timerAviso = setTimeout(() => { el.className = "aviso"; }, 3200);
     }
 
+    // ---- Gestão de pessoas e acessos (pasta gestao/, do André) ----
+    // Abre a tela da gestão (porta própria, mesmo login) numa janela grande.
+    // Ao fechar, a página é descarregada: assim os vídeos dela param e não gastam CPU.
+    (function () {
+      const dlg = document.getElementById("dlg-gestao"), frame = document.getElementById("gestao-frame");
+      if (!dlg || !frame) return;
+      async function abrir() {
+        let d = null;
+        try { d = await (await fetch("/api/gestao")).json(); } catch (e) { /* trata abaixo */ }
+        if (!d || !d.ok) { aviso("Gestão indisponível: " + ((d && d.erro) || "sem resposta do painel"), true); return; }
+        frame.src = location.protocol + "//" + location.hostname + ":" + d.porta + "/";
+        dlg.showModal();
+      }
+      document.addEventListener("click", e => { if (e.target.closest(".btn-gestao")) abrir(); });
+      document.getElementById("gestao-fechar").addEventListener("click", () => dlg.close());
+      dlg.addEventListener("close", () => { frame.src = "about:blank"; });
+    })();
+
     // ícones (mesmos do HTML) e rótulo de botão com ícone + texto
     const IC = n => '<svg class="ic" aria-hidden="true"><use href="#i-' + n + '"/></svg>';
     function rotulo(botao, icone, texto) {
@@ -1538,7 +1581,7 @@
     }).catch(() => {});
     document.querySelectorAll(".btn-rcfg-salvar").forEach(btn => {
       btn.addEventListener("click", async () => {
-        const b = btn.closest(".xm-bloco"), g = s => b.querySelector(s);
+        const b = btn.closest(".fx-card, .xm-bloco"), g = s => b.querySelector(s);   // o menu fica num <details class="fx-card"> na aba Facial
         const d = await postJSON("/api/rosto/config", {
           frase_ok: g(".rcfg-ok").value, frase_negado: g(".rcfg-neg").value,
           voz: g(".rcfg-voz").value, acao_negado: g(".rcfg-acao").value,

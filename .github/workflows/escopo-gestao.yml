@@ -1,0 +1,47 @@
+# Confere todo Pull Request para a main:
+#  1) quem não é o dono (vinilima-br) só pode mexer em arquivos dentro de gestao/;
+#  2) o Python da gestão precisa compilar.
+# Na proteção da branch main, este check ("escopo-gestao") é obrigatório para juntar o PR.
+name: Escopo da gestao
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  escopo:
+    name: escopo-gestao
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Colaborador da gestao so mexe em gestao/
+        env:
+          AUTOR: ${{ github.event.pull_request.user.login }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$AUTOR" = "vinilima-br" ]; then
+            echo "PR do dono do projeto: sem restricao de pasta."
+            exit 0
+          fi
+          fora=$(git diff --name-only "$BASE...$HEAD" | grep -v '^gestao/' || true)
+          if [ -n "$fora" ]; then
+            echo "::error::Este PR mexe em arquivos FORA de gestao/. A gestao de pessoas so pode alterar a pasta gestao/. Para mudar outra parte do projeto, abra uma Issue para o Vini."
+            echo "Arquivos fora de gestao/:"
+            echo "$fora"
+            exit 1
+          fi
+          echo "OK: o PR so mexe em gestao/."
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python da gestao compila
+        run: python -m compileall -q gestao

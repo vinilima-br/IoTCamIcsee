@@ -70,6 +70,9 @@ from detector_pessoas import DetectorPessoas, desenhar_pessoas, MODELO_PADRAO  #
 
 # ---- Configurações ----
 WEB_PORTA = getattr(config, "WEB_PORTA", 5050)
+# Gestão de pessoas e acessos (pasta gestao/, do André), aberta pela aba Facial
+GESTAO_LIGADA = getattr(config, "GESTAO_LIGADA", True)
+GESTAO_PORTA = getattr(config, "GESTAO_PORTA", 8000)
 JPEG_QUALIDADE = getattr(config, "JPEG_QUALIDADE", 80)
 # Vídeo LEVE da janela de cadastro facial: só a lente escolhida, reduzida e sem
 # desenhos. Gerar e mostrar isso custa uma fração do quadro inteiro (2304x2592).
@@ -1575,6 +1578,40 @@ def _fecha_para_atualizar():
     pedir_reinicio("atualização do GitHub", codigo=0)
 
 
+# =============================================================
+#  Gestão de pessoas e acessos (pasta gestao/ - desenvolvida pelo André)
+#  Roda DENTRO deste processo: usa as câmeras e o reconhecimento daqui,
+#  numa porta própria (GESTAO_PORTA) e com o mesmo login deste painel.
+# =============================================================
+_GESTAO = {"ok": False, "erro": "ainda não iniciada", "porta": GESTAO_PORTA}
+
+
+def _liga_gestao():
+    if not GESTAO_LIGADA:
+        _GESTAO["erro"] = "desligada no config.py (GESTAO_LIGADA = False)"
+        return
+    try:
+        from gestao.api import embutido
+    except ImportError as e:
+        _GESTAO["erro"] = ("faltam os pacotes da gestão ({}). Rode o INSTALAR.bat ou: "
+                           "pip install -r requirements.txt".format(e))
+        print(" Gestão de pessoas NÃO iniciou: {}".format(_GESTAO["erro"]))
+        return
+    try:
+        embutido.iniciar(sys.modules[__name__], porta=GESTAO_PORTA)
+    except Exception as e:  # noqa: BLE001
+        _GESTAO["erro"] = str(e)
+        print(" Gestão de pessoas NÃO iniciou: {}".format(e))
+        return
+    _GESTAO.update(ok=True, erro=None)
+    print(" Gestão de pessoas e acessos: aba Facial (porta {})".format(GESTAO_PORTA))
+
+
+@app.route("/api/gestao")
+def api_gestao():
+    return jsonify(dict(_GESTAO))
+
+
 @app.route("/api/atualizacao")
 def api_atualizacao():
     e = dict(atualizador.estado)
@@ -2977,6 +3014,7 @@ def preparar_servidor():
     if hasattr(signal, "SIGBREAK"):          # Windows: Ctrl+Break / fechar console
         signal.signal(signal.SIGBREAK, _ao_sinal)
     iniciar_tudo()
+    _liga_gestao()
 
 
 def rodar_web():

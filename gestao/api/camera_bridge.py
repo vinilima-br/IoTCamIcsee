@@ -20,7 +20,7 @@ from .models import LogAcesso, Pessoa, VisitantePrestador
 
 
 logger = logging.getLogger(__name__)
-PROJECT_ROOT = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[2]
 SNAPSHOT_DIR = DATA_DIR / "snapshots"
 SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
 FACE_SYNC_STATE = DATA_DIR / "face_sync.json"
@@ -36,13 +36,44 @@ class CameraBridge:
         self._seen_alert_seq = 0
         self._session_module = None
         self._session_http = None
+        # Modo embutido: a gestão roda DENTRO do servidor.py (painel), que já é o dono
+        # das câmeras. Aqui só se pendura nos objetos dele - não abre câmera nem sessão.
+        self.embedded = False
+        self._embedded_module = None
+        self.auth = None          # função (scope ASGI) -> bool; None = sem porteiro (modo isolado)
 
     @property
     def available(self):
         return self.module is not None
 
+    def attach(self, camera_app, auth=None):
+        """Liga o modo embutido: usa o servidor.py que já está rodando."""
+        self.embedded = True
+        self._embedded_module = camera_app
+        self.auth = auth
+
+    def _start_embedded(self):
+        camera_app = self._embedded_module
+        try:
+            for recognizer in camera_app.RECS.values():
+                self._install_face_callback(recognizer)
+            self.module = camera_app
+            self.sync_existing_faces()
+            self.error = ""
+            self._camera_alert_thread = threading.Thread(
+                target=self._watch_camera_alerts, daemon=True, name="gestao-camera-alerts"
+            )
+            self._camera_alert_thread.start()
+            logger.info("Gestão embutida no painel: %d câmera(s).", len(camera_app.CAMERAS))
+        except Exception as exc:
+            self.error = "Falha ao ligar a gestão às câmeras do painel: {}".format(exc)
+            logger.exception(self.error)
+
     def start(self, loop):
         self._loop = loop
+        if self.embedded:
+            self._start_embedded()
+            return
         app_dir = PROJECT_ROOT / "app"
         if not (PROJECT_ROOT / "config.py").is_file():
             self.error = "Arquivo config.py ausente na raiz; configure as câmeras antes de conectá-las."
@@ -59,6 +90,7 @@ class CameraBridge:
             importlib.import_module("config")
             self._start_camera_session()
             camera_app = importlib.import_module("servidor")
+            self._liga_logs(camera_app)
             camera_app.monta_cameras()
             camera_app.monta_rostos()
             for recognizer in camera_app.RECS.values():
@@ -75,6 +107,23 @@ class CameraBridge:
         except Exception as exc:
             self.error = "Falha ao iniciar a integração com câmeras: {}".format(exc)
             logger.exception(self.error)
+
+    def _liga_logs(self, camera_app):
+        """Mesmo log em arquivo do painel (logs/central_DATA.log) e um log próprio
+        da Portaria (logs/portaria_DATA.log): antes tudo ia só para a janela preta."""
+        try:
+            liga = getattr(camera_app, "_liga_log_arquivo", None)
+            if liga is not None:
+                liga()
+            pasta = PROJECT_ROOT / "logs"
+            pasta.mkdir(parents=True, exist_ok=True)
+            handler = logging.FileHandler(
+                pasta / "portaria_{}.log".format(time.strftime("%Y-%m-%d")), encoding="utf-8"
+            )
+            handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+            logging.getLogger().addHandler(handler)
+        except Exception:
+            logger.exception("Não foi possível ligar o log em arquivo da Portaria")
 
     def _start_camera_session(self):
         session_module = importlib.import_module("sessao_xm")
@@ -93,6 +142,8 @@ class CameraBridge:
         logger.info("Sessão local das câmeras iniciada dentro do processo da Portaria.")
 
     def stop(self):
+        if self.embedded:
+            return                # câmeras e sessões são do painel
         if self._session_http is not None:
             self._session_http.shutdown()
             self._session_http.server_close()
@@ -402,7 +453,9 @@ class CameraBridge:
                 raise HTTPException(status_code=400, detail="Áudio base64 inválido") from exc
             if not audio_data:
                 raise HTTPException(status_code=400, detail="O áudio enviado está vazio")
-            session.falar(audio_data, "portaria")
+            iniciadas, erros = self.module._toca_em([camera_id], audio_data, "portaria: microfone")
+            if not iniciadas:
+                raise HTTPException(status_code=503, detail=erros.get(camera_id) or "A câmera não aceitou o áudio")
             return {"ok": True, "action": action}
         except self.module.camera_xm.ErroXM as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -440,6 +493,70 @@ class CameraBridge:
                 process.wait(timeout=3)
 
         return StreamingResponse(generate(), media_type="audio/aac", headers={"Cache-Control": "no-store"})
+
+    def audio_pcm_stream(self, camera_id):
+        """Áudio cru (PCM 16 bits, 8 kHz mono) para a Web Audio API — o mesmo do /audio_pcm do painel."""
+        camera = self.camera(camera_id)
+        url = camera.urls.get(1) or camera.urls.get(0)
+        if not url:
+            raise HTTPException(status_code=503, detail="Câmera sem endereço RTSP (ainda conectando?)")
+        ffmpeg = self.module.gravador.acha_ffmpeg()
+        if not ffmpeg:
+            raise HTTPException(status_code=503, detail="FFmpeg não encontrado no sistema de câmeras")
+        import subprocess
+
+        process = subprocess.Popen(
+            [
+                ffmpeg, "-loglevel", "error", "-fflags", "nobuffer", "-flags", "low_delay",
+                "-probesize", "32", "-analyzeduration", "0", "-rtsp_transport", "tcp",
+                "-i", url, "-vn", "-ac", "1", "-ar", "8000",
+                "-flush_packets", "1", "-f", "s16le", "pipe:1",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+
+        def generate():
+            try:
+                while True:
+                    chunk = process.stdout.read(512)
+                    if not chunk:
+                        break
+                    yield chunk
+            finally:
+                try:
+                    process.kill()
+                    process.wait(timeout=3)
+                except Exception:
+                    pass
+
+        return StreamingResponse(
+            generate(), media_type="application/octet-stream", headers={"Cache-Control": "no-cache, no-store"}
+        )
+
+    def speak_text(self, camera_id, text):
+        """Fala um texto na câmera (voz gerada), pelo mesmo caminho do "Falar" do painel."""
+        self.camera(camera_id)
+        if camera_id not in self.module.XMS:
+            raise HTTPException(status_code=404, detail="Esta câmera não tem alto-falante pela sessão 34567")
+        text = (text or "").strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="Digite o que a câmera deve falar")
+        if len(text) > 500:
+            raise HTTPException(status_code=400, detail="Texto muito longo (máximo de 500 letras)")
+        gerar_voz = importlib.import_module("gerar_voz")
+        camera_xm = self.module.camera_xm
+        os.makedirs(self.module.PASTA_TTS, exist_ok=True)
+        destino = os.path.join(self.module.PASTA_TTS, "voz_portaria.wav")
+        try:
+            voz, aviso_voz = gerar_voz.gerar_detalhado(text, destino)
+            alaw = camera_xm.arquivo_para_alaw(destino)
+        except (gerar_voz.ErroVoz, camera_xm.ErroXM) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        iniciadas, erros = self.module._toca_em([camera_id], alaw, "portaria: " + text[:30])
+        if not iniciadas:
+            raise HTTPException(status_code=503, detail=erros.get(camera_id) or "A câmera não aceitou o áudio")
+        return {"ok": True, "voz": voz, "aviso_voz": aviso_voz, "segundos": round(len(alaw) / 8000.0, 1)}
 
     def sync_face(self, name, image_path, allowed=True):
         if not self.module or not self.module.MOTOR_ROSTO or not self.module.MOTOR_ROSTO.disponivel:
@@ -494,13 +611,41 @@ class CameraBridge:
             logger.exception("Falha ao remover face %s do banco de câmeras", name)
             return {"ok": False, "error": str(exc)}
 
+    def _camera_ips(self):
+        """IP de cada câmera, lido da mesma lista do config.py que o painel usa."""
+        if getattr(self, "_ips", None) is None:
+            ips = {}
+            try:
+                config = importlib.import_module("config")
+                lista = config.cameras() if hasattr(config, "cameras") else getattr(config, "CAMERAS", [])
+                for item in lista:
+                    if item.get("cid"):
+                        ips[item["cid"]] = item.get("ip")
+            except Exception:
+                logger.exception("Não foi possível ler os IPs das câmeras no config.py")
+            self._ips = ips
+        return self._ips
+
     def status(self):
         if not self.module:
             return {"available": False, "error": self.error, "cameras": []}
+        ips = self._camera_ips()
+        try:
+            lentes_salvas = self.module.lentes.le()
+        except Exception:
+            lentes_salvas = {}
         cameras = []
         for camera_id in self.module.ORDEM:
             camera = self.module.CAMERAS[camera_id]
-            cameras.append({"id": camera_id, **camera.status()})
+            recognizer = self.module.RECS.get(camera_id)
+            lente = getattr(recognizer, "lente", None) or lentes_salvas.get(camera_id, "ambas")
+            cameras.append({
+                "id": camera_id,
+                "ip": ips.get(camera_id),
+                "lente_det": lente,
+                "tem_som": camera_id in self.module.XMS,
+                **camera.status(),
+            })
         return {"available": True, "error": None, "cameras": cameras}
 
 

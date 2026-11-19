@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
@@ -85,7 +85,7 @@ async def lifespan(_app: FastAPI):
     try:
         yield
     finally:
-        if camera_bridge.module:
+        if camera_bridge.module and not camera_bridge.embedded:
             try:
                 camera_bridge.module.encerrar_xm()
             except Exception:
@@ -97,6 +97,29 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="Portaria Administrativa", version="1.0.0", lifespan=lifespan)
+
+
+class PorteiroGestao:
+    """Modo embutido (dentro do painel): só entra quem pode entrar no painel.
+    Mesmo critério do painel: o próprio PC entra direto; outro aparelho precisa da
+    senha do painel (o cookie de login do painel vale aqui também, é o mesmo endereço)."""
+
+    def __init__(self, inner):
+        self.inner = inner
+
+    async def __call__(self, scope, receive, send):
+        checker = camera_bridge.auth
+        if scope["type"] not in ("http", "websocket") or checker is None or checker(scope):
+            await self.inner(scope, receive, send)
+            return
+        if scope["type"] == "websocket":
+            await send({"type": "websocket.close", "code": 1008})
+            return
+        response = JSONResponse({"detail": "Entre com a senha do painel de câmeras."}, status_code=401)
+        await response(scope, receive, send)
+
+
+app.add_middleware(PorteiroGestao)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://127.0.0.1:8000", "http://localhost:8000"],
@@ -709,6 +732,16 @@ def camera_audio_control(camera_id: str, payload: dict):
     return camera_bridge.audio(camera_id, action, payload.get("audio_base64"))
 
 
+@app.get("/api/cameras/{camera_id}/audio_pcm")
+def camera_audio_pcm(camera_id: str):
+    return camera_bridge.audio_pcm_stream(camera_id)
+
+
+@app.post("/api/cameras/{camera_id}/falar")
+def camera_speak_text(camera_id: str, payload: dict):
+    return camera_bridge.speak_text(camera_id, payload.get("texto"))
+
+
 @app.websocket("/ws/eventos")
 async def websocket_events(websocket: WebSocket):
     await manager.connect(websocket)
@@ -719,8 +752,8 @@ async def websocket_events(websocket: WebSocket):
         await manager.disconnect(websocket)
 
 
-bundle_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
-dist_dir = bundle_root / "portaria_ui" / "dist"
+bundle_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2]))
+dist_dir = bundle_root / "gestao" / "ui" / "dist"
 assets_dir = dist_dir / "assets"
 if assets_dir.is_dir():
     app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")

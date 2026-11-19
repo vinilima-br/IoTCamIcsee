@@ -80,3 +80,10 @@ def cameras():
 # -------------------------------------------------------------
 ROSTO_FRASE_OK = "Acesso liberado, {nome}"
 ROSTO_FRASE_NEGADO = "Acesso negado"
+
+# -------------------------------------------------------------
+#  Gestão de pessoas e acessos (pasta gestao/) - aba Facial
+#  Roda dentro do painel, numa porta própria, com o mesmo login.
+# -------------------------------------------------------------
+GESTAO_LIGADA = True
+GESTAO_PORTA = 8000
