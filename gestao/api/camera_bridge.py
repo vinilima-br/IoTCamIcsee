@@ -595,12 +595,14 @@ class CameraBridge:
                     and state.get(name) == {"sha256": digest, "permitido": bool(allowed)}
                 ):
                     return {"ok": True, "error": None}
-                faces, _, _ = motor.rostos.analisa(image)
-                if not faces:
-                    return {"ok": False, "error": "Nenhum rosto foi detectado na foto"}
+                # mesma regra do "Por foto" do painel: 1 rosto só, grande o bastante, + variações
+                try:
+                    amostras, _avisos = motor.amostras_da_foto(image)
+                except ValueError as exc:
+                    return {"ok": False, "error": str(exc)}
                 if name in motor.banco.pessoas:
                     motor.remove(name)
-                motor.banco.adiciona(name, [face["recorte"] for face in faces], permitido=allowed)
+                motor.banco.adiciona(name, amostras, permitido=allowed)
                 motor.banco.carrega()
                 state[name] = {"sha256": digest, "permitido": bool(allowed)}
                 self._write_face_sync_state(state)

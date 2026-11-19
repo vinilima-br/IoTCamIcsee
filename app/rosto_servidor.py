@@ -47,6 +47,8 @@ ALERTA_S = float(getattr(config, "ROSTO_ALERTA_S", 10))
 # 8/s com 3 seguidos = libera em ~0,4 s; 5 seguidos para negar = ~0,6 s (negar pede mais certeza).
 MAX_POR_SEGUNDO = float(getattr(config, "ROSTO_MAX_POR_SEGUNDO", 8))
 SEGUIDOS_LIBERAR = max(1, int(getattr(config, "ROSTO_SEGUIDOS_LIBERAR", 3)))
+# No cadastro a pessoa está perto (rosto grande): detectar numa imagem menor basta e custa menos da metade.
+LADO_CADASTRO = int(getattr(config, "ROSTO_LADO_CADASTRO", 640))
 SEGUIDOS_NEGAR = max(SEGUIDOS_LIBERAR, int(getattr(config, "ROSTO_SEGUIDOS_NEGAR", 5)))
 USAR_ALTA = bool(getattr(config, "ROSTO_USAR_ALTA", True))
 TAMANHO_MIN_PX = 80          # menor que isso: longe demais / falso rosto
@@ -302,6 +304,59 @@ class Motor:
         self.recarrega()
         return destino
 
+    def amostras_da_foto(self, imagem):
+        """Cadastro por FOTO (ex.: 3x4): acha o rosto e devolve (amostras 112x112, avisos).
+        Uma foto só vira algumas variações (espelhada, um pouco mais clara/escura): o reconhecimento
+        compara com a MAIS parecida, então isso ajuda com a luz e o ângulo da câmera, sem atrapalhar."""
+        if imagem is None or imagem.size == 0:
+            raise ValueError("não consegui abrir a imagem")
+        achados, _, _ = self.rostos.analisa(imagem, conf_min=0.80, max_rostos=2)
+        if not achados:
+            raise ValueError("não achei um rosto na foto: use uma foto de frente, com o rosto bem visível")
+        r = achados[0]
+        if len(achados) > 1 and achados[1]["caixa"][2] >= 0.5 * r["caixa"][2]:
+            raise ValueError("a foto tem mais de uma pessoa: use uma foto só de quem vai ser cadastrado")
+        if r["caixa"][2] < TAMANHO_MIN_PX:
+            raise ValueError("o rosto está pequeno demais na foto ({} px; precisa de {}): use uma foto mais "
+                             "de perto ou com mais resolução".format(r["caixa"][2], TAMANHO_MIN_PX))
+        recorte = r["recorte"]
+        brilho, nitidez = Reconhecedor._qualidade(recorte)
+        avisos = []
+        if not 55 <= brilho <= 215:
+            avisos.append("foto escura" if brilho < 55 else "foto clara demais")
+        if nitidez < 25:
+            avisos.append("foto pouco nítida")
+        amostras = [recorte, cv2.flip(recorte, 1),
+                    cv2.convertScaleAbs(recorte, alpha=1.0, beta=22),
+                    cv2.convertScaleAbs(recorte, alpha=1.0, beta=-22)]
+        return amostras, avisos
+
+    def cadastra_foto(self, nome, imagem, negado=False):
+        """Cadastra (ou soma fotos a) uma pessoa a partir de UMA foto. Retorna o resumo."""
+        nome = ia.nome_seguro(nome or "")
+        if not nome:
+            raise ValueError("digite o nome da pessoa")
+        if len(nome) > 40:
+            raise ValueError("nome muito longo (máx. 40 letras)")
+        amostras, avisos = self.amostras_da_foto(imagem)
+        codigo = self.rostos.codigo_do_recorte(amostras[0])
+        parecido, maior = None, 0.0
+        for outro, p in self.banco.pessoas.items():
+            if outro == nome:
+                continue
+            s = float(np.max(p["codigos"] @ codigo))
+            if s > maior:
+                parecido, maior = outro, s
+        with self.trava_banco:
+            ja_existia = nome in self.banco.pessoas
+            self.banco.adiciona(nome, amostras, False if negado else None)
+            self.banco.carrega()
+        print("[rosto] Cadastrado por foto '{}'{}".format(nome, " (" + ", ".join(avisos) + ")" if avisos else ""))
+        return {"nome": nome, "somou": ja_existia, "amostras": len(amostras), "aviso": ", ".join(avisos),
+                "mais_parecido": parecido, "semelhanca_outro": round(maior, 2),
+                "alerta_parecido": bool(parecido and maior >= ia.LIMIAR_MESMA_PESSOA),
+                "permitido": self.banco.pessoas.get(nome, {}).get("permitido", not negado)}
+
     def conclui_cadastro(self, nome, recortes, negado):
         """Filtra as amostras, compara com quem já existe e salva. Retorna o resumo."""
         bons, ruins, media = ia.filtra_amostras(self.rostos, recortes)
@@ -330,6 +385,19 @@ class Motor:
 # =============================================================
 #  Um reconhecedor por câmera
 # =============================================================
+class MedidorCPU:
+    """Soma o tempo de CPU gasto pela PRÓPRIA thread que chama marca() (time.thread_time)."""
+    def __init__(self):
+        self.total = 0.0
+        self._t = None
+
+    def marca(self):
+        agora = time.thread_time()
+        if self._t is not None:
+            self.total += agora - self._t
+        self._t = agora
+
+
 class Reconhecedor:
     def __init__(self, camera, motor, falar=None, alerta=None, holofote=None):
         """Ações na câmera (None = sem alto-falante/luz):
@@ -355,6 +423,9 @@ class Reconhecedor:
         self.por_s = 0.0
         self.largura = 0
         self._largura_ref = 0         # largura do quadro em que as caixas de `atuais` foram medidas
+        self.cpu = MedidorCPU()       # CPU gasta pela análise do rosto (log [cpu] do servidor)
+        # cronômetro de cada etapa do ciclo (médias no log [rosto-tempos] a cada 20 s)
+        self.tempos = {"n": 0, "quadro": 0.0, "analisa": 0.0, "detectar": 0.0, "codigo": 0.0, "resto": 0.0}
         self.eventos = deque(_ANTIGOS.get(self.cid, ()), maxlen=40)   # começa com o que está no histórico
         self.ultimo_evento = None
         self.luz_ate = 0.0
@@ -584,8 +655,11 @@ class Reconhecedor:
             try:
                 r = self.motor.conclui_cadastro(cad["nome"], cad["_recortes"], cad["negado"])
                 cad.update(estado="ok", resultado=r, msg="cadastrado")
-                print("[rosto:{}] Cadastrado '{}': {} amostras, semelhança {:.2f}".format(
-                    self.cid, cad["nome"], r["aproveitadas"], r["semelhanca_media"]))
+                print("[rosto:{}] Cadastrado '{}': {} amostras, semelhança {:.2f} em {:.0f} s "
+                      "(câmera {:.1f} fps · vídeo do cadastro {:.1f} fps · análise {:.0f} ms, {:.1f}/s)".format(
+                          self.cid, cad["nome"], r["aproveitadas"], r["semelhanca_media"],
+                          time.time() - cad["inicio"], self.camera.fps, getattr(self.camera, "fps_video", 0.0),
+                          self.ms, self.por_s))
             except Exception as e:  # noqa: BLE001
                 cad.update(estado="erro", msg=str(e))
         cad["_recortes"] = []
@@ -604,15 +678,23 @@ class Reconhecedor:
                         self.atuais = []
                 time.sleep(0.3)
                 continue
+            self.cpu.marca()
+            t_espera = time.perf_counter()
             ultimo_id, frame = self.camera.proximo_frame(ultimo_id)
             if frame is None:
                 with self.trava:
                     self.atuais = []
                 continue
             inicio = time.time()
+            t_quadro = time.perf_counter()
             parte, dy = lentes.recorta(frame, self.lente)
             try:
-                achados, _, _ = self.motor.rostos.analisa(parte)
+                em_cadastro = self.cadastro is not None and self.cadastro["estado"] == "capturando"
+                achados, ms_det, ms_cod = self.motor.rostos.analisa(
+                    parte, tamanho_min=TAMANHO_MIN_PX, conf_min=CONFIANCA_MIN,
+                    max_rostos=1 if em_cadastro else None,          # cadastro: só o rosto maior importa
+                    lado=LADO_CADASTRO if em_cadastro else None)
+                t_analisa = time.perf_counter()
             except cv2.error as e:
                 print("[rosto:{}] erro na análise: {}".format(self.cid, e))
                 time.sleep(1)
@@ -646,6 +728,13 @@ class Reconhecedor:
 
             fim = time.time()
             self.ms = (fim - inicio) * 1000
+            tp = self.tempos
+            tp["n"] += 1
+            tp["quadro"] += (t_quadro - t_espera) * 1000
+            tp["analisa"] += (t_analisa - t_quadro) * 1000
+            tp["detectar"] += ms_det
+            tp["codigo"] += ms_cod
+            tp["resto"] += (time.perf_counter() - t_analisa) * 1000
             self.largura = frame.shape[1]
             contagem += 1
             if fim - janela >= 2.0:
@@ -863,6 +952,10 @@ class Reconhecedor:
                 return {"cadastro": None, "lente": self.lente}
             cad = {k: v for k, v in self.cadastro.items() if not k.startswith("_")}
             cad["etapas"] = [{k: v for k, v in e.items() if k != "desde"} for e in cad.get("etapas", [])]
+            # desempenho (aparece discreto na janela; ajuda a achar onde trava)
+            cad["desempenho"] = {"fps_camera": round(self.camera.fps, 1),
+                                 "fps_video": round(getattr(self.camera, "fps_video", 0.0), 1),
+                                 "ms_analise": round(self.ms), "analises_s": round(self.por_s, 1)}
             return {"cadastro": cad, "lente": self.lente}
 
     def lista_eventos(self, limite=30):

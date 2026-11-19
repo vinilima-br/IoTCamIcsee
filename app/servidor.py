@@ -240,6 +240,8 @@ class Camera:
         self.ms_jpeg = 0.0
         self.fps_video = 0.0
         self.thread_jpeg = threading.Thread(target=self._loop_jpeg, daemon=True, name="jpeg-" + cid)
+        self.cpu_leitura = rosto_servidor.MedidorCPU()   # log [cpu]: quanto cada parte gasta
+        self.cpu_video = rosto_servidor.MedidorCPU()
 
     def iniciar(self):
         self.thread.start()
@@ -250,6 +252,7 @@ class Camera:
         parametros = [int(cv2.IMWRITE_JPEG_QUALITY), int(JPEG_QUALIDADE)]
         contagem, janela, soma_ms = 0, time.time(), 0.0
         while True:
+            self.cpu_video.marca()
             try:
                 with self.cond:
                     self.cond.wait_for(lambda: self.id_quadro != ultimo
@@ -322,7 +325,7 @@ class Camera:
             altura, largura = parte.shape[:2]
             if largura > CAD_LARGURA:
                 parte = cv2.resize(parte, (CAD_LARGURA, max(1, int(round(altura * CAD_LARGURA / largura)))),
-                                   interpolation=cv2.INTER_AREA)
+                                   interpolation=cv2.INTER_LINEAR)   # ~6x mais rápido que INTER_AREA (redução de só 2x)
             ok, buffer = cv2.imencode(".jpg", parte, [int(cv2.IMWRITE_JPEG_QUALITY), CAD_QUALIDADE])
             return buffer.tobytes() if ok else None
         except Exception:  # noqa: BLE001 - nunca derruba a captura por causa da miniatura
@@ -411,6 +414,7 @@ class Camera:
                 else:
                     self._ocioso_desde = 0.0
 
+                self.cpu_leitura.marca()
                 ok, frame = cap.read()
                 if not ok or frame is None:
                     print("[{}] Stream caiu. Reconectando...".format(self.cid))
@@ -450,8 +454,10 @@ class Camera:
         with self.cond:
             self.cond.wait_for(lambda: self.id_jpeg != ultimo_id, timeout=timeout)
             jpeg = self.jpeg_cad if cadastro else self.jpegs.get(lente)
-            if self.id_jpeg == ultimo_id or jpeg is None:
+            if self.id_jpeg == ultimo_id:
                 return ultimo_id, None
+            if jpeg is None:
+                return self.id_jpeg, None     # avança: senão quem assiste fica girando até o próximo quadro
             return self.id_jpeg, jpeg
 
     def proximo_frame(self, ultimo_id, timeout=1.0):
@@ -2476,6 +2482,26 @@ def api_rosto_cadastrar(cid):
     return jsonify({"ok": True})
 
 
+@app.route("/api/rostos/foto", methods=["POST"])
+def api_rostos_foto():
+    """Cadastro por FOTO (ex.: 3x4). form-data: nome, negado ("1"/"0"), arquivo (imagem)."""
+    import numpy as np
+    if MOTOR_ROSTO is None or not MOTOR_ROSTO.disponivel:
+        return jsonify({"ok": False, "erro": "reconhecimento facial indisponível"}), 400
+    arq = request.files.get("arquivo")
+    if arq is None or not arq.filename:
+        return jsonify({"ok": False, "erro": "escolha uma foto"}), 400
+    dados = arq.read()
+    if len(dados) > 15 * 1024 * 1024:
+        return jsonify({"ok": False, "erro": "foto grande demais (máx. 15 MB)"}), 400
+    imagem = cv2.imdecode(np.frombuffer(dados, np.uint8), cv2.IMREAD_COLOR)
+    try:
+        r = MOTOR_ROSTO.cadastra_foto(request.form.get("nome"), imagem, request.form.get("negado") == "1")
+    except ValueError as e:
+        return jsonify({"ok": False, "erro": str(e)}), 400
+    return jsonify({"ok": True, "resultado": r})
+
+
 @app.route("/api/rosto/<cid>/cadastro")
 def api_rosto_cadastro(cid):
     """Andamento do cadastro (janela de cadastro da página, ~4x por segundo)."""
@@ -3031,6 +3057,45 @@ def _liga_pausa_ociosa():
         cam.precisa_frames = precisa
 
 
+def _ronda_cpu(intervalo=20.0):
+    """A cada 20 s, uma linha no log: quanto da CPU do PC cada parte do painel usou."""
+    nucleos = os.cpu_count() or 1
+    ultimo = {}
+    t_ant, p_ant = time.perf_counter(), time.process_time()
+    while True:
+        time.sleep(intervalo)
+        t, p = time.perf_counter(), time.process_time()
+        janela = (t - t_ant) * nucleos
+        if janela <= 0:
+            continue
+        partes, soma = [], 0.0
+        for cid in ORDEM:
+            cam = CAMERAS[cid]
+            medidores = [("leitura", cam.cpu_leitura), ("vídeo", cam.cpu_video)]
+            if cid in RECS:
+                medidores.append(("rosto", RECS[cid].cpu))
+            for nome, m in medidores:
+                chave = (cid, nome)
+                gasto = m.total - ultimo.get(chave, 0.0)
+                ultimo[chave] = m.total
+                soma += gasto
+                partes.append("{} {:.0f}%".format(nome if len(ORDEM) == 1 else cid + " " + nome, 100 * gasto / janela))
+        total = p - p_ant
+        print("[cpu] painel {:.0f}% do PC | {} | outros {:.0f}%".format(
+            100 * total / janela, " | ".join(partes), 100 * max(0.0, total - soma) / janela))
+        # análise do rosto: onde vai o tempo de cada ciclo (médias em ms)
+        for cid, rec in RECS.items():
+            tp, n = rec.tempos, rec.tempos["n"]
+            if n:
+                a = tp["analisa"] / n
+                d, c = tp["detectar"] / n, tp["codigo"] / n
+                print("[rosto-tempos] {} {} análises em {:.0f} s: esperar quadro {:.0f} | analisar {:.0f} "
+                      "(detectar {:.0f} + código {:.0f} + trava/redução {:.0f}) | comparar+validar+registrar {:.0f} ms".format(
+                          cid, n, intervalo, tp["quadro"] / n, a, d, c, max(0.0, a - d - c), tp["resto"] / n))
+                rec.tempos = {k: 0 if k == "n" else 0.0 for k in tp}
+        t_ant, p_ant = t, p
+
+
 def iniciar_tudo():
     _liga_portoes()
     _liga_pausa_ociosa()
@@ -3050,6 +3115,8 @@ def iniciar_tudo():
     inicia_alertas_cam()
     # faxina periódica de arquivos antigos
     threading.Thread(target=_ronda_limpeza, daemon=True).start()
+    # medição de CPU por parte do painel (linha [cpu] no log a cada 20 s)
+    threading.Thread(target=_ronda_cpu, daemon=True, name="cpu").start()
     # PTZ: confirma com cada câmera se ela tem motor (o controle só aparece nas que se mexem)
     for cid, controle in PTZS.items():
         threading.Thread(target=_ronda_ptz, args=(cid, controle), daemon=True, name="ptz-" + cid).start()

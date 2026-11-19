@@ -134,16 +134,19 @@ class Rostos:
         # chama codigo_do_recorte() já com a trava na mão.
         self.trava = threading.RLock()
 
-    def analisa(self, frame, tamanho_min=0):
+    def analisa(self, frame, tamanho_min=0, conf_min=0.0, max_rostos=None, lado=None):
         """
-        Acha os rostos (largura >= tamanho_min px) e calcula o código de cada um.
+        Acha os rostos e calcula o código (SFace) SÓ dos que interessam:
+        largura >= tamanho_min px, confiança >= conf_min e, se pedido, só os max_rostos maiores.
+        (o código é a parte cara: não vale gastar com rosto pequeno/duvidoso que será descartado)
+        lado: lado maior da imagem da detecção (padrão LADO_DETECCAO).
         Retorna (rostos, ms_deteccao, ms_codigo). Cada rosto:
           {"caixa": (x, y, w, h), "conf": 0..1, "codigo": vetor 128, "recorte": imagem 112x112}
         Ordenados do maior para o menor.
         """
         with self.trava:
             altura, largura = frame.shape[:2]
-            escala = min(1.0, LADO_DETECCAO / max(altura, largura))
+            escala = min(1.0, (lado or LADO_DETECCAO) / max(altura, largura))
             if escala < 1.0:
                 pequeno = cv2.resize(frame, (int(largura * escala), int(altura * escala)),
                                      interpolation=cv2.INTER_AREA)
@@ -162,7 +165,11 @@ class Rostos:
             ms_cod = 0.0
             if achados is None:
                 return rostos, ms_det, ms_cod
-            for linha in achados:
+            for linha in sorted(achados, key=lambda a: float(a[2]), reverse=True):   # maior primeiro
+                if max_rostos is not None and len(rostos) >= max_rostos:
+                    break
+                if float(linha[14]) < conf_min:
+                    continue
                 original = linha.copy()
                 original[:14] = linha[:14] / escala      # caixa + 5 pontos na resolução original
                 x, y, w, h = [int(v) for v in original[:4]]
@@ -204,6 +211,9 @@ class BancoRostos:
     def __init__(self, rostos):
         self.rostos = rostos
         self.pessoas = {}      # nome -> {"permitido": bool, "codigos": matriz Nx128, "fotos": [caminhos]}
+        # código já calculado de cada foto: (caminho, mtime, tamanho) -> vetor. Recarregar (cadastro novo,
+        # permissão, remoção) só calcula as fotos novas, em vez de todas as fotos de todo mundo.
+        self._cache = {}
 
     # ---- arquivo de permissões ----
     @staticmethod
@@ -225,6 +235,7 @@ class BancoRostos:
     def carrega(self):
         permissoes = self.le_permissoes()
         novas = {}                     # monta à parte e troca de uma vez (outras threads podem estar comparando)
+        cache_novo = {}
         if not os.path.isdir(PASTA_PESSOAS):
             self.pessoas = novas
             return self
@@ -237,13 +248,22 @@ class BancoRostos:
                 if not arq.lower().endswith((".jpg", ".png")):
                     continue
                 caminho = os.path.join(pasta, arq)
-                img = cv2.imdecode(np.fromfile(caminho, dtype=np.uint8), cv2.IMREAD_COLOR)
-                if img is None:
+                try:
+                    st = os.stat(caminho)
+                    chave = (caminho, st.st_mtime_ns, st.st_size)
+                except OSError:
                     continue
-                if img.shape[:2] != (112, 112):
-                    img = cv2.resize(img, (112, 112))
+                codigo = self._cache.get(chave)
+                if codigo is None:
+                    img = cv2.imdecode(np.fromfile(caminho, dtype=np.uint8), cv2.IMREAD_COLOR)
+                    if img is None:
+                        continue
+                    if img.shape[:2] != (112, 112):
+                        img = cv2.resize(img, (112, 112))
+                    codigo = self.rostos.codigo_do_recorte(img)
+                cache_novo[chave] = codigo
                 fotos.append(caminho)
-                codigos.append(self.rostos.codigo_do_recorte(img))
+                codigos.append(codigo)
             if codigos:
                 novas[nome] = {
                     "permitido": bool(permissoes.get(nome, {}).get("permitido", True)),
@@ -251,6 +271,7 @@ class BancoRostos:
                     "fotos": fotos,
                 }
         self.pessoas = novas
+        self._cache = cache_novo            # esquece fotos apagadas
         return self
 
     # ---- gravar uma pessoa ----
@@ -262,6 +283,10 @@ class BancoRostos:
         carimbo = time.strftime("%Y%m%d_%H%M%S")
         for i, recorte in enumerate(recortes, 1):
             caminho = os.path.join(pasta, "{}_{:02d}.jpg".format(carimbo, i))
+            extra = 2
+            while os.path.exists(caminho):     # 2 cadastros no mesmo segundo: não sobrescreve as fotos
+                caminho = os.path.join(pasta, "{}_{:02d}_{}.jpg".format(carimbo, i, extra))
+                extra += 1
             ok, dados = cv2.imencode(".jpg", recorte, [cv2.IMWRITE_JPEG_QUALITY, 95])
             if ok:
                 dados.tofile(caminho)          # tofile aceita acentos no caminho (Windows)
