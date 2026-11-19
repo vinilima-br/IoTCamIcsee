@@ -193,6 +193,11 @@
     .cad-palco.lente-cima img, .cad-palco.lente-baixo img { height: 200%; }
     .cad-palco.lente-cima img { top: 0; } .cad-palco.lente-baixo img { top: -100%; }
     .cad-palco.girada img { transform: rotate(180deg); }
+    /* espelho (como a câmera frontal do celular): só a imagem da tela */
+    .cad-palco.espelho img { transform: scaleX(-1); }
+    .cad-palco.girada.espelho img { transform: rotate(180deg) scaleX(-1); }
+    #cad-espelho { font-size: 17px; line-height: 1; }
+    #cad-espelho.ativo { color: var(--azul2); border-color: rgba(59,130,246,.55); background: rgba(37,99,235,.15); }
     .cad-palco.girada.lente-cima img { top: -100%; } .cad-palco.girada.lente-baixo img { top: 0; }
     /* Desempenho: o SVG do guia (máscara + ovais) fica PARADO numa camada própria; nada de filtro
        nem animação dentro dele - senão o navegador redesenha a máscara inteira a cada quadro. */
@@ -1442,6 +1447,7 @@
   <dialog id="dlg-cad" class="dlg">
     <div class="cfg-cab">
       <h2>{{ ic("rosto") }}<span id="cad-titulo">Cadastro facial</span></h2>
+      <button id="cad-espelho" class="fx-btn-ic" title="Espelhar a imagem (esquerda ⇄ direita), como a câmera do celular. Só muda a tela: as fotos do cadastro não mudam.">⇋</button>
       <button id="cad-fechar" class="fx-btn-ic" title="Cancelar e fechar">{{ ic("x") }}</button>
     </div>
     <div class="cad-corpo">
@@ -2701,6 +2707,19 @@
 
       function lenteAtual(d) { return card && card._duas && d && (d.lente === "cima" || d.lente === "baixo") ? d.lente : "ambas"; }
 
+      // espelhar a imagem do cadastro (lembra a escolha; padrão: espelhado, como a câmera do celular)
+      let espelho = !!salvo.ler("cad.espelho", true);
+      function aplicaEspelho() {
+        $("cad-palco").classList.toggle("espelho", espelho);
+        $("cad-espelho").classList.toggle("ativo", espelho);
+      }
+      $("cad-espelho").addEventListener("click", () => {
+        espelho = !espelho;
+        salvo.gravar("cad.espelho", espelho);
+        aplicaEspelho();
+      });
+      aplicaEspelho();
+
       function ajustaPalco(d) {
         const p = $("cad-palco"), img = $("cad-video"), l = lenteAtual(d);
         // o vídeo do cadastro (/video_cad) já chega só com a lente em uso: nada de recorte aqui
@@ -2722,6 +2741,7 @@
         if (l === "cima") { y = y * 2; h = h * 2; }
         else if (l === "baixo") { y = (y - 0.5) * 2; h = h * 2; }
         if (card && card.classList.contains("girada")) { x = 1 - x - w; y = 1 - y - h; }
+        if (espelho) x = 1 - x - w;                                 // a caixa acompanha a imagem espelhada
         const ch = cad.checks || {};
         el.hidden = false;
         el.className = "cad-caixa " + (ch.tamanho && ch.centro && ch.pose ? "ok" : "ajuste");
@@ -2736,6 +2756,7 @@
           else if (etapa.id === "lado2" && cad.lado1) {
             let lado = -cad.lado1;                                   // o contrário do 1º lado, na tela
             if (card && card.classList.contains("girada")) lado = -lado;
+            if (espelho) lado = -lado;                               // imagem espelhada: a seta também
             if (lado > 0) d = true; else e = true;
           }
         }
