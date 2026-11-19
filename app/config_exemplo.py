@@ -87,3 +87,21 @@ ROSTO_FRASE_NEGADO = "Acesso negado"
 # -------------------------------------------------------------
 GESTAO_LIGADA = True
 GESTAO_PORTA = 8000
+
+# -------------------------------------------------------------
+#  Vídeo da página (desempenho)
+#  VIDEO_LADO_MAX: a imagem que vai para a TELA tem no máximo esse lado maior
+#    (0 = tamanho original). Reconhecimento, fotos e gravações usam o quadro cheio.
+#  VIDEO_BAIXA_LATENCIA: o FFmpeg não segura quadros de reserva (menos atraso).
+# -------------------------------------------------------------
+VIDEO_LADO_MAX = 1440
+VIDEO_BAIXA_LATENCIA = True
+
+# -------------------------------------------------------------
+#  Velocidade da decisão do reconhecimento facial
+#  análises por segundo x resultados iguais seguidos que ele exige
+#  (8/s e 3 seguidos = libera em ~0,4 s; negar pede mais certeza)
+# -------------------------------------------------------------
+ROSTO_MAX_POR_SEGUNDO = 8
+ROSTO_SEGUIDOS_LIBERAR = 3
+ROSTO_SEGUIDOS_NEGAR = 5

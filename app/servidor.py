@@ -34,7 +34,21 @@ from collections import deque
 from datetime import datetime, timedelta
 
 # RTSP via TCP (estável em Wi-Fi). Precisa vir ANTES do import cv2.
-os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
+# nobuffer: o FFmpeg não segura quadros "de reserva" na entrada = menos atraso.
+# (lê o config.py aqui só para essa chave; se der qualquer erro, fica o padrão)
+def _baixa_latencia():
+    raiz = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if raiz not in sys.path:
+        sys.path.append(raiz)
+    try:
+        import config as _cfg
+        return bool(getattr(_cfg, "VIDEO_BAIXA_LATENCIA", True))
+    except Exception:  # noqa: BLE001
+        return True
+
+
+os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
+    "rtsp_transport;tcp" + ("|fflags;nobuffer" if _baixa_latencia() else ""))
 
 import cv2  # noqa: E402
 
@@ -74,6 +88,10 @@ WEB_PORTA = getattr(config, "WEB_PORTA", 5050)
 GESTAO_LIGADA = getattr(config, "GESTAO_LIGADA", True)
 GESTAO_PORTA = getattr(config, "GESTAO_PORTA", 8000)
 JPEG_QUALIDADE = getattr(config, "JPEG_QUALIDADE", 80)
+# Vídeo da PÁGINA: lado maior até VIDEO_LADO_MAX px (0 = tamanho original).
+# Só a imagem da tela é reduzida: reconhecimento, fotos e gravações usam o quadro cheio.
+# A X6S na Alta (2304x2592, 2 lentes) vira 1280x1440: ~1/3 dos pixels para comprimir.
+VIDEO_LADO_MAX = int(getattr(config, "VIDEO_LADO_MAX", 1440))
 # Vídeo LEVE da janela de cadastro facial: só a lente escolhida, reduzida e sem
 # desenhos. Gerar e mostrar isso custa uma fração do quadro inteiro (2304x2592).
 CAD_LARGURA = int(getattr(config, "CAD_LARGURA", 1152))
@@ -211,9 +229,79 @@ class Camera:
         self._ocioso_desde = 0.0
         self.cond = threading.Condition()
         self.thread = threading.Thread(target=self._loop, daemon=True)
+        # Compressor separado da leitura: a leitura nunca espera o JPEG (senão os
+        # quadros se acumulam no FFmpeg e o vídeo vai atrasando). Ele pega sempre
+        # o quadro MAIS NOVO e pula os que não deu tempo de comprimir.
+        self.id_jpeg = 0
+        # Câmera de 2 lentes: quem assiste só uma lente recebe SÓ ela (metade dos pixels).
+        # espectadores = total; espectadores_lente = quantos destes pediram "cima"/"baixo".
+        self.espectadores_lente = {"cima": 0, "baixo": 0}
+        self.jpegs = {}                 # "ambas" / "cima" / "baixo" -> JPEG do quadro mais novo
+        self.ms_jpeg = 0.0
+        self.fps_video = 0.0
+        self.thread_jpeg = threading.Thread(target=self._loop_jpeg, daemon=True, name="jpeg-" + cid)
 
     def iniciar(self):
         self.thread.start()
+        self.thread_jpeg.start()
+
+    def _loop_jpeg(self):
+        ultimo = 0
+        parametros = [int(cv2.IMWRITE_JPEG_QUALITY), int(JPEG_QUALIDADE)]
+        contagem, janela, soma_ms = 0, time.time(), 0.0
+        while True:
+            try:
+                with self.cond:
+                    self.cond.wait_for(lambda: self.id_quadro != ultimo
+                                       and (self.espectadores > 0 or self.espectadores_cad > 0), timeout=1.0)
+                    if self.id_quadro == ultimo or self.frame is None:
+                        if self.espectadores <= 0 and self.espectadores_cad <= 0:
+                            self.fps_video = 0.0
+                        continue
+                    ultimo = self.id_quadro
+                    frame = self.frame
+                    quer_video = self.espectadores > 0
+                    quer_cad = self.espectadores_cad > 0
+                    n_cima, n_baixo = self.espectadores_lente["cima"], self.espectadores_lente["baixo"]
+                    versoes = [v for v, n in (("ambas", self.espectadores - n_cima - n_baixo),
+                                              ("cima", n_cima), ("baixo", n_baixo)) if n > 0]
+                inicio = time.perf_counter()
+                jpegs = {}
+                if quer_video and versoes:
+                    base = frame
+                    if self.sobreposicao is not None:
+                        base = self.sobreposicao(frame)     # desenha 1 vez no quadro cheio
+                    for versao in versoes:
+                        tela = base if versao == "ambas" else lentes.recorta(base, versao)[0]
+                        altura, largura = tela.shape[:2]
+                        lado = max(altura, largura)
+                        if VIDEO_LADO_MAX > 0 and lado > VIDEO_LADO_MAX:
+                            e = VIDEO_LADO_MAX / float(lado)
+                            # INTER_LINEAR: ~6x mais rápido que o INTER_AREA e, reduzindo
+                            # menos de 2x, a diferença na tela é imperceptível
+                            tela = cv2.resize(tela, (max(1, int(largura * e)), max(1, int(altura * e))),
+                                              interpolation=cv2.INTER_LINEAR)
+                        ok, buffer = cv2.imencode(".jpg", tela, parametros)
+                        if ok:
+                            jpegs[versao] = buffer.tobytes()
+                jpeg_cad = self._jpeg_cadastro(frame) if quer_cad else None
+                ms = (time.perf_counter() - inicio) * 1000
+                with self.cond:
+                    self.jpegs = jpegs
+                    self.jpeg = jpegs.get("ambas")
+                    self.jpeg_cad = jpeg_cad
+                    self.id_jpeg += 1
+                    self.cond.notify_all()
+                contagem += 1
+                soma_ms += ms
+                agora = time.time()
+                if agora - janela >= 2.0:
+                    self.fps_video = contagem / (agora - janela)
+                    self.ms_jpeg = soma_ms / max(1, contagem)
+                    contagem, janela, soma_ms = 0, agora, 0.0
+            except Exception as erro:  # noqa: BLE001 - o compressor nunca pode morrer
+                print("[{}] erro ao gerar o vídeo da página: {!r}".format(self.cid, erro))
+                time.sleep(0.5)
 
     def _quer_pausar(self):
         """Ninguém precisa dos frames: nem espectador, nem IA, nem rosto."""
@@ -249,7 +337,6 @@ class Camera:
         print("[{}] Trocando para stream {} ({})".format(self.cid, stream, NOMES_STREAM.get(stream)))
 
     def _loop(self):
-        parametros_jpeg = [int(cv2.IMWRITE_JPEG_QUALITY), int(JPEG_QUALIDADE)]
         while True:
             # Sem espectador/IA/rosto: fica em pausa, sem nem abrir o vídeo.
             if self._quer_pausar():
@@ -329,17 +416,8 @@ class Camera:
                     print("[{}] Stream caiu. Reconectando...".format(self.cid))
                     break
 
-                # Só comprime em JPEG se tem alguém assistindo: câmera
-                # escondida na página = menos CPU no mini PC.
-                jpeg = None
-                if self.espectadores > 0:
-                    para_video = frame
-                    if self.sobreposicao is not None:
-                        para_video = self.sobreposicao(frame)
-                    ok, buffer = cv2.imencode(".jpg", para_video, parametros_jpeg)
-                    if ok:
-                        jpeg = buffer.tobytes()
-                jpeg_cad = self._jpeg_cadastro(frame) if self.espectadores_cad > 0 else None
+                # O JPEG da página é feito no _loop_jpeg (outra thread): aqui só lê,
+                # para nunca ficar para trás da câmera.
 
                 contador += 1
                 agora = time.time()
@@ -350,8 +428,6 @@ class Camera:
 
                 with self.cond:
                     self.frame = frame
-                    self.jpeg = jpeg
-                    self.jpeg_cad = jpeg_cad
                     self.id_quadro += 1
                     self.altura, self.largura = frame.shape[:2]
                     self.online = True
@@ -370,13 +446,13 @@ class Camera:
             self.fps = 0.0
             self.cond.notify_all()
 
-    def proximo_jpeg(self, ultimo_id, timeout=5.0, cadastro=False):
+    def proximo_jpeg(self, ultimo_id, timeout=5.0, cadastro=False, lente="ambas"):
         with self.cond:
-            self.cond.wait_for(lambda: self.id_quadro != ultimo_id, timeout=timeout)
-            jpeg = self.jpeg_cad if cadastro else self.jpeg
-            if self.id_quadro == ultimo_id or jpeg is None:
+            self.cond.wait_for(lambda: self.id_jpeg != ultimo_id, timeout=timeout)
+            jpeg = self.jpeg_cad if cadastro else self.jpegs.get(lente)
+            if self.id_jpeg == ultimo_id or jpeg is None:
                 return ultimo_id, None
-            return self.id_quadro, jpeg
+            return self.id_jpeg, jpeg
 
     def proximo_frame(self, ultimo_id, timeout=1.0):
         with self.cond:
@@ -400,6 +476,8 @@ class Camera:
                 "largura": self.largura,
                 "altura": self.altura,
                 "fps": round(self.fps, 1),
+                "fps_video": round(self.fps_video, 1),     # quadros/s que chegam na página
+                "ms_jpeg": round(self.ms_jpeg),           # custo para preparar cada quadro da página
                 "stream": self.stream,
                 "stream_nome": NOMES_STREAM.get(self.stream, "?"),
                 "erro": self.erro,
@@ -1085,13 +1163,18 @@ def video(cid):
     if camera is None:
         return "câmera desconhecida", 404
 
+    lente = request.args.get("lente")
+    lente = lente if lente in ("cima", "baixo") else "ambas"
+
     def gerar():
         ultimo_id = 0
         with camera.cond:
             camera.espectadores += 1
+            if lente != "ambas":
+                camera.espectadores_lente[lente] += 1
         try:
             while True:
-                ultimo_id, jpeg = camera.proximo_jpeg(ultimo_id)
+                ultimo_id, jpeg = camera.proximo_jpeg(ultimo_id, lente=lente)
                 if jpeg is None:
                     continue
                 yield (b"--quadro\r\n"
@@ -1101,6 +1184,8 @@ def video(cid):
         finally:
             with camera.cond:
                 camera.espectadores = max(0, camera.espectadores - 1)
+                if lente != "ambas":
+                    camera.espectadores_lente[lente] = max(0, camera.espectadores_lente[lente] - 1)
 
     resposta = Response(gerar(), mimetype="multipart/x-mixed-replace; boundary=quadro")
     resposta.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -2895,8 +2980,25 @@ class _Tee:
                 pass
 
 
+def _liga_cores_no_console():
+    """Windows: faz a janela preta entender as cores ANSI (senão aparece "←[31m")."""
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+        k32 = ctypes.windll.kernel32
+        for alca in (-11, -12):                     # saída e erro
+            h = k32.GetStdHandle(alca)
+            modo = ctypes.c_uint32()
+            if h and k32.GetConsoleMode(h, ctypes.byref(modo)):
+                k32.SetConsoleMode(h, modo.value | 0x0004)   # ENABLE_VIRTUAL_TERMINAL_PROCESSING
+    except Exception:  # noqa: BLE001 - só estética
+        pass
+
+
 def _liga_log_arquivo():
     """Além da janela, guarda tudo em logs/central_AAAA-MM-DD.log."""
+    _liga_cores_no_console()
     try:
         pasta = os.path.join(PASTA_BASE, "logs")
         os.makedirs(pasta, exist_ok=True)

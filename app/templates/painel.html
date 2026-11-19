@@ -1718,11 +1718,21 @@
       return !pausaCadastro && !pausaGestao && !c.hidden && !c.classList.contains("minimizada");
     }
 
+    // Câmera de 2 lentes: o servidor manda SÓ a lente que está na tela (metade dos pixels).
+    function lenteDaTela(c) {
+      const forcada = c._lenteFacial ? c._lenteFacial() : null;
+      return forcada || (c._duas ? (c._lente || "ambas") : "ambas");
+    }
+    function urlVideo(c) {
+      return "/video/" + c.dataset.cid + "?lente=" + lenteDaTela(c) + "&t=" + Date.now();
+    }
+
     function atualizaVideo(c) {
       const img = c.querySelector(".video");
       if (videoLigado(c)) {
         if (!img.dataset.ligado) {
-          img.src = "/video/" + c.dataset.cid + "?t=" + Date.now();
+          img.dataset.lente = lenteDaTela(c);
+          img.src = urlVideo(c);
           img.dataset.ligado = "1";
         }
       } else if (img.dataset.ligado) {
@@ -1850,8 +1860,10 @@
       c._aplicaLente = () => {
         const box = q(".video-box"), forcada = c._lenteFacial();
         const l = forcada || (c._duas ? c._lente : "ambas");
-        box.classList.toggle("lente-cima", l === "cima");
-        box.classList.toggle("lente-baixo", l === "baixo");
+        // o recorte agora vem pronto do servidor (?lente=): nada de esconder metade por CSS
+        box.classList.remove("lente-cima", "lente-baixo");
+        const img = q(".video");
+        if (img.dataset.ligado && img.dataset.lente !== l) { img.dataset.lente = l; img.src = urlVideo(c); }
         c.querySelectorAll(".btn-lente").forEach(b => b.classList.toggle("ativo", b.dataset.lente === l));
         const grupo = q(".grupo-lente");
         grupo.hidden = !c._duas;
@@ -1923,7 +1935,7 @@
       const img = q(".video");
       img.addEventListener("error", () => {
         if (!img.dataset.ligado) return;
-        setTimeout(() => { if (img.dataset.ligado) img.src = "/video/" + cid + "?t=" + Date.now(); }, 2000);
+        setTimeout(() => { if (img.dataset.ligado) img.src = urlVideo(c); }, 2000);
       });
 
       c.querySelectorAll(".btn-stream").forEach(b => b.addEventListener("click", async () => {
@@ -3261,7 +3273,8 @@
           ipEl.textContent = (falhando ? "tentando " : "") + ipEl.dataset.ip;
           ipEl.classList.toggle("falhando", falhando);
         }
-        q(".sobre-info").textContent = s.online && s.largura ? s.largura + "×" + s.altura + " · " + s.fps + " fps" : "-";
+        q(".sobre-info").textContent = s.online && s.largura
+          ? s.largura + "×" + s.altura + " · câmera " + s.fps + " fps" + (s.fps_video ? " · tela " + s.fps_video + " fps" : "") : "-";
         c.querySelectorAll(".btn-stream").forEach(b => b.classList.toggle("ativo", Number(b.dataset.stream) === s.stream));
         if (s.online && s.largura && s.altura) {          // 2 lentes = quadro mais alto que largo (2304x2592)
           const duas = s.altura / s.largura > 0.9;

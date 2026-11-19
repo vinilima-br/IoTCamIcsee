@@ -43,7 +43,11 @@ import rostos_ia as ia
 FRASE_OK = getattr(config, "ROSTO_FRASE_OK", "Acesso liberado, {nome}")
 FRASE_NEGADO = getattr(config, "ROSTO_FRASE_NEGADO", "")
 ALERTA_S = float(getattr(config, "ROSTO_ALERTA_S", 10))
-MAX_POR_SEGUNDO = float(getattr(config, "ROSTO_MAX_POR_SEGUNDO", 4))
+# Velocidade da decisão: análises por segundo x resultados iguais seguidos que ela exige.
+# 8/s com 3 seguidos = libera em ~0,4 s; 5 seguidos para negar = ~0,6 s (negar pede mais certeza).
+MAX_POR_SEGUNDO = float(getattr(config, "ROSTO_MAX_POR_SEGUNDO", 8))
+SEGUIDOS_LIBERAR = max(1, int(getattr(config, "ROSTO_SEGUIDOS_LIBERAR", 3)))
+SEGUIDOS_NEGAR = max(SEGUIDOS_LIBERAR, int(getattr(config, "ROSTO_SEGUIDOS_NEGAR", 5)))
 USAR_ALTA = bool(getattr(config, "ROSTO_USAR_ALTA", True))
 TAMANHO_MIN_PX = 80          # menor que isso: longe demais / falso rosto
 TAMANHO_CADASTRO_PX = 100
@@ -343,13 +347,14 @@ class Reconhecedor:
         self.acoes = True
         self.lente = lentes.le().get(camera.cid, "ambas")   # câmera de 2 lentes: onde procurar rostos
         self.trava = threading.Lock()
-        self.validador = ia.Validador()
+        self.validador = ia.Validador(seguidos=SEGUIDOS_LIBERAR, seguidos_negado=SEGUIDOS_NEGAR)
 
         self.atuais = []            # [(caixa, resultado)] da última análise
         self.analisado_em = 0.0
         self.ms = 0.0
         self.por_s = 0.0
         self.largura = 0
+        self._largura_ref = 0         # largura do quadro em que as caixas de `atuais` foram medidas
         self.eventos = deque(_ANTIGOS.get(self.cid, ()), maxlen=40)   # começa com o que está no histórico
         self.ultimo_evento = None
         self.luz_ate = 0.0
@@ -424,7 +429,7 @@ class Reconhecedor:
             return False
         with self.trava:
             self.ativo = bool(ativo)
-            self.validador = ia.Validador()
+            self.validador = ia.Validador(seguidos=SEGUIDOS_LIBERAR, seguidos_negado=SEGUIDOS_NEGAR)
             self.atuais = []
         self._ajusta_stream()
         print("[rosto:{}] Reconhecimento {}".format(self.cid, "LIGADO" if ativo else "desligado"))
@@ -436,7 +441,7 @@ class Reconhecedor:
                 self.cadastro.update(estado="cancelado", msg="a lente mudou no meio do cadastro - comece de novo",
                                      _recortes=[])
             self.lente = lente
-            self.validador = ia.Validador()      # recomeça a contagem na lente nova
+            self.validador = ia.Validador(seguidos=SEGUIDOS_LIBERAR, seguidos_negado=SEGUIDOS_NEGAR)      # recomeça a contagem na lente nova
             self.atuais = []
 
     def set_acoes(self, ligado):
@@ -624,6 +629,7 @@ class Reconhecedor:
                         validos, (frame.shape[0], frame.shape[1], dy, parte.shape[0]))
                     self.atuais = [(r["caixa"], {"status": "incerto", "nome": "cadastro", "sim": 0.0})
                                    for r in validos[:1]]
+                    self._largura_ref = frame.shape[1]
                     self.analisado_em = time.time()
                 if terminou:
                     self._cadastro_fim()
@@ -633,6 +639,7 @@ class Reconhecedor:
                 evento = self.validador.atualiza(resultados)
                 with self.trava:
                     self.atuais = [(r["caixa"], res) for r, res in zip(validos, resultados)]
+                    self._largura_ref = frame.shape[1]
                     self.analisado_em = time.time()
                 if evento:
                     self._registra(evento, frame)
@@ -792,9 +799,13 @@ class Reconhecedor:
         if not atuais:
             return frame.copy() if forcar else frame
         img = frame.copy()
+        # As caixas estão em pixels do quadro analisado; a página recebe o vídeo
+        # reduzido (VIDEO_LADO_MAX no servidor): ajusta para o tamanho recebido.
+        e = img.shape[1] / float(self._largura_ref or img.shape[1])
         esp = max(2, img.shape[1] // 450)
         fonte = max(0.7, img.shape[1] / 1400)
         for (x, y, w, h), res in atuais:
+            x, y, w, h = int(x * e), int(y * e), int(w * e), int(h * e)
             cor = CORES.get(res["status"], (200, 200, 200))
             if res["nome"] == "cadastro":
                 continue                         # no cadastro a janela da página desenha o guia

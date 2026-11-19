@@ -106,12 +106,28 @@ def garante_modelos():
 # -------------------------------------------------------------
 #  Detecção + código do rosto
 # -------------------------------------------------------------
+def _sem_aviso(criar):
+    """Roda criar() com o log do OpenCV só em erros (volta como estava depois)."""
+    try:
+        log = cv2.utils.logging
+        antes = log.getLogLevel()
+        log.setLogLevel(log.LOG_LEVEL_ERROR)
+    except Exception:  # noqa: BLE001 - OpenCV sem esse controle: cria normal
+        return criar()
+    try:
+        return criar()
+    finally:
+        log.setLogLevel(antes)
+
+
 class Rostos:
     def __init__(self, confianca_min=0.8):
         confere_opencv()
         det, rec = garante_modelos()
-        self.det = cv2.FaceDetectorYN.create(det, "", (320, 320), confianca_min, 0.3, 5000)
-        self.rec = cv2.FaceRecognizerSF.create(rec, "")
+        # O OpenCV 5 avisa "setPreferableTarget ... not supported by the new graph engine"
+        # ao criar as redes: é inofensivo (roda na CPU igual). Silencia só nesse momento.
+        self.det = _sem_aviso(lambda: cv2.FaceDetectorYN.create(det, "", (320, 320), confianca_min, 0.3, 5000))
+        self.rec = _sem_aviso(lambda: cv2.FaceRecognizerSF.create(rec, ""))
         self.tamanho_atual = None
         # As redes do OpenCV NÃO podem ser usadas por duas threads ao mesmo tempo
         # (no servidor: várias câmeras + recarregar o cadastro). RLock: analisa()
