@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Central de Câmeras</title>
+  <title>Reconhecimento Facial · Central de Câmeras</title>
   <style>
     :root {
       color-scheme: dark;            /* Windows: barras de rolagem e controles nativos escuros */
@@ -717,6 +717,64 @@
       .cab .acoes-cab .btn-girar-cam, .cab .acoes-cab .btn-tela { display: none; }
       .fx-novo { flex-wrap: wrap; } .fx-novo button { flex: 1; justify-content: center; }
     }
+    /* ===== Central de Reconhecimento (tela principal) ===== */
+    .topo h1 .marca-sub { font-size: 12px; font-weight: 500; color: var(--suave); }
+    .central { max-width: 1760px; margin: 16px auto 0; padding: 0 18px; }
+    .central-caixa { border: 1px solid var(--borda); border-radius: 16px; padding: 16px 18px; display: grid; gap: 14px;
+                     background: linear-gradient(180deg, #121925, #0f141c); box-shadow: 0 10px 30px rgba(0,0,0,.25);
+                     transition: border-color .3s, box-shadow .3s; }
+    .central[data-estado="on"] .central-caixa { border-color: rgba(59,130,246,.45); }
+    .central[data-estado="lib"] .central-caixa { border-color: rgba(34,197,94,.65); box-shadow: 0 0 0 3px rgba(34,197,94,.12), 0 10px 30px rgba(0,0,0,.25); }
+    .central[data-estado="neg"] .central-caixa { border-color: rgba(239,68,68,.7); box-shadow: 0 0 0 3px rgba(239,68,68,.12), 0 10px 30px rgba(0,0,0,.25); }
+    .central-topo { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .central-tit { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 240px; }
+    .central-ic { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; flex: none;
+                  background: rgba(59,130,246,.16); color: var(--azul2); transition: background .3s, color .3s; }
+    .central-ic .ic { width: 24px; height: 24px; }
+    .central[data-estado="off"] .central-ic { background: #1a212b; color: var(--suave); }
+    .central[data-estado="lib"] .central-ic { background: rgba(34,197,94,.2); color: #4ade80; }
+    .central[data-estado="neg"] .central-ic { background: rgba(239,68,68,.2); color: #f87171; }
+    .central-tit h2 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+    .central-sub { font-size: 12.5px; color: var(--suave); }
+    .central-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+    .central-acoes button { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; font-size: 13px; font-weight: 600; border-radius: 9px; }
+    .central-acoes button .ic { width: 16px; height: 16px; }
+    .central-corpo { display: grid; grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); gap: 14px; }
+    @media (max-width: 900px) { .central-corpo { grid-template-columns: 1fr; } }
+    .central-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: start; }
+    .kpi { border: 1px solid var(--borda); border-radius: 12px; background: #0f141b; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+    .kpi b { font-size: 24px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .kpi span { font-size: 11.5px; color: var(--suave); }
+    .kpi.lib b { color: #4ade80; } .kpi.neg b { color: #f87171; }
+    .central-feed { border: 1px solid var(--borda); border-radius: 12px; background: #0f141b; min-width: 0; display: flex; flex-direction: column; }
+    .central-feed h3 { margin: 0; padding: 10px 12px 0; font-size: 13px; display: flex; align-items: center; gap: 7px; }
+    .central-feed h3 .ic { width: 15px; height: 15px; color: var(--suave); }
+    .central-feed h3 small { font-weight: 400; color: var(--suave); }
+    .central-eventos { list-style: none; margin: 0; padding: 10px 12px 12px; display: flex; gap: 8px; overflow-x: auto; }
+    .central-eventos:empty { display: none; }
+    .cev { flex: none; width: 140px; display: flex; flex-direction: column; gap: 6px; padding: 7px; border-radius: 10px; border: 1px solid var(--borda); background: #121821; }
+    .cev.lib { border-color: rgba(34,197,94,.35); } .cev.neg { border-color: rgba(239,68,68,.35); }
+    .cev-foto { width: 100%; aspect-ratio: 1; border-radius: 8px; overflow: hidden; padding: 0; background: #0b0e13; border: 0; display: grid; place-items: center; color: var(--apagado); }
+    .cev-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .cev-foto .ic { width: 28px; height: 28px; }
+    .cev-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .cev-txt b { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cev-txt .tag { align-self: flex-start; }
+    .cev-txt small { font-size: 11px; color: var(--suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .central-vazio { padding: 16px 12px; color: var(--suave); font-size: 12.5px; }
+    .central-vazio[hidden] { display: none; }
+    /* cartões: Facial é a aba principal; o resto fica em "Outras funções" */
+    .abas .abas-sep { align-self: center; margin: 0 4px 0 8px; padding-left: 10px; border-left: 1px solid var(--borda2);
+                      font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--apagado); white-space: nowrap; }
+    .abas button.aba-principal { font-weight: 650; }
+    .abas button.aba-principal.ativa { background: rgba(37,99,235,.18); border-color: rgba(59,130,246,.55); color: #dbeafe; }
+    .fx-link-acoes { width: 100%; display: flex; align-items: center; gap: 9px; margin-top: 12px; padding: 11px 14px; border-radius: 12px;
+                     background: #11161e; border: 1px solid var(--borda); text-align: left; font-weight: 600; }
+    .fx-link-acoes:hover { background: #161d27; border-color: var(--borda2); }
+    .fx-link-acoes small { margin-left: auto; font-weight: 400; color: var(--suave); font-size: 11.5px; }
+    dialog.dlg.dlg-acoes { width: min(680px, 95vw); }
+    dialog.dlg.dlg-acoes .acoes-sub { padding: 10px 16px 0; }
+    dialog.dlg.dlg-acoes .acoes-corpo { margin: 10px 16px 16px; }
   </style>
 </head>
 <body>
@@ -748,7 +806,7 @@
 
   <!-- ================= TOPO ================= -->
   <header class="topo">
-    <h1><span class="marca">{{ ic("camera") }}</span>Central de Câmeras</h1>
+    <h1><span class="marca">{{ ic("rosto") }}</span>Reconhecimento Facial <small class="marca-sub">Central de Câmeras</small></h1>
     <span class="resumo" id="resumo">-</span>
     <div class="chips" id="chips">
       {% for cam in cameras %}
@@ -811,6 +869,37 @@
   {% endif %}
 
   <!-- ================= CÂMERAS ================= -->
+  {% if cameras|selectattr("tem_rosto")|list %}
+  <!-- ================= CENTRAL DE RECONHECIMENTO (tela principal) ================= -->
+  <section class="central" id="central" data-estado="off">
+    <div class="central-caixa">
+      <div class="central-topo">
+        <div class="central-tit">
+          <span class="central-ic">{{ ic("rosto") }}</span>
+          <div><h2>Reconhecimento facial</h2><span class="central-sub" id="central-estado">-</span></div>
+        </div>
+        <div class="central-acoes">
+          <button class="btn-gestao btn-verde">{{ ic("pessoas") }}<span>Gestão de pessoas e acessos</span></button>
+          <button class="btn-acoes-validacao">{{ ic("raio") }}<span>Ações nas validações</span></button>
+        </div>
+      </div>
+      <div class="central-corpo">
+        <div class="central-kpis">
+          <div class="kpi lib"><b id="k-lib">0</b><span>liberados hoje</span></div>
+          <div class="kpi neg"><b id="k-neg">0</b><span>negados hoje</span></div>
+          <div class="kpi"><b id="k-pessoas">0</b><span>pessoas cadastradas</span></div>
+          <div class="kpi"><b id="k-ligadas">0/0</b><span>câmeras reconhecendo</span></div>
+        </div>
+        <div class="central-feed">
+          <h3>{{ ic("relogio") }}Acessos ao vivo <small>todas as câmeras</small></h3>
+          <ul class="central-eventos" id="central-eventos"></ul>
+          <div class="central-vazio" id="central-vazio">Nenhum acesso por aqui ainda. Ligue o reconhecimento na aba <b>Facial</b> da câmera.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
   <main class="grade" id="grade">
     {% if sem_cameras %}
     <div class="grade-vazia">
@@ -890,9 +979,9 @@
         </div>
 
         <nav class="abas">
+          {% if cam.tem_rosto %}<button data-aba="rosto" class="aba-principal">{{ ic("rosto") }}Facial</button><span class="abas-sep">Outras funções</span>{% endif %}
           {% if cam.tem_xm %}<button data-aba="som">{{ ic("som") }}Alto-falante e luz</button>{% endif %}
           {% if cam.tem_alertas %}<button data-aba="alertas">{{ ic("sino") }}Alertas</button>{% endif %}
-          {% if cam.tem_rosto %}<button data-aba="rosto">{{ ic("rosto") }}Facial</button>{% endif %}
           {% if cam.tem_xm %}<button data-aba="sd">{{ ic("sd") }}Cartão SD</button>{% endif %}
           {% if cam.tem_ia %}<button data-aba="ia">{{ ic("ia") }}IA e gravação</button>{% endif %}
           {% if cam.tem_ia %}<button data-aba="gravacoes">{{ ic("filme") }}Gravações</button>{% endif %}
@@ -1079,7 +1168,7 @@
               </div>
             </div>
             <label class="fx-op">
-              <div class="fx-op-txt"><b>Responder na câmera</b><span>Fala e acende a luz conforme as "Ações nas validações" abaixo</span></div>
+              <div class="fx-op-txt"><b>Responder na câmera</b><span>Fala e acende a luz conforme as "Ações nas validações"</span></div>
               <span class="chave"><input type="checkbox" class="sw-rosto-acoes"><span class="trilho"></span></span>
             </label>
             {% if cam.tem_alertas %}
@@ -1090,12 +1179,6 @@
             {% endif %}
           </div>
           <div class="dica rosto-acoes-dica"></div>
-
-          <div class="fx-gestao">
-            <div class="fx-gestao-txt"><b>{{ ic("pessoas") }}Gestão de pessoas e acessos</b>
-              <span>Unidades, moradores, visitantes, veículos, encomendas e histórico de acessos</span></div>
-            <button class="btn-gestao btn-verde">Abrir gestão</button>
-          </div>
 
           <div class="fx-duas">
             <div class="fx-card">
@@ -1140,53 +1223,7 @@
             </div>
           </div>
 
-          <details class="fx-card">
-            <summary>{{ ic("raio") }}Ações nas validações <small>o que a câmera faz ao liberar ou negar · vale para todas as câmeras</small></summary>
-            <div class="fx-regra lib">
-              <h4>No liberado</h4>
-              <div class="linha">
-                <label class="chave"><input type="checkbox" class="rcfg-ok-falar"><span class="trilho"></span><span class="rot">Falar</span></label>
-                <input type="text" class="rcfg-ok" maxlength="200" placeholder="Acesso liberado, {nome}" style="flex:1"></div>
-              <div class="linha">
-                <label class="chave"><input type="checkbox" class="rcfg-ok-piscar"><span class="trilho"></span><span class="rot">Piscar o holofote</span></label>
-                <input type="number" class="rcfg-ok-vezes" min="1" max="20" step="1" title="quantas vezes">
-                <span class="dica">vezes, acesa</span>
-                <input type="number" class="rcfg-ok-tempo" min="0.25" max="10" step="0.05" title="segundos acesa (e o mesmo apagada)">
-                <span class="dica">s cada</span></div>
-            </div>
-            <div class="fx-regra neg">
-              <h4>No negado</h4>
-              <div class="linha">
-                <label class="chave"><input type="checkbox" class="rcfg-neg-falar"><span class="trilho"></span><span class="rot">Falar</span></label>
-                <input type="text" class="rcfg-neg" maxlength="200" placeholder="Acesso negado" style="flex:1"></div>
-              <div class="linha">
-                <label class="chave"><input type="checkbox" class="rcfg-neg-luz"><span class="trilho"></span><span class="rot">Acender</span></label>
-                <select class="rcfg-acao" style="flex:1;min-width:150px">
-                  <option value="alerta">Luz de alerta (vermelho/azul)</option>
-                  <option value="holofote">Holofote (luz branca)</option>
-                </select>
-                <span class="dica">por</span>
-                <input type="number" class="rcfg-seg" min="1" max="600" step="1" title="segundos acesa">
-                <span class="dica">s</span></div>
-            </div>
-            <div class="fx-regra">
-              <h4>Pessoa parada na frente</h4>
-              <div class="linha">
-                <span class="rot">Validar de novo a cada</span>
-                <input type="number" class="rcfg-revalidar" min="0" max="300" step="1" title="0 = só uma vez por pessoa">
-                <span class="rot">s</span></div>
-              <div class="dica">0 = só uma vez. O som toca no 1º resultado e quando ele muda (ex.: negado → liberado); se repetir, só o aviso visual.</div>
-            </div>
-            <div class="fx-regra">
-              <h4>Voz</h4>
-              <div class="linha">
-                <select class="rcfg-voz" style="flex:1"><option value="">Padrão</option></select></div>
-            </div>
-            <div class="fx-rodape">
-              <span class="dica">Use <code>{nome}</code> na frase para dizer o nome de quem foi liberado.</span>
-              <button class="btn-rcfg-salvar btn-verde">Salvar ações</button>
-            </div>
-          </details>
+          <button class="fx-link-acoes btn-acoes-validacao">{{ ic("raio") }}<span>Ações nas validações</span><small>frase, voz e luz ao liberar / negar · vale para todas</small></button>
          </div>
         </section>
         {% endif %}
@@ -1327,6 +1364,61 @@
       </div>
 
       <pre class="cfg-passos" id="cams-passos" hidden></pre>
+    </div>
+  </dialog>
+
+  <!-- ================= AÇÕES NAS VALIDAÇÕES (vale para todas as câmeras) ================= -->
+  <dialog id="dlg-acoes" class="dlg dlg-acoes">
+    <div class="cfg-cab">
+      <h2>{{ ic("raio") }}Ações nas validações</h2>
+      <button id="acoes-fechar" class="fx-btn-ic" title="Fechar">{{ ic("x") }}</button>
+    </div>
+    <div class="dica acoes-sub">O que a câmera faz ao liberar ou negar alguém · vale para todas as câmeras</div>
+    <div class="fx-card acoes-corpo">
+            <div class="fx-regra lib">
+              <h4>No liberado</h4>
+              <div class="linha">
+                <label class="chave"><input type="checkbox" class="rcfg-ok-falar"><span class="trilho"></span><span class="rot">Falar</span></label>
+                <input type="text" class="rcfg-ok" maxlength="200" placeholder="Acesso liberado, {nome}" style="flex:1"></div>
+              <div class="linha">
+                <label class="chave"><input type="checkbox" class="rcfg-ok-piscar"><span class="trilho"></span><span class="rot">Piscar o holofote</span></label>
+                <input type="number" class="rcfg-ok-vezes" min="1" max="20" step="1" title="quantas vezes">
+                <span class="dica">vezes, acesa</span>
+                <input type="number" class="rcfg-ok-tempo" min="0.25" max="10" step="0.05" title="segundos acesa (e o mesmo apagada)">
+                <span class="dica">s cada</span></div>
+            </div>
+            <div class="fx-regra neg">
+              <h4>No negado</h4>
+              <div class="linha">
+                <label class="chave"><input type="checkbox" class="rcfg-neg-falar"><span class="trilho"></span><span class="rot">Falar</span></label>
+                <input type="text" class="rcfg-neg" maxlength="200" placeholder="Acesso negado" style="flex:1"></div>
+              <div class="linha">
+                <label class="chave"><input type="checkbox" class="rcfg-neg-luz"><span class="trilho"></span><span class="rot">Acender</span></label>
+                <select class="rcfg-acao" style="flex:1;min-width:150px">
+                  <option value="alerta">Luz de alerta (vermelho/azul)</option>
+                  <option value="holofote">Holofote (luz branca)</option>
+                </select>
+                <span class="dica">por</span>
+                <input type="number" class="rcfg-seg" min="1" max="600" step="1" title="segundos acesa">
+                <span class="dica">s</span></div>
+            </div>
+            <div class="fx-regra">
+              <h4>Pessoa parada na frente</h4>
+              <div class="linha">
+                <span class="rot">Validar de novo a cada</span>
+                <input type="number" class="rcfg-revalidar" min="0" max="300" step="1" title="0 = só uma vez por pessoa">
+                <span class="rot">s</span></div>
+              <div class="dica">0 = só uma vez. O som toca no 1º resultado e quando ele muda (ex.: negado → liberado); se repetir, só o aviso visual.</div>
+            </div>
+            <div class="fx-regra">
+              <h4>Voz</h4>
+              <div class="linha">
+                <select class="rcfg-voz" style="flex:1"><option value="">Padrão</option></select></div>
+            </div>
+            <div class="fx-rodape">
+              <span class="dica">Use <code>{nome}</code> na frase para dizer o nome de quem foi liberado.</span>
+              <button class="btn-rcfg-salvar btn-verde">Salvar ações</button>
+            </div>
     </div>
   </dialog>
 
@@ -1501,10 +1593,17 @@
         if (!d || !d.ok) { aviso("Gestão indisponível: " + ((d && d.erro) || "sem resposta do painel"), true); return; }
         frame.src = location.protocol + "//" + location.hostname + ":" + d.porta + "/";
         dlg.showModal();
+        pausaGestao = true;                         // o painel atrás para o vídeo: mais leve
+        CARDS.forEach(atualizaVideo);
       }
       document.addEventListener("click", e => { if (e.target.closest(".btn-gestao")) abrir(); });
       document.getElementById("gestao-fechar").addEventListener("click", () => dlg.close());
-      dlg.addEventListener("close", () => { frame.src = "about:blank"; });
+      dlg.addEventListener("close", () => {
+        frame.src = "about:blank";
+        pausaGestao = false;                        // volta o vídeo e as consultas do painel
+        CARDS.forEach(atualizaVideo);
+        atualizarStatus();
+      });
     })();
 
     // ícones (mesmos do HTML) e rótulo de botão com ícone + texto
@@ -1581,7 +1680,7 @@
     }).catch(() => {});
     document.querySelectorAll(".btn-rcfg-salvar").forEach(btn => {
       btn.addEventListener("click", async () => {
-        const b = btn.closest(".fx-card, .xm-bloco"), g = s => b.querySelector(s);   // o menu fica num <details class="fx-card"> na aba Facial
+        const b = btn.closest(".fx-card, .xm-bloco"), g = s => b.querySelector(s);   // o menu fica no bloco .fx-card da janela "Ações nas validações"
         const d = await postJSON("/api/rosto/config", {
           frase_ok: g(".rcfg-ok").value, frase_negado: g(".rcfg-neg").value,
           voz: g(".rcfg-voz").value, acao_negado: g(".rcfg-acao").value,
@@ -1590,7 +1689,7 @@
           neg_falar: g(".rcfg-neg-falar").checked, neg_luz: g(".rcfg-neg-luz").checked,
           segundos: Number(g(".rcfg-seg").value) || 10,
           revalidar_s: g(".rcfg-revalidar").value === "" ? 5 : Number(g(".rcfg-revalidar").value) });
-        if (d && d.ok) { preencheRcfg(d.cfg, null); aviso("Configuração das validações salva"); }
+        if (d && d.ok) { preencheRcfg(d.cfg, null); aviso("Configuração das validações salva"); const dl = btn.closest("dialog"); if (dl) dl.close(); }
         else aviso("Erro ao salvar: " + ((d && d.erro) || "?"), true);
       });
     });
@@ -1612,9 +1711,11 @@
     // Cadastro facial aberto: o vídeo dos cartões e as consultas de status param,
     // para o PC ficar por conta do vídeo da janela de cadastro. Volta ao fechar.
     let pausaCadastro = false;
+    // Gestão de pessoas aberta: solta o vídeo dos cartões (a gestão tem o próprio vídeo) e as consultas.
+    let pausaGestao = false;
 
     function videoLigado(c) {
-      return !pausaCadastro && !c.hidden && !c.classList.contains("minimizada");
+      return !pausaCadastro && !pausaGestao && !c.hidden && !c.classList.contains("minimizada");
     }
 
     function atualizaVideo(c) {
@@ -1933,7 +2034,7 @@
       if (c.dataset.xm === "1") { configurarXM(c); configurarSD(c); }
 
       c.querySelectorAll(".abas button").forEach(b => b.addEventListener("click", () => abrirAba(c, b.dataset.aba)));
-      abrirAba(c, salvo.ler("aba." + cid, ""));
+      abrirAba(c, c.dataset.rosto === "1" ? "rosto" : salvo.ler("aba." + cid, ""));   // Facial é a tela principal
     });
 
     // =============================================================
@@ -3043,8 +3144,95 @@
       });
     }
 
+    // =============================================================
+    //  Central de Reconhecimento (topo): resumo de todas as câmeras + acessos ao vivo
+    // =============================================================
+    const CENTRAL = document.getElementById("central");
+    let centralSoma = null, centralBusca = 0, centralBuscando = false;
+    function atualizaCentral(dados) {
+      if (!CENTRAL) return;
+      let lib = 0, neg = 0, pessoas = 0, ligadas = 0, total = 0, estado = "off";
+      CARDS.forEach(c => {
+        if (c.dataset.rosto !== "1") return;
+        total++;
+        const r = (dados[c.dataset.cid] || {}).rosto;
+        if (!r || !r.disponivel) return;
+        const h = r.hoje || {};
+        lib += h.liberados || 0; neg += h.negados || 0;
+        pessoas = Math.max(pessoas, r.pessoas || 0);
+        if (!r.ativo) return;
+        ligadas++;
+        const rostos = r.rostos || [];
+        if (rostos.some(x => x.status === "permitido")) estado = "lib";
+        else if (estado !== "lib" && rostos.some(x => x.status === "negado" || x.status === "desconhecido")) estado = "neg";
+        else if (estado === "off") estado = "on";
+      });
+      document.getElementById("k-lib").textContent = lib;
+      document.getElementById("k-neg").textContent = neg;
+      document.getElementById("k-pessoas").textContent = pessoas;
+      document.getElementById("k-ligadas").textContent = ligadas + "/" + total;
+      CENTRAL.dataset.estado = estado;
+      document.getElementById("central-estado").textContent = ligadas
+        ? "Reconhecendo em " + ligadas + " de " + total + " câmera" + (total > 1 ? "s" : "")
+        : "Desligado · ligue na aba Facial da câmera";
+      // acessos ao vivo: busca quando os números mudam (ou a cada 15 s)
+      const soma = lib + "/" + neg, agora = Date.now();
+      if (soma !== centralSoma || agora - centralBusca > 15000) { centralSoma = soma; centralBusca = agora; carregarCentralEventos(); }
+    }
+    async function carregarCentralEventos() {
+      if (centralBuscando) return;
+      centralBuscando = true;
+      try {
+        const cams = CARDS.filter(c => c.dataset.rosto === "1");
+        const listas = await Promise.all(cams.map(async c => {
+          try {
+            const evs = await (await fetch("/api/rosto/" + c.dataset.cid + "/eventos", { cache: "no-store" })).json();
+            const nome = c.querySelector(".cab h2").textContent;
+            return (Array.isArray(evs) ? evs : []).map(ev => Object.assign({ _cam: nome }, ev));
+          } catch (e) { return []; }
+        }));
+        const todos = listas.flat().filter(ev => ev && ev.hora).sort((a, b) => b.hora.localeCompare(a.hora)).slice(0, 14);
+        desenhaCentral(todos);
+      } finally { centralBuscando = false; }
+    }
+    function desenhaCentral(eventos) {
+      const lista = document.getElementById("central-eventos");
+      lista.innerHTML = "";
+      document.getElementById("central-vazio").hidden = eventos.length > 0;
+      eventos.forEach(ev => {
+        const lib = ev.status === "permitido", quem = ev.nome || "Desconhecido";
+        const li = document.createElement("li"); li.className = "cev " + (lib ? "lib" : "neg");
+        const mini = ev.mini || (ev.foto ? ev.foto + "?mini=1" : null);
+        const ft = document.createElement(ev.foto ? "button" : "span"); ft.className = "cev-foto";
+        if (mini) {
+          const im = new Image(); im.alt = ""; im.loading = "lazy";
+          im.onerror = () => { ft.innerHTML = IC("rosto"); };
+          im.src = mini; ft.append(im);
+        } else ft.innerHTML = IC("rosto");
+        const dia = diaAmigavel(ev.hora);
+        if (ev.foto) {
+          ft.title = "Ver a foto";
+          ft.addEventListener("click", () => abreFoto(ev.foto, (lib ? "Liberado" : "Negado") + " · " + quem + " · " + ev._cam + " · " + dia + " às " + ev.hora.slice(11)));
+        }
+        const tx = document.createElement("div"); tx.className = "cev-txt";
+        const b = document.createElement("b"); b.textContent = quem; b.title = quem;
+        const tg = document.createElement("span"); tg.className = "tag " + (lib ? "lib" : "neg"); tg.textContent = lib ? "LIBERADO" : "NEGADO";
+        const sm = document.createElement("small"); sm.textContent = ev._cam + " · " + ev.hora.slice(11, 16) + (dia !== "hoje" ? " · " + dia : "");
+        tx.append(b, tg, sm);
+        li.append(ft, tx);
+        lista.appendChild(li);
+      });
+    }
+    // janela única das "Ações nas validações" (botão na Central e em cada aba Facial)
+    (function () {
+      const dlg = document.getElementById("dlg-acoes");
+      if (!dlg) return;
+      document.addEventListener("click", e => { if (e.target.closest(".btn-acoes-validacao")) dlg.showModal(); });
+      document.getElementById("acoes-fechar").addEventListener("click", () => dlg.close());
+    })();
+
     async function atualizarStatus() {
-      if (pausaCadastro) return;
+      if (pausaCadastro || pausaGestao) return;
       let dados;
       try {
         const resp = await fetch("/status", { cache: "no-store" });
@@ -3093,6 +3281,7 @@
         if (c.dataset.xm === "1") { mostrarXM(c, s.xm); mostrarTarefaSD(c, s.sd); }
       });
       document.getElementById("resumo").textContent = online + " de " + CARDS.length + " online";
+      atualizaCentral(dados);
       if (btnGeral) {
         alertaGeralLigado = CARDS.some(c => c._alertaLigada);
         btnGeral.classList.toggle("ativo", alertaGeralLigado);
@@ -3125,7 +3314,7 @@
       } catch (e) { /* ignora */ }
     }
     async function atualizarAlertasCam() {
-      if (pausaCadastro) return;
+      if (pausaCadastro || pausaGestao) return;
       if (!document.querySelector(".lista.alertas")) return;
       let d;
       try { d = await (await fetch("/api/alertas_camera", { cache: "no-store" })).json(); }

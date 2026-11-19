@@ -304,3 +304,24 @@ tbody tr:last-child td { border-bottom: 0; }
 .camera-speak input { flex: 1; min-width: 0; height: 34px; border: 1px solid #283844; border-radius: 7px; background: #101821; color: #e6edf2; padding: 0 10px; font-size: 12px; }
 .camera-speak input::placeholder { color: #60717e; }
 .camera-offline-overlay { position: absolute; inset: 0; background: #101821; }
+
+/* Câmera pequena no topo da Operação: clique para ampliar */
+.welcome-strip { gap: 20px; }
+.welcome-copy { flex: 1; min-width: 0; }
+.welcome-cams { display: flex; gap: 10px; max-width: 46%; overflow-x: auto; padding: 2px; }
+.welcome-cam { position: relative; flex: none; width: 168px; aspect-ratio: 16 / 9; padding: 0; border: 1px solid #3b4b55; border-radius: 9px; overflow: hidden; background: #0c1319; cursor: zoom-in; transition: border-color .15s, transform .15s; }
+.welcome-cam:hover { border-color: #d9a441; transform: translateY(-1px); }
+.welcome-cam img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
+.welcome-cam img.lens-single, .welcome-cam img.lens-ambas { object-fit: contain; }
+.welcome-cam img.lens-cima, .welcome-cam img.lens-baixo { height: 200%; object-fit: fill; }
+.welcome-cam img.lens-baixo { top: -100%; }
+.welcome-cam-off { position: absolute; inset: 0; display: grid; place-items: center; background: #101821; color: #8494a0; font-size: 10px; }
+.welcome-cam-label { position: absolute; left: 6px; bottom: 5px; display: flex; align-items: center; gap: 5px; padding: 2px 6px; border-radius: 5px; background: #000a; color: #e6edf2; font-size: 10px; font-weight: 700; }
+.welcome-cam-label i { width: 6px; height: 6px; border-radius: 50%; background: #6b7280; }
+.welcome-cam-label i.on { background: #22c55e; }
+.welcome-cam-zoom { position: absolute; top: 5px; right: 5px; display: grid; place-items: center; padding: 3px; border-radius: 5px; background: #000a; color: #e6edf2; }
+.camera-modal { position: relative; width: min(960px, 100%); max-height: 92vh; overflow: auto; border-radius: 12px; box-shadow: 0 24px 80px #0008; }
+.camera-modal .camera-card { border-color: #3b4b55; }
+.camera-modal-close { position: absolute; top: 8px; right: 8px; z-index: 3; display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid #3b4b55; border-radius: 8px; background: #0c1319cc; color: #e6edf2; cursor: pointer; }
+@media (max-width: 760px) { .welcome-cams { display: none; } }
+.camera-modal .camera-card-head { padding-right: 48px; }

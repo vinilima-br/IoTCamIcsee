@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   LoaderCircle,
   LogOut,
+  Maximize2,
   Mic,
   MicOff,
   PackageCheck,
@@ -183,6 +184,15 @@ export default function App() {
 
 function Dashboard() {
   const [cameraState, setCameraState] = useState<{ available: boolean; error?: string | null; cameras: CameraInfo[] }>({ available: false, cameras: [] });
+  // Câmera pequena no topo; o operador clica para ampliar (com PTZ, som e captura).
+  const [openCameraId, setOpenCameraId] = useState<string | null>(null);
+  const openCamera = cameraState.cameras.find((camera) => camera.id === openCameraId) ?? null;
+  useEffect(() => {
+    if (!openCameraId) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOpenCameraId(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openCameraId]);
   const [summary, setSummary] = useState({ visitantes_ativos: 0, encomendas_pendentes: 0 });
   const [recentLogs, setRecentLogs] = useState<Row[]>([]);
   const [loadError, setLoadError] = useState("");
@@ -215,7 +225,10 @@ function Dashboard() {
   return (
     <div className="stack-lg">
       <section className="welcome-strip">
-        <div><div className="eyebrow amber">CENTRAL DE OPERAÇÕES</div><h2>Bom trabalho. Tudo sob controle.</h2><p>Monitore os acessos e mantenha a rotina da portaria em dia.</p></div>
+        <div className="welcome-copy"><div className="eyebrow amber">CENTRAL DE OPERAÇÕES</div><h2>Bom trabalho. Tudo sob controle.</h2><p>Monitore os acessos e mantenha a rotina da portaria em dia.</p></div>
+        {cameraState.cameras.length > 0 && !openCamera && (
+          <div className="welcome-cams">{cameraState.cameras.map((camera) => <CameraThumb key={camera.id} camera={camera} onOpen={() => setOpenCameraId(camera.id)} />)}</div>
+        )}
         <div className="welcome-time"><strong>{new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</strong><span>HORÁRIO LOCAL</span></div>
       </section>
       {loadError && <ErrorBanner message={loadError} />}
@@ -225,10 +238,14 @@ function Dashboard() {
         <StatCard label="Câmeras online" value={cameraState.cameras.filter((camera) => camera.online).length} hint={`${cameraState.cameras.length} cadastradas`} icon={Camera} tone="green" />
       </section>
       {!cameraState.available && <div className="notice-box"><CircleHelp size={20} /><div><strong>Integração de câmeras indisponível</strong><span>{cameraState.error || "Verifique a configuração local do sistema de câmeras."}</span></div></div>}
-      <section className="section-block">
-        <div className="section-heading"><div><div className="eyebrow">MONITORAMENTO</div><h2>Câmeras ao vivo</h2></div><span className="live-tag"><span /> AO VIVO</span></div>
-        {cameraState.cameras.length ? <div className="camera-grid">{cameraState.cameras.map((camera) => <CameraCard key={camera.id} camera={camera} />)}</div> : <EmptyState icon={Camera} title="Nenhuma câmera conectada" text="Quando o sistema de câmeras estiver configurado, os streams aparecerão aqui." />}
-      </section>
+      {openCamera && (
+        <div className="modal-backdrop" onClick={(event) => { if (event.target === event.currentTarget) setOpenCameraId(null); }}>
+          <div className="camera-modal" role="dialog" aria-label={`Câmera ${openCamera.nome}`}>
+            <button className="camera-modal-close" onClick={() => setOpenCameraId(null)} aria-label="Fechar"><X size={18} /></button>
+            <CameraCard camera={openCamera} />
+          </div>
+        </div>
+      )}
       <section id="alert-feed" className="section-block">
         <div className="section-heading"><div><div className="eyebrow">EVENTOS INSTANTÂNEOS</div><h2>Alertas recentes</h2></div><AlertQueue /></div>
         <AlertFeed />
@@ -245,6 +262,33 @@ function StatCard({ label, value, hint, icon: Icon, tone }: { label: string; val
   return <article className="stat-card"><div className={`stat-icon ${tone}`}><Icon size={20} /></div><div className="stat-copy"><span>{label}</span><strong>{value}</strong><small>{hint}</small></div></article>;
 }
 
+function savedLens(camera: CameraInfo): string {
+  try {
+    const saved = window.localStorage.getItem(`portaria.lente.${camera.id}`);
+    if (saved === "cima" || saved === "baixo" || saved === "ambas") return saved;
+  } catch {
+    /* sem armazenamento: usa o padrão */
+  }
+  return camera.lente_det === "cima" || camera.lente_det === "baixo" ? camera.lente_det : "cima";
+}
+
+function isDualLens(camera: CameraInfo): boolean {
+  return Boolean(camera.largura && camera.altura && camera.altura / camera.largura > 0.9);
+}
+
+function CameraThumb({ camera, onOpen }: { camera: CameraInfo; onOpen: () => void }) {
+  const [streamTry, setStreamTry] = useState(0);
+  const lensClass = isDualLens(camera) ? `lens-${savedLens(camera)}` : "lens-single";
+  return (
+    <button type="button" className="welcome-cam" onClick={onOpen} title={`Ampliar ${camera.nome || camera.id}`}>
+      <img key={streamTry} className={lensClass} src={`/api/cameras/${encodeURIComponent(camera.id)}/stream?t=${streamTry}`} alt="" onError={() => window.setTimeout(() => setStreamTry((value) => value + 1), 3000)} />
+      {!camera.online && <span className="welcome-cam-off">{camera.pausada ? "Acordando..." : "Aguardando imagem"}</span>}
+      <span className="welcome-cam-label"><i className={camera.online ? "on" : ""} />{camera.nome || camera.id}</span>
+      <span className="welcome-cam-zoom"><Maximize2 size={12} /></span>
+    </button>
+  );
+}
+
 function CameraCard({ camera }: { camera: CameraInfo }) {
   const [listening, setListening] = useState(false);
   const [snapshot, setSnapshot] = useState<string>();
@@ -256,17 +300,9 @@ function CameraCard({ camera }: { camera: CameraInfo }) {
   const cameraPath = `/api/cameras/${encodeURIComponent(camera.id)}`;
   // Câmera de 2 lentes (X6S): o quadro vem com as duas empilhadas (mais alto que largo).
   // Igual ao painel: mostra Lente 1, Lente 2 ou as 2, e lembra a escolha por câmera.
-  const dualLens = Boolean(camera.largura && camera.altura && camera.altura / camera.largura > 0.9);
+  const dualLens = isDualLens(camera);
   const lensKey = `portaria.lente.${camera.id}`;
-  const [lens, setLensState] = useState<string>(() => {
-    try {
-      const saved = window.localStorage.getItem(lensKey);
-      if (saved === "cima" || saved === "baixo" || saved === "ambas") return saved;
-    } catch {
-      /* sem armazenamento: usa o padrão */
-    }
-    return camera.lente_det === "cima" || camera.lente_det === "baixo" ? camera.lente_det : "cima";
-  });
+  const [lens, setLensState] = useState<string>(() => savedLens(camera));
   const setLens = (value: string) => {
     setLensState(value);
     try {
@@ -537,10 +573,10 @@ function AlertFeed() {
       }
     };
     return <article className={`alert-card ${recognized && allowed ? "recognized" : "unknown"}`} key={alert.key}>
-      <div className="alert-title"><span className="alert-icon">{recognized ? (allowed ? <ShieldCheck size={17} /> : <AlertTriangle size={17} />) : <Bell size={17} />}</span><div><strong>{recognized ? (allowed ? "Face reconhecida" : "Rosto desconhecido") : "Alerta da câmera"}</strong><small>{new Date(alert.arrivedAt).toLocaleTimeString("pt-BR")}</small></div><button className="alert-dismiss" onClick={() => dismiss(alert.key)} aria-label="Dispensar"><X size={16} /></button></div>
+      <div className="alert-title"><span className="alert-icon">{recognized ? (allowed ? <ShieldCheck size={17} /> : <AlertTriangle size={17} />) : <Bell size={17} />}</span><div><strong>{recognized ? (allowed ? "Face reconhecida" : alert.data.status === "negado" ? "Acesso negado" : "Rosto desconhecido") : "Alerta da câmera"}</strong><small>{new Date(alert.arrivedAt).toLocaleTimeString("pt-BR")}</small></div><button className="alert-dismiss" onClick={() => dismiss(alert.key)} aria-label="Dispensar"><X size={16} /></button></div>
       <div className="alert-person"><div className="alert-photos">{registeredPhoto && <figure><img src={registeredPhoto} alt={`Foto cadastrada de ${name}`} /><figcaption>CADASTRO</figcaption></figure>}{photo ? <figure><img src={photo} alt={`Captura de ${name}`} /><figcaption>CÂMERA</figcaption></figure> : <div className="alert-placeholder"><UserRound size={20} /></div>}</div><div><strong>{name}</strong><span>{String(alert.data.tipo_vinculo ?? alert.data.description ?? "Aguardando conferência")}</span>{Boolean(alert.data.unidade_id) && <small>Unidade {String(alert.data.unidade_id)}</small>}{Array.isArray(alert.data.veiculos) && alert.data.veiculos.length > 0 && <small>{alert.data.veiculos.map((vehicle) => (vehicle as { placa: string }).placa).join(" • ")}</small>}</div></div>
       <div className="alert-actions">
-        {recognized && personId > 0 ? <button className="button-primary small" onClick={() => void api(`/api/pessoas/${personId}/entrada`, { method: "POST" }).then(() => dismiss(alert.key)).catch((error) => toast(errorMessage(error), "error"))}><DoorOpen size={15} /> {allowed ? "Liberar / registrar entrada" : "Registrar entrada manual"}</button> : recognized && visitorId > 0 ? <button className="button-primary small" onClick={() => void api(`/api/visitantes/${visitorId}/entrada`, { method: "POST" }).then(() => dismiss(alert.key)).catch((error) => toast(errorMessage(error), "error"))}><DoorOpen size={15} /> Liberar / registrar entrada</button> : <button className="button-secondary small" onClick={() => void prepareQuickVisitor()}><Plus size={15} /> Cadastro rápido</button>}
+        {recognized && personId > 0 ? <button className="button-primary small" onClick={() => void api(`/api/pessoas/${personId}/entrada`, { method: "POST" }).then(() => dismiss(alert.key)).catch((error) => toast(errorMessage(error), "error"))}><DoorOpen size={15} /> {allowed ? "Liberar / registrar entrada" : "Registrar entrada manual"}</button> : recognized && visitorId > 0 ? <button className="button-primary small" onClick={() => void api(`/api/visitantes/${visitorId}/entrada`, { method: "POST" }).then(() => dismiss(alert.key)).catch((error) => toast(errorMessage(error), "error"))}><DoorOpen size={15} /> Liberar / registrar entrada</button> : <button className="button-secondary small" onClick={() => void prepareQuickVisitor()}><Plus size={15} /> {alert.data.sem_ficha ? "Criar ficha na gestão" : "Cadastro rápido"}</button>}
         <button className="button-quiet small" onClick={() => dismiss(alert.key)}>Dispensar</button>
       </div>
     </article>;
@@ -875,7 +911,7 @@ function LogsPage() {
     <section className="resource-card"><div className="filter-grid">
       <label className="search-field"><Search size={16} /><input data-quick-search value={q} onChange={(event) => { setQ(event.target.value); setPage(1); }} placeholder="Nome da pessoa" /></label>
       <input className="filter-select" value={unit} onChange={(event) => setUnit(event.target.value)} placeholder="ID da unidade" type="number" min="1" />
-      <select className="filter-select" value={eventType} onChange={(event) => setEventType(event.target.value)}><option value="">Todos os eventos</option><option value="entrada">Entrada</option><option value="saida">Saída</option><option value="reconhecimento_facial">Reconhecimento facial</option><option value="alerta_desconhecido">Alerta desconhecido</option></select>
+      <select className="filter-select" value={eventType} onChange={(event) => setEventType(event.target.value)}><option value="">Todos os eventos</option><option value="entrada">Entrada</option><option value="saida">Saída</option><option value="reconhecimento_facial">Reconhecimento facial</option><option value="alerta_desconhecido">Alerta desconhecido</option><option value="alerta_camera">Alerta da câmera</option></select>
       <select className="filter-select" value={method} onChange={(event) => setMethod(event.target.value)}><option value="">Todos os métodos</option><option value="facial">Facial</option><option value="manual">Manual</option><option value="placa">Placa</option></select>
       <input className="filter-select" type="datetime-local" value={start} onChange={(event) => setStart(event.target.value)} aria-label="Data inicial" />
       <input className="filter-select" type="datetime-local" value={end} onChange={(event) => setEnd(event.target.value)} aria-label="Data final" />
@@ -914,7 +950,7 @@ function selectOptions(items: [string, string][]) { return items.map(([value, la
 function errorMessage(error: unknown) { return error instanceof Error ? error.message : "Ocorreu um erro inesperado."; }
 function displayValue(value: unknown): string {
   if (value === undefined || value === null || value === "") return "—";
-  const labels: Record<string, string> = { proprietario: "Proprietário", inquilino: "Inquilino", dependente: "Dependente", funcionario_unidade: "Funcionário", apartamento: "Apartamento", avulso: "Avulso", recorrente: "Recorrente", no_condominio: "No condomínio", saiu: "Saiu", pendente: "Pendente", retirada: "Retirada", entrada: "Entrada", saida: "Saída", reconhecimento_facial: "Reconhecimento facial", alerta_desconhecido: "Alerta desconhecido", facial: "Facial", manual: "Manual", placa: "Placa", carro: "Carro", moto: "Moto", outro: "Outro" };
+  const labels: Record<string, string> = { proprietario: "Proprietário", inquilino: "Inquilino", dependente: "Dependente", funcionario_unidade: "Funcionário", apartamento: "Apartamento", avulso: "Avulso", recorrente: "Recorrente", no_condominio: "No condomínio", saiu: "Saiu", pendente: "Pendente", retirada: "Retirada", entrada: "Entrada", saida: "Saída", reconhecimento_facial: "Reconhecimento facial", alerta_desconhecido: "Alerta desconhecido", alerta_camera: "Alerta da câmera", camera: "Câmera", facial: "Facial", manual: "Manual", placa: "Placa", carro: "Carro", moto: "Moto", outro: "Outro" };
   return labels[String(value)] ?? String(value);
 }
 function formatDate(value: unknown) {

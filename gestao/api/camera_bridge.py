@@ -251,10 +251,23 @@ class CameraBridge:
                     and visitor.validade_fim is not None
                     and _local_naive(visitor.validade_inicio) <= now <= _local_naive(visitor.validade_fim)
                 )
-            authorized = event.get("status") == "permitido" and (
-                person is not None and person.ativo or visitor_valid
-            )
-            event_type = "reconhecimento_facial" if person is not None or visitor is not None else "alerta_desconhecido"
+            # Rosto que o reconhecimento conhece (cadastrado no painel) mas que ainda não tem
+            # ficha aqui na gestão: vale a decisão do reconhecimento (antes virava "desconhecido").
+            known_face = bool(recognized_name)
+            no_record = person is None and visitor is None
+            if no_record:
+                authorized = event.get("status") == "permitido" and known_face
+            else:
+                authorized = event.get("status") == "permitido" and (
+                    person is not None and person.ativo or visitor_valid
+                )
+            event_type = "reconhecimento_facial" if (known_face or not no_record) else "alerta_desconhecido"
+            if authorized:
+                status_out = "permitido"
+            elif known_face or not no_record:
+                status_out = "negado"
+            else:
+                status_out = "desconhecido"
             log_entry = LogAcesso(
                 pessoa_id=person.id if person else None,
                 visitante_id=visitor.id if visitor else None,
@@ -268,6 +281,7 @@ class CameraBridge:
                     "motivo": event.get("motivo"),
                     "similaridade": event.get("sim"),
                     "aguardando_liberacao_manual": authorized,
+                    "sem_ficha_na_gestao": no_record and known_face,
                     "unidade_id": person.unidade_id if person else (visitor.unidade_destino_id if visitor else None),
                 },
             )
@@ -282,13 +296,14 @@ class CameraBridge:
                     "visitante_id": visitor.id if visitor else None,
                     "nome": person.nome if person else (visitor.nome if visitor else (recognized_name or "Desconhecido")),
                     "unidade_id": person.unidade_id if person else (visitor.unidade_destino_id if visitor else None),
-                    "tipo_vinculo": person.tipo if person else ("visitante" if visitor else None),
+                    "tipo_vinculo": person.tipo if person else ("visitante" if visitor else ("cadastrado só no reconhecimento (sem ficha na gestão)" if known_face else None)),
+                    "sem_ficha": no_record and known_face,
                     "foto_path": person.foto_path if person else (visitor.foto_path if visitor else None),
                     "veiculos": [
                         {"id": vehicle.id, "placa": vehicle.placa, "modelo": vehicle.modelo}
                         for vehicle in person.veiculos
                     ] if person else [],
-                    "status": "permitido" if authorized else "desconhecido",
+                    "status": status_out,
                     "tipo_evento": event_type,
                     "camera_id": camera_id,
                     "snapshot_path": snapshot_path,
@@ -330,8 +345,8 @@ class CameraBridge:
                     with SessionLocal() as db:
                         log_entry = LogAcesso(
                             camera_id=camera_id,
-                            tipo_evento="alerta_desconhecido",
-                            metodo="manual",
+                            tipo_evento="alerta_camera",      # detecção da própria câmera (não é rosto desconhecido)
+                            metodo="camera",
                             snapshot_path=snapshot_path,
                             detalhes={
                                 "evento_camera": event.get("evento"),
