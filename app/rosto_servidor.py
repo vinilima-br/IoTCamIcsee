@@ -39,6 +39,11 @@ import numpy as np
 import config
 import lentes
 import rostos_ia as ia
+try:
+    import porta_esp          # avisa os ESP32 (LED/relé) do resultado
+except Exception as _e:  # noqa: BLE001
+    porta_esp = None
+    print("[rosto] porta_esp indisponível: {}".format(_e))
 
 FRASE_OK = getattr(config, "ROSTO_FRASE_OK", "Acesso liberado, {nome}")
 FRASE_NEGADO = getattr(config, "ROSTO_FRASE_NEGADO", "")
@@ -746,6 +751,12 @@ class Reconhecedor:
 
     # ---------------- eventos e ações ----------------
     def _registra(self, evento, frame):
+        # 1º de tudo: avisa o ESP (antes de salvar foto/falar - não pode atrasar)
+        if porta_esp is not None and self.acoes:
+            try:
+                porta_esp.avisa(self.cid, evento["status"], evento["nome"])
+            except Exception as e:  # noqa: BLE001
+                print("[rosto:{}] aviso ao ESP falhou: {}".format(self.cid, e))
         agora = datetime.now()
         quem = evento["nome"] or "desconhecido"
         marcado = self.sobreposicao(frame, forcar=True)

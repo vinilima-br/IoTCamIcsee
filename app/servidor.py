@@ -77,6 +77,7 @@ except Exception as _e_elsys:
     elsys_xm = None
     print("aviso: elsys_xm indisponivel (%r); Elsys sem audio/luz" % _e_elsys)
 import rosto_servidor  # noqa: E402
+import porta_esp  # noqa: E402  (ESP32 das portas: achar, parear, configurar, avisar)
 import lentes  # noqa: E402
 import sd_xm  # noqa: E402
 import gravador  # noqa: E402
@@ -1759,6 +1760,55 @@ def _depois_de_mudar_cameras(motivo, cid=None, acao=None):
     return True
 
 
+# ---------------- ESP32 das portas (app/porta_esp.py) ----------------
+def _esp(fn, *args):
+    try:
+        return jsonify(fn(*args))
+    except porta_esp.ErroESP as e:
+        return jsonify({"ok": False, "erro": str(e)})
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "erro": "{}: {}".format(type(e).__name__, e)}), 500
+
+
+@app.route("/api/esp/lista")
+def api_esp_lista():
+    try:
+        cams = [{"cid": c["cid"], "nome": c.get("nome") or c["cid"]} for c in config.cameras()]
+    except Exception:  # noqa: BLE001
+        cams = [{"cid": cid, "nome": cid} for cid in ORDEM]
+    return jsonify({"ok": True, "portas": porta_esp.lista(), "cameras": cams})
+
+
+@app.route("/api/esp/procurar", methods=["POST"])
+def api_esp_procurar():
+    return _esp(porta_esp.descobrir)
+
+
+@app.route("/api/esp/parear", methods=["POST"])
+def api_esp_parear():
+    d = request.get_json(silent=True) or {}
+    return _esp(porta_esp.parear, str(d.get("id") or ""), str(d.get("token") or "").strip())
+
+
+@app.route("/api/esp/<chave>/config", methods=["GET", "POST"])
+def api_esp_config(chave):
+    if request.method == "GET":
+        return _esp(lambda: {"ok": True, "config": porta_esp.config_ler(chave)})
+    d = request.get_json(silent=True) or {}
+    return _esp(porta_esp.config_gravar, chave, d.get("campos") or {}, d.get("cameras"), d.get("ativo"))
+
+
+@app.route("/api/esp/<chave>/comando", methods=["POST"])
+def api_esp_comando(chave):
+    d = request.get_json(silent=True) or {}
+    return _esp(porta_esp.comando, chave, str(d.get("cmd") or ""))
+
+
+@app.route("/api/esp/<chave>/remover", methods=["POST"])
+def api_esp_remover(chave):
+    return _esp(porta_esp.remover, chave)
+
+
 @app.route("/api/boot")
 def api_boot():
     return jsonify({"boot": BOOT_ID, "reiniciando": _reiniciando.is_set()})
@@ -3160,6 +3210,10 @@ def preparar_servidor():
     _liga_log_arquivo()
     monta_cameras()
     monta_rostos()
+    try:
+        porta_esp.iniciar()          # ronda online/offline dos ESPs das portas
+    except Exception as e:  # noqa: BLE001
+        print("[esp] não iniciou a ronda dos ESPs: {}".format(e))
     print("=" * 60)
     print(" CENTRAL DE CÂMERAS - {} câmera(s)".format(len(ORDEM)))
     for cid in ORDEM:

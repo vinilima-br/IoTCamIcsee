@@ -391,6 +391,21 @@
     #dlg-cams .sub[hidden], #dlg-cams [hidden] { display: none !important; }
     #dlg-cams .previa { width: 100%; max-height: 260px; object-fit: contain; background: #000; border-radius: 8px; }
     #dlg-cams .rot { font-size: 12px; color: var(--suave); min-width: 110px; }
+    /* ---------- janela ⚡ ESPs das portas ---------- */
+    #dlg-esp { width: min(780px, 96vw); }
+    #dlg-esp .cam-linha { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--borda);
+                          border-radius: 8px; background: #0f1318; font-size: 13px; flex-wrap: wrap; }
+    #dlg-esp .cam-linha .nome { font-weight: 600; }
+    #dlg-esp .cam-linha .det { color: var(--suave); font-size: 12px; flex: 1; min-width: 160px; }
+    #dlg-esp .cam-linha button { padding: 4px 9px; font-size: 12px; }
+    #dlg-esp .etq { font-size: 11px; padding: 2px 7px; border-radius: 99px; border: 1px solid var(--borda2); color: var(--suave); white-space: nowrap; }
+    #dlg-esp .etq.verde { color: #4ade80; border-color: #166534; }
+    #dlg-esp .etq.azul { color: #93c5fd; border-color: #1e40af; }
+    #dlg-esp .etq.verm { color: #fca5a5; border-color: #7f1d1d; }
+    #dlg-esp .lista { display: flex; flex-direction: column; gap: 6px; }
+    #dlg-esp .linha > .rot { font-size: 12px; color: var(--suave); min-width: 170px; }
+    #dlg-esp input[type=number] { width: 110px; }
+    #dlg-esp [hidden] { display: none !important; }
     .grade-vazia { grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--suave); }
     .grade-vazia button { margin-top: 14px; font-size: 15px; padding: 10px 18px; }
     #reiniciando { position: fixed; inset: 0; background: rgba(8,10,13,.88); display: none; z-index: 9999;
@@ -829,6 +844,7 @@
       {% if tem_xm %}<button id="btn-alerta-geral" title="Luz de alerta + sirene em todas as câmeras">{{ ic("alerta") }}<span>Alerta geral</span></button>{% endif %}
       {% if tem_xm %}<button id="btn-sons">{{ ic("som") }}<span>Sons</span></button>{% endif %}
       <button id="btn-cams" title="Buscar, adicionar e remover câmeras">{{ ic("mais") }}<span>Câmeras</span></button>
+      <button id="btn-esp" title="ESP32 das portas: achar na rede, adicionar e configurar">{{ ic("raio") }}<span>ESPs</span></button>
       <button id="btn-versao" title="Versão e atualização automática">versão</button>
       <button id="btn-config" title="Configurações (atualização, senha do painel e conta das câmeras)">{{ ic("config") }}<span>Config</span></button>
       <button id="btn-sair" title="Sair do painel neste aparelho" hidden>{{ ic("x") }}<span>Sair</span></button>
@@ -1500,6 +1516,78 @@
           </div>
         </div>
       </div>
+    </div>
+  </dialog>
+
+  <!-- ================= MENU ⚡ ESPs DAS PORTAS (app/porta_esp.py) ================= -->
+  <dialog id="dlg-esp" class="dlg">
+    <div class="cfg-cab">
+      <h2>{{ ic("raio") }}ESPs das portas</h2>
+      <button id="esp-fechar" class="btn-icone" title="Fechar">✕</button>
+    </div>
+    <div class="cfg-corpo">
+      <div id="esp-tela-lista">
+        <div class="cfg-bloco">
+          <h3>No painel</h3>
+          <div class="lista" id="esp-painel"><div class="dica">carregando...</div></div>
+        </div>
+        <div class="cfg-bloco" style="margin-top:12px">
+          <div class="linha">
+            <h3 style="flex:1">🔍 ESPs na rede</h3>
+            <button id="esp-procurar" class="btn-verde">Procurar na rede</button>
+          </div>
+          <div class="dica" id="esp-busca-info">Acha os ESPs ligados na(s) rede(s) deste PC (1 a 2 segundos).
+            ESP novo: antes, ponha ele no Wi-Fi pelo portal (rede PORTA-XXXXXX no celular).</div>
+          <div class="lista" id="esp-rede"></div>
+        </div>
+      </div>
+
+      <div id="esp-tela-edit" hidden>
+        <div class="cfg-bloco">
+          <div class="linha">
+            <h3 style="flex:1" id="esp-edit-titulo">ESP</h3>
+            <button id="esp-voltar">← Voltar</button>
+          </div>
+          <div class="cfg-info" id="esp-edit-info">-</div>
+
+          <div class="sub">No painel</div>
+          <label class="chave"><input type="checkbox" id="esp-ativo"><span class="trilho"></span>
+            <span class="rot">Recebe o resultado do reconhecimento facial</span></label>
+          <div class="dica">Câmeras que acionam este ESP (nenhuma marcada = todas):</div>
+          <div class="linha" id="esp-cams"></div>
+
+          <div class="sub">ESP</div>
+          <div class="linha"><span class="rot">Nome</span><input type="text" id="esp-nome" maxlength="32"></div>
+          <div class="linha"><span class="rot">Brilho do LED (1 a 255)</span><input type="number" id="esp-brilho" min="1" max="255"></div>
+          <div class="linha"><span class="rot">Verde - liberado (ms)</span><input type="number" id="esp-ms_lib" min="100" max="30000" step="100"></div>
+          <div class="linha"><span class="rot">Vermelho - negado (ms)</span><input type="number" id="esp-ms_neg" min="100" max="30000" step="100"></div>
+          <label class="chave"><input type="checkbox" id="esp-vida"><span class="trilho"></span>
+            <span class="rot">Piscada de "estou vivo" a cada 5 s</span></label>
+
+          <div class="sub">Relé (fechadura / eletroímã)</div>
+          <label class="chave"><input type="checkbox" id="esp-rele_on"><span class="trilho"></span>
+            <span class="rot">Usar relé (aciona no liberado)</span></label>
+          <div class="linha"><span class="rot">Pino do relé</span><select id="esp-rele_pino"></select></div>
+          <div class="linha"><span class="rot">O relé liga com</span>
+            <select id="esp-rele_alto"><option value="1">HIGH (nível alto)</option><option value="0">LOW (nível baixo)</option></select></div>
+          <div class="linha"><span class="rot">Tempo acionado (ms)</span><input type="number" id="esp-rele_ms" min="100" max="30000" step="100"></div>
+          <div class="linha"><span class="rot">Intervalo mín. entre aberturas (ms)</span><input type="number" id="esp-rele_int" min="0" max="600000" step="500"></div>
+          <div class="dica">0 = sem intervalo. O relé só funciona com o ESP pareado (com token).</div>
+
+          <div class="linha" style="margin-top:10px">
+            <button id="esp-salvar" class="btn-verde">Salvar</button>
+            <button id="esp-t-verde">Testar verde</button>
+            <button id="esp-t-verm">Testar vermelho</button>
+          </div>
+          <div class="linha">
+            <button id="esp-reiniciar">Reiniciar ESP</button>
+            <button id="esp-esquecer">Esquecer Wi-Fi</button>
+            <button id="esp-fabrica">Restaurar fábrica</button>
+            <button id="esp-menu">Abrir o menu do ESP</button>
+          </div>
+        </div>
+      </div>
+      <pre class="cfg-passos" id="esp-passos" hidden></pre>
     </div>
   </dialog>
 
@@ -3635,6 +3723,196 @@
       box.append(t, u, sx, d, l);
       depoisDe.after(box);
     }
+
+    // =============================================================
+    //  Menu ⚡ ESPs das portas - achar na rede, parear, configurar
+    // =============================================================
+    (function () {
+      const dlg = document.getElementById("dlg-esp");
+      const botao = document.getElementById("btn-esp");
+      if (!dlg || !botao) return;
+      const $ = id => document.getElementById(id);
+      const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+      const PINOS = [0, 1, 2, 3, 4, 5, 6, 7, 14, 18, 19, 20, 21, 22, 23];
+      const NUMEROS = ["brilho", "ms_lib", "ms_neg", "rele_ms", "rele_int"];
+      let atual = null, timer = null, cameras = [], ocupado = false;
+
+      PINOS.forEach(p => { const o = el("option", null, "GPIO " + p); o.value = String(p); $("esp-rele_pino").append(o); });
+
+      const chave = p => encodeURIComponent(p.id || p.ip);
+      function passos(txt, tipo) { const p = $("esp-passos"); p.hidden = !txt; p.className = "cfg-passos" + (tipo ? " " + tipo : ""); p.textContent = txt || ""; }
+      function tela(q) { $("esp-tela-lista").hidden = q !== "lista"; $("esp-tela-edit").hidden = q !== "edit"; }
+      async function api(url, corpo) {
+        const op = corpo === undefined ? { cache: "no-store" }
+          : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) };
+        try { return await (await fetch(url, op)).json(); }
+        catch (e) { return { ok: false, erro: "servidor fora do ar" }; }
+      }
+      function linha(nome, det, extras) {
+        const l = el("div", "cam-linha");
+        l.append(el("span", "nome", nome), el("span", "det", det));
+        extras.forEach(x => l.append(x));
+        return l;
+      }
+      const nomeCam = cid => (cameras.find(c => c.cid === cid) || { nome: cid }).nome;
+
+      async function carregaLista() {
+        const d = await api("/api/esp/lista");
+        const box = $("esp-painel");
+        box.innerHTML = "";
+        if (!d.ok) { box.append(el("div", "dica", d.erro || "erro")); return; }
+        cameras = d.cameras || [];
+        if (!d.portas.length) { box.append(el("div", "dica", "Nenhum ESP ainda. Use \"Procurar na rede\" abaixo.")); return; }
+        d.portas.forEach(p => {
+          const st = p.status || {};
+          const est = p.online == null ? el("span", "etq", "verificando...")
+            : (p.online ? el("span", "etq verde", "online") : el("span", "etq verm", "offline"));
+          const det = [p.ip, st.rssi != null ? st.rssi + " dBm" : null, st.fw ? "v" + st.fw : null,
+                       p.cameras.length ? p.cameras.map(nomeCam).join(", ") : "todas as câmeras",
+                       st.rele_on ? "com relé" : null, p.ativo ? null : "DESATIVADO"].filter(Boolean).join(" · ");
+          const v = el("button", null, "Verde"); v.title = "Testar liberado"; v.onclick = () => cmd(p, "liberado");
+          const r = el("button", null, "Vermelho"); r.title = "Testar negado"; r.onclick = () => cmd(p, "negado");
+          const ed = el("button", "btn-icone", "⚙"); ed.title = "Configurar"; ed.onclick = () => abreEdit(p);
+          const rm = el("button", "btn-icone", "🗑"); rm.title = "Tirar do painel"; rm.onclick = () => remover(p);
+          box.append(linha(p.nome || p.id || p.ip, det, [est, v, r, ed, rm]));
+        });
+      }
+
+      async function procurar() {
+        if (ocupado) return;
+        ocupado = true; $("esp-procurar").disabled = true;
+        $("esp-busca-info").textContent = "Procurando ESPs na rede...";
+        const d = await api("/api/esp/procurar", {});
+        ocupado = false; $("esp-procurar").disabled = false;
+        const box = $("esp-rede"); box.innerHTML = "";
+        if (!d.ok) { $("esp-busca-info").textContent = "Erro: " + (d.erro || "?"); return; }
+        $("esp-busca-info").textContent = "Rede(s) " + d.redes.join(", ") + ": " + d.achados.length + " ESP(s) encontrado(s)." +
+          (d.achados.length ? "" : " Confira se o ESP está ligado e já entrou no Wi-Fi (LED sem piscar roxo).");
+        d.achados.forEach(a => {
+          const det = [a.ip, "ID " + a.id, a.fw ? "v" + a.fw : null, a.rssi != null ? a.rssi + " dBm" : null,
+                       a.modo === "portal" ? "com o portal aberto" : null].filter(Boolean).join(" · ");
+          const extras = [];
+          if (a.no_painel) {
+            extras.push(el("span", "etq verde", "já está no painel"));
+          } else {
+            let tk = null;
+            if (a.pareado) {
+              extras.push(el("span", "etq azul", "já tem token"));
+              tk = el("input"); tk.type = "password"; tk.placeholder = "token atual do ESP";
+              tk.style.maxWidth = "150px"; tk.style.minWidth = "110px"; tk.autocomplete = "new-password";
+              extras.push(tk);
+            }
+            const b = el("button", "btn-verde", "Adicionar");
+            b.onclick = () => adicionar(a, tk ? tk.value.trim() : "");
+            extras.push(b);
+          }
+          box.append(linha(a.nome || a.id, det, extras));
+        });
+      }
+
+      async function adicionar(a, token) {
+        passos("Pareando " + (a.nome || a.id) + "...");
+        const d = await api("/api/esp/parear", { id: a.id, token });
+        if (!d.ok) { passos("Não deu: " + (d.erro || "?"), "erro"); return; }
+        passos("✓ " + d.nome + " pareado (" + d.ip + "). O ESP reinicia e aparece online em uns 15 segundos.", "ok");
+        $("esp-rede").innerHTML = "";
+        carregaLista();
+      }
+
+      async function cmd(p, c) {
+        const d = await api("/api/esp/" + chave(p) + "/comando", { cmd: c });
+        if (!d.ok) { passos("Erro: " + (d.erro || "?"), "erro"); return false; }
+        const nomes = { liberado: "LED verde", negado: "LED vermelho", reiniciar: "reiniciando",
+                        esquecer_wifi: "Wi-Fi apagado: o ESP abriu o portal (rede PORTA-" + (p.id || "") + ")",
+                        fabrica: "restaurado de fábrica e tirado do painel" };
+        const rel = d.resposta && d.resposta.rele && d.resposta.rele !== "desligado" ? " · relé: " + d.resposta.rele : "";
+        passos("✓ " + (p.nome || p.id) + ": " + (nomes[c] || c) + rel, "ok");
+        return true;
+      }
+
+      async function remover(p) {
+        if (!confirm("Tirar \"" + (p.nome || p.id) + "\" do painel?\n\nO ESP continua com o token deste painel. " +
+                     "Para usar em outro painel, restaure de fábrica antes.")) return;
+        const d = await api("/api/esp/" + chave(p) + "/remover", {});
+        passos(d.ok ? "✓ Tirado do painel." : "Erro: " + (d.erro || "?"), d.ok ? "ok" : "erro");
+        carregaLista();
+      }
+
+      function preenche(c) {
+        $("esp-nome").value = c.nome || "";
+        NUMEROS.forEach(k => { $("esp-" + k).value = c[k]; });
+        $("esp-vida").checked = !!c.vida;
+        $("esp-rele_on").checked = !!c.rele_on;
+        $("esp-rele_pino").value = String(c.rele_pino);
+        $("esp-rele_alto").value = c.rele_alto ? "1" : "0";
+      }
+
+      async function abreEdit(p) {
+        atual = p; tela("edit"); passos("");
+        $("esp-edit-titulo").textContent = p.nome || p.id || p.ip;
+        $("esp-edit-info").textContent = "lendo o ESP...";
+        $("esp-ativo").checked = p.ativo !== false;
+        const box = $("esp-cams"); box.innerHTML = "";
+        cameras.forEach(c => {
+          const l = el("label", "chave"), i = el("input");
+          i.type = "checkbox"; i.value = c.cid; i.checked = p.cameras.includes(c.cid);
+          l.append(i, el("span", "trilho"), el("span", "rot", c.nome));
+          box.append(l);
+        });
+        if (!cameras.length) box.append(el("span", "dica", "nenhuma câmera no painel"));
+        const d = await api("/api/esp/" + chave(p) + "/config");
+        if (!d.ok) { $("esp-edit-info").textContent = "Não consegui ler o ESP: " + (d.erro || "?"); return; }
+        preenche(d.config);
+        const st = p.status || {};
+        $("esp-edit-info").textContent = ["ID " + (d.config.id || p.id), p.ip, st.fw ? "firmware v" + st.fw : null,
+          st.rssi != null ? "sinal " + st.rssi + " dBm" : null, d.config.pareado ? "pareado" : "SEM TOKEN (relé bloqueado)"]
+          .filter(Boolean).join(" · ");
+      }
+
+      async function salvar() {
+        if (!atual) return;
+        const campos = { nome: $("esp-nome").value.trim(), rele_pino: $("esp-rele_pino").value,
+                         vida: $("esp-vida").checked, rele_on: $("esp-rele_on").checked,
+                         rele_alto: $("esp-rele_alto").value === "1" };
+        NUMEROS.forEach(k => { campos[k] = $("esp-" + k).value; });
+        const cams = Array.from($("esp-cams").querySelectorAll("input:checked")).map(i => i.value);
+        $("esp-salvar").disabled = true;
+        const d = await api("/api/esp/" + chave(atual) + "/config", { campos, cameras: cams, ativo: $("esp-ativo").checked });
+        $("esp-salvar").disabled = false;
+        if (!d.ok) { passos("Erro: " + (d.erro || "?"), "erro"); return; }
+        preenche(d.config);
+        atual.nome = d.config.nome; atual.cameras = cams; atual.ativo = $("esp-ativo").checked;
+        $("esp-edit-titulo").textContent = d.config.nome;
+        if (d.config.erro) passos("Salvo, mas o ESP avisou: " + d.config.erro, "erro");
+        else passos("✓ Salvo no ESP e no painel.", "ok");
+      }
+
+      botao.addEventListener("click", () => {
+        tela("lista"); passos(""); $("esp-rede").innerHTML = "";
+        dlg.showModal();
+        carregaLista();
+        clearInterval(timer);
+        timer = setInterval(() => { if (dlg.open && !$("esp-tela-lista").hidden) carregaLista(); }, 5000);
+      });
+      dlg.addEventListener("close", () => clearInterval(timer));
+      $("esp-fechar").onclick = () => dlg.close();
+      $("esp-procurar").onclick = procurar;
+      $("esp-voltar").onclick = () => { tela("lista"); carregaLista(); };
+      $("esp-salvar").onclick = salvar;
+      $("esp-t-verde").onclick = () => atual && cmd(atual, "liberado");
+      $("esp-t-verm").onclick = () => atual && cmd(atual, "negado");
+      $("esp-reiniciar").onclick = () => atual && cmd(atual, "reiniciar");
+      $("esp-esquecer").onclick = () => {
+        if (atual && confirm("Apagar o Wi-Fi de \"" + (atual.nome || atual.id) + "\"?\n\nEle sai da rede e abre o portal " +
+                             "(rede PORTA-XXXXXX) para configurar outro Wi-Fi. Continua no painel.")) cmd(atual, "esquecer_wifi");
+      };
+      $("esp-fabrica").onclick = async () => {
+        if (!atual || !confirm("Restaurar \"" + (atual.nome || atual.id) + "\" de fábrica?\n\nApaga Wi-Fi, token e ajustes. " +
+                               "Ele abre o portal e sai deste painel.")) return;
+        if (await cmd(atual, "fabrica")) { tela("lista"); carregaLista(); }
+      };
+      $("esp-menu").onclick = () => { if (atual) window.open("http://" + atual.ip + "/", "_blank"); };
+    })();
 
     // =============================================================
     //  Menu ➕ Câmeras - buscar na rede, adicionar, remover
