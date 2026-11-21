@@ -30,6 +30,15 @@ ELEVENLABS_VOZES = ["Adam", "Alice", "Bella", "Bill", "Carlos"]
 #        "admin_usuario": "swua", "admin_senha": "SUASENHAFIXA",
 #        "xm": True, "ptz": True,
 #    },
+#
+#  Celular (ou qualquer link de vídeo) para TESTES - só vídeo:
+#  app tipo "IP Webcam" no Android transmite em http://IP-do-celular:8080/video
+#  (dá para adicionar pelo menu ➕ Câmeras > "📱 Celular / link"):
+#    {
+#        "cid": "cel1", "tipo": "url", "nome": "Celular (teste)",
+#        "url": "http://192.168.3.XX:8080/video",
+#        "xm": False, "ptz": False,
+#    },
 # =============================================================
 CAMERAS = [
 ]
@@ -54,7 +63,11 @@ def cameras():
         c.setdefault("nome", c["cid"])
         c.setdefault("xm", True)
         c["stream"] = c.get("stream", 1) if c.get("stream") in (0, 1) else 1
-        if c["tipo"] == "elsys":
+        if c["tipo"] == "url":       # celular / link de vídeo: só vídeo
+            c["xm"] = False
+            c["ptz"] = False
+            c.setdefault("url", "")
+        elif c["tipo"] == "elsys":
             if ELSYS_SESSAO_PAUSADA:
                 c["xm"] = False
             c.setdefault("porta", 554)

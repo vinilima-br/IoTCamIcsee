@@ -898,13 +898,38 @@ def _monta_elsys(cid, nome, ip, porta, usuario, senha, stream):
     _liga_gravador(cid, cam, ia)
 
 
+def _monta_url(cid, nome, url):
+    """Celular / link de vídeo (RTSP ou MJPEG por HTTP): só vídeo + IA + gravação.
+    Para testes: sem alto-falante, luz, alertas da câmera nem PTZ."""
+    if not url:
+        raise RuntimeError("câmera tipo url sem o \"url\" no config.py")
+    cam = Camera(cid, nome, stream_inicial=1, urls={0: url, 1: url})
+    CAMERAS[cid] = cam
+    ORDEM.append(cid)
+    ia = IA(cam, pasta_da_camera(cid), False)
+    cam.sobreposicao = ia.sobreposicao
+    IAS[cid] = ia
+    _liga_gravador(cid, cam, ia)
+
+
+def _host_da_url(url):
+    """'http://192.168.3.50:8080/video' -> '192.168.3.50' (o que aparece no cartão)."""
+    try:
+        from urllib.parse import urlsplit
+        return urlsplit(url or "").hostname or ""
+    except ValueError:
+        return ""
+
+
 def monta_cameras():
     """Monta todas as câmeras a partir da lista única config.cameras()."""
     for c in config.cameras():
         cid = c["cid"]
-        IPS[cid] = c.get("ip", "")
+        IPS[cid] = c.get("ip") or _host_da_url(c.get("url"))
         try:
-            if c["tipo"] == "elsys":
+            if c["tipo"] == "url":
+                _monta_url(cid, c["nome"], c.get("url"))
+            elif c["tipo"] == "elsys":
                 _monta_elsys(cid, c["nome"], c["ip"], c["porta"],
                              c["usuario"], c["senha"], c["stream"])
             else:  # icsee
@@ -976,8 +1001,10 @@ def adiciona_ao_vivo(cid):
         if cid in CAMERAS:
             raise RuntimeError("{} já está montada".format(cid))
         REMOVIDAS.discard(cid)
-        IPS[cid] = c.get("ip", "")
-        if c["tipo"] == "elsys":
+        IPS[cid] = c.get("ip") or _host_da_url(c.get("url"))
+        if c["tipo"] == "url":
+            _monta_url(cid, c["nome"], c.get("url"))
+        elif c["tipo"] == "elsys":
             _monta_elsys(cid, c["nome"], c["ip"], c["porta"], c["usuario"], c["senha"], c["stream"])
             if c["xm"] and SESSAO_SEPARADA:
                 XMS[cid] = cliente_xm.SessaoRemota(cid, c["ip"], "admin", "")
@@ -1879,7 +1906,8 @@ def api_config_cameras():
     cams = []
     for c in lista:
         s = XMS.get(c["cid"])
-        cams.append({"cid": c["cid"], "nome": c["nome"], "tipo": c["tipo"], "ip": c.get("ip", ""),
+        cams.append({"cid": c["cid"], "nome": c["nome"], "tipo": c["tipo"],
+                     "ip": c.get("ip") or _host_da_url(c.get("url")),
                      "admin_usuario": c.get("admin_usuario") if c["tipo"] == "icsee" else None,
                      "tem_senha": bool(c.get("admin_senha")),
                      "pode": c["tipo"] == "icsee" and s is not None,

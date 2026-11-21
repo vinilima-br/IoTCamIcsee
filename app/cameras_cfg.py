@@ -265,8 +265,42 @@ def _ip_valido(ip):
         return False
 
 
+def _url_video(url):
+    """Confere o link do celular/câmera. Retorna (url_limpa, erro)."""
+    from urllib.parse import urlsplit
+    url = (url or "").strip()
+    if not url:
+        return "", "cole o link do vídeo (ex.: http://192.168.3.50:8080/video)"
+    if "://" not in url:                       # digitou só 192.168.3.50:8080/video
+        url = "http://" + url
+    try:
+        partes = urlsplit(url)
+    except ValueError:
+        return "", "link inválido"
+    if partes.scheme not in ("http", "https", "rtsp") or not partes.hostname:
+        return "", "o link precisa começar com http:// ou rtsp:// e ter o IP (ex.: http://192.168.3.50:8080/video)"
+    return url, None
+
+
+def _host(url):
+    from urllib.parse import urlsplit
+    try:
+        return urlsplit(url or "").hostname or ""
+    except ValueError:
+        return ""
+
+
 def testar_video(d):
     tipo, ip = d.get("tipo"), (d.get("ip") or "").strip()
+    if tipo == "url":
+        url, erro = _url_video(d.get("url"))
+        if erro:
+            return {"ok": False, "erro": erro}
+        foto = _foto(url)
+        if not foto:
+            return {"ok": False, "erro": "não veio vídeo desse link. O app do celular está aberto e "
+                                         "transmitindo? O celular está no mesmo Wi-Fi deste PC?"}
+        return {"ok": True, "foto": foto, "modelo": "Celular / link"}
     if not _ip_valido(ip):
         return {"ok": False, "erro": "IP inválido"}
     if tipo == "elsys":
@@ -324,7 +358,7 @@ def _literal(v):
 
 def _monta_bloco(c):
     linhas = ["    {"]
-    for chave in ("cid", "tipo", "nome", "ip", "usuario", "senha", "porta", "porta_onvif",
+    for chave in ("cid", "tipo", "nome", "ip", "url", "usuario", "senha", "porta", "porta_onvif",
                   "admin_usuario", "admin_senha", "xm", "ptz"):
         if chave not in c:
             continue
@@ -395,7 +429,8 @@ def _novo_cid():
 
 def lista():
     importlib.reload(config)
-    return [{"cid": c["cid"], "nome": c["nome"], "tipo": c["tipo"], "ip": c.get("ip", ""),
+    return [{"cid": c["cid"], "nome": c["nome"], "tipo": c["tipo"],
+             "ip": c.get("ip") or _host(c.get("url")),
              "som": bool(c.get("xm"))} for c in config.cameras()]
 
 
@@ -414,8 +449,21 @@ def _adicionar(d):
     tipo = d.get("tipo")
     ip = (d.get("ip") or "").strip()
     nome = (d.get("nome") or "").strip()[:40]
-    if tipo not in ("icsee", "elsys"):
+    if tipo not in ("icsee", "elsys", "url"):
         return {"ok": False, "erro": "tipo de câmera desconhecido", "passos": []}
+    if tipo == "url":                   # celular / link: só vídeo, sem IP próprio no config
+        url, erro = _url_video(d.get("url"))
+        if erro:
+            return {"ok": False, "erro": erro, "passos": []}
+        for c in config.cameras():
+            if c.get("url") == url:
+                return {"ok": False, "erro": "esse link já está no painel (%s)" % c["nome"], "passos": []}
+        cid = _novo_cid()
+        nome = nome or "Celular"
+        bloco = {"cid": cid, "tipo": "url", "nome": nome, "url": url, "xm": False, "ptz": False}
+        backup = _insere(_monta_bloco(bloco))
+        return {"ok": True, "cid": cid, "nome": nome, "backup": backup,
+                "passos": ["celular/link gravado como %s (só vídeo, backup: %s)" % (cid, backup)]}
     if not _ip_valido(ip):
         return {"ok": False, "erro": "IP inválido", "passos": []}
     for c in config.cameras():

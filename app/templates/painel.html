@@ -1336,6 +1336,7 @@
           <div class="linha" style="margin-top:6px">
             <input type="text" id="cams-ip-manual" placeholder="ou digite o IP (ex.: 192.168.3.50)" style="flex:0 1 240px">
             <button id="cams-add-manual">Adicionar pelo IP</button>
+            <button id="cams-add-celular" title="Usar a câmera de um celular (app tipo IP Webcam) ou qualquer link de vídeo - bom para testes">📱 Celular / link</button>
           </div>
         </div>
       </div>
@@ -1348,9 +1349,14 @@
             <select id="ca-tipo" style="flex:1">
               <option value="icsee">iCSee / ONVIF (e-mail e senha do app)</option>
               <option value="elsys">Elsys (vídeo RTSP direto)</option>
+              <option value="url">📱 Celular / link de vídeo (testes)</option>
             </select></div>
           <div class="linha"><span class="rot">Nome</span><input type="text" id="ca-nome" maxlength="40" placeholder="ex.: Portão"></div>
-          <div class="linha"><span class="rot">IP</span><input type="text" id="ca-ip" maxlength="15"></div>
+          <div class="linha" id="ca-linha-ip"><span class="rot">IP</span><input type="text" id="ca-ip" maxlength="15"></div>
+          <div id="ca-url" hidden>
+            <div class="linha"><span class="rot">Link do vídeo</span><input type="text" id="ca-url-link" maxlength="300" autocomplete="off" placeholder="http://192.168.3.50:8080/video"></div>
+            <div class="dica">No Android, instale o app <b>IP Webcam</b>, toque em <b>Iniciar servidor</b> e use o endereço que aparece na tela com <b>/video</b> no fim (ex.: http://192.168.3.50:8080/video). Celular deitado, no mesmo Wi-Fi deste PC. Só vídeo: sem falar/ouvir, luz ou PTZ.</div>
+          </div>
           <div id="ca-icsee">
             <div class="dica" id="ca-login-link"><a href="#" id="ca-login-abrir">A câmera pede login para o vídeo? Preencher o e-mail e a senha do app</a></div>
             <div id="ca-login" hidden>
@@ -3961,7 +3967,7 @@
           const est = !c.no_ar ? el("span", "etq", "aguardando reinício") : (c.online ? el("span", "etq verde", "ao vivo") : el("span", "etq", "offline"));
           const rm = el("button", "btn-icone", "🗑"); rm.title = "Remover do painel";
           rm.onclick = () => remover(c);
-          box.append(linha(c.nome, c.ip + " · " + (c.tipo === "elsys" ? "Elsys" : "iCSee") + (c.som ? " · som/luz" : " · só vídeo"), [est, rm]));
+          box.append(linha(c.nome, c.ip + " · " + (c.tipo === "elsys" ? "Elsys" : c.tipo === "url" ? "Celular/link" : "iCSee") + (c.som ? " · som/luz" : " · só vídeo"), [est, rm]));
         });
       }
 
@@ -3988,8 +3994,9 @@
 
       function radioSom() { return (dlg.querySelector('input[name="ca-som"]:checked') || {}).value; }
       function ajustaForm() {
-        const elsys = $("ca-tipo").value === "elsys";
-        $("ca-icsee").hidden = elsys; $("ca-elsys").hidden = !elsys; $("ca-bloco-som").hidden = elsys;
+        const tipo = $("ca-tipo").value, elsys = tipo === "elsys", url = tipo === "url";
+        $("ca-icsee").hidden = elsys || url; $("ca-elsys").hidden = !elsys; $("ca-bloco-som").hidden = elsys || url;
+        $("ca-url").hidden = !url; $("ca-linha-ip").hidden = url;
         const som = radioSom();
         $("ca-sub-conta").hidden = som !== "conta"; $("ca-sub-resetada").hidden = som !== "resetada";
       }
@@ -3998,20 +4005,21 @@
         $("ca-tipo").value = c.tipo || "icsee";
         $("ca-ip").value = c.ip || "";
         $("ca-nome").value = "";
-        ["ca-usuario", "ca-senha", "ca-senha-elsys", "ca-admin-usuario", "ca-admin-senha", "ca-senha-fixa"].forEach(i => { $(i).value = ""; });
+        ["ca-usuario", "ca-senha", "ca-senha-elsys", "ca-admin-usuario", "ca-admin-senha", "ca-senha-fixa", "ca-url-link"].forEach(i => { $(i).value = ""; });
         $("ca-previa").hidden = true; $("ca-teste-info").textContent = "";
         $("ca-login").hidden = true; $("ca-login-link").hidden = false; $("ca-login-aviso").hidden = true;
         const temSom = c.som !== false;
         dlg.querySelectorAll('input[name="ca-som"]').forEach(r => { r.disabled = !temSom && r.value !== "nenhum"; r.checked = temSom ? r.value === "conta" : r.value === "nenhum"; });
-        $("cams-add-titulo").textContent = "Adicionar câmera " + (c.ip || "");
+        $("cams-add-titulo").textContent = c.tipo === "url" ? "Adicionar celular / link de vídeo" : "Adicionar câmera " + (c.ip || "");
         mostraPassos("");
-        ajustaForm(); tela("add"); $("ca-nome").focus();
+        ajustaForm(); tela("add"); (c.tipo === "url" ? $("ca-url-link") : $("ca-nome")).focus();
       }
 
       function dadosForm() {
         const tipo = $("ca-tipo").value;
         const d = { tipo, ip: $("ca-ip").value.trim(), nome: $("ca-nome").value.trim(), porta_onvif: portaOnvif };
-        if (tipo === "elsys") { d.senha = $("ca-senha-elsys").value; d.usuario = "admin"; }
+        if (tipo === "url") { d.url = $("ca-url-link").value.trim(); d.ip = ""; }
+        else if (tipo === "elsys") { d.senha = $("ca-senha-elsys").value; d.usuario = "admin"; }
         else {
           d.usuario = $("ca-usuario").value.trim(); d.senha = $("ca-senha").value;
           d.som = radioSom(); d.ptz = $("ca-ptz").checked;
@@ -4039,7 +4047,7 @@
       async function salvar() {
         if (ocupado) return;
         const d = dadosForm();
-        if (!d.ip) { aviso("Falta o IP", true); return; }
+        if (d.tipo === "url" ? !d.url : !d.ip) { aviso(d.tipo === "url" ? "Falta o link do vídeo" : "Falta o IP", true); return; }
         if (d.som === "resetada" && !confirm("Descobrir a conta e FIXAR a senha nesta câmera?\n\nSó faça isso se ela foi resetada agora. Se ela já funciona em outro PC, lá ela vai parar de conectar.")) return;
         trava(true);
         mostraPassos("Salvando" + (d.som === "resetada" ? " (descobrindo a conta, até 1 minuto)" : "") + "...", "");
@@ -4076,6 +4084,7 @@
         if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) { aviso("Digite um IP válido", true); return; }
         abreAssistente({ ip, tipo: "icsee", som: true });
       });
+      $("cams-add-celular").addEventListener("click", () => abreAssistente({ tipo: "url", som: false }));
       $("ca-tipo").addEventListener("change", ajustaForm);
       dlg.querySelectorAll('input[name="ca-som"]').forEach(r => r.addEventListener("change", ajustaForm));
       $("ca-testar").addEventListener("click", testar);
