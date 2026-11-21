@@ -1,0 +1,25 @@
+# Confere todo Pull Request para a main: o Python do projeto precisa compilar.
+# (Vini e André podem mexer em qualquer parte; a main continua pedindo PR
+#  com a aprovação do Vini - os PCs instalados se atualizam por ela.)
+name: Verificacao
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  compila:
+    name: python-compila
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python do projeto compila
+        run: python -m compileall -q app ferramentas gestao

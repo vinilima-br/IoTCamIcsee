@@ -4,25 +4,20 @@ Módulo de **cadastro e gerenciamento de pessoas do reconhecimento facial**:
 unidades, moradores, visitantes/prestadores, veículos, encomendas e histórico
 de acessos. Desenvolvido pelo **André** dentro do projeto do Vini.
 
-## Regra de ouro: tudo da gestão fica nesta pasta
+## Quem mexe no quê
 
-| Pode mexer (André)         | Não mexer (é do Vini)                                  |
-|----------------------------|--------------------------------------------------------|
-| `gestao/` e tudo dentro    | `app/` (câmeras, painel, reconhecimento), `ferramentas/`, `*.bat` da raiz, `requirements.txt`, `config*.py`, `.github/` |
-
-O GitHub confere isso sozinho: todo Pull Request para a `main` passa pelo
-check **escopo-gestao**, que barra arquivo alterado fora de `gestao/`.
-Precisa de algo fora daqui (uma rota nova no painel, um campo no
-reconhecimento)? Abra uma **Issue** explicando, e o Vini faz a parte dele.
+O André é colaborador de **todo o projeto**: pode mexer na gestão (`gestao/`) e também
+no resto (`app/`, `ferramentas/`, `.bat`, etc.) quando precisar. A gestão continua morando
+nesta pasta. Nunca vão para o Git: `config.py` (senhas) e `dados/`.
 
 ## Como trabalhar
 
 1. Crie uma branch a partir da `main` (ex.: `gestao-visitantes`). **Não envie direto na `main`**:
    os PCs instalados se atualizam sozinhos pela `main`.
-2. Faça as mudanças só em `gestao/`.
+2. Faça as mudanças (a gestão fica em `gestao/`; o resto do projeto também pode ser alterado).
 3. Mudou a tela (`gestao/ui/src`)? Rode `npm install` (1ª vez) e `npm run build` dentro de
    `gestao/ui` e **envie também o `gestao/ui/dist`**: os PCs não têm Node, usam a tela já compilada.
-4. Abra um Pull Request para a `main`. O check `escopo-gestao` precisa passar e o Vini aprova.
+4. Abra um Pull Request para a `main`. O GitHub confere se o Python compila e o Vini aprova.
 
 ## Como ela roda
 
